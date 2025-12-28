@@ -19,7 +19,6 @@ export const Navbar = () => {
         <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-rose-100 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-20">
-                    {/* Logo */}
                     <Link 
                         to={"/"} 
                         className="group flex items-center space-x-2 flex-shrink-0"
@@ -52,9 +51,9 @@ export const Navbar = () => {
                         </div>
                     </div>
 
-                    {/* Right side - Auth section placeholder */}
+  
                     <div className="hidden md:flex md:items-center md:space-x-4 flex-shrink-0 md:min-w-[120px] lg:min-w-[160px]">
-                        {/* Auth buttons will go here */}
+
                     </div>
 
                     {/* mobile menu button */}
