@@ -1,5 +1,5 @@
- import { createContext } from "react"
- import { User } from "@supabase/supabase-js"
+ import { createContext, useContext } from "react"
+ import type { User } from "@supabase/supabase-js";
  import { useState } from "react"
  import { supabase } from "../supabase-client"
 

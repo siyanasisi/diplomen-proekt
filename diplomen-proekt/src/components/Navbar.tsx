@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -14,6 +15,7 @@ export const Navbar = () => {
     ];
 
     const isActive = (path: string) => location.pathname === path;
+    const {signInWithGoogle, signOut, user} = useAuth();
 
     return (
         <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-rose-100 sticky top-0 z-50">
@@ -58,7 +60,7 @@ export const Navbar = () => {
 
                     {/* desktop auth */}
                     <div>
-                        <button>
+                        <button onClick={() => signInWithGoogle()} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-lg font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md">
                             Sign in with Google
                         </button>
                     </div>
