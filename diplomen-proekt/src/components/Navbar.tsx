@@ -56,6 +56,13 @@ export const Navbar = () => {
 
                     </div>
 
+                    {/* desktop auth */}
+                    <div>
+                        <button>
+                            Sign in with Google
+                        </button>
+                    </div>
+
                     {/* mobile menu button */}
                     <div className="md:hidden">
                         <button
