@@ -1,4 +1,4 @@
- import { createContext, useContext } from "react"
+ import { createContext, useContext, useEffect } from "react"
  import type { User } from "@supabase/supabase-js";
  import { useState } from "react"
  import { supabase } from "../supabase-client"
@@ -15,11 +15,26 @@
     
     const [user, setUser] = useState<User | null>(null)
 
+    useEffect(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+         setUser(session?.user ?? null)
+      })
+
+      const {data : listener } = supabase.auth.onAuthStateChange((_, session) => {
+         setUser(session?.user ?? null)
+      })
+      return () => {
+         listener?.subscription.unsubscribe()
+      }
+    }, [])
+
     const signInWithGoogle = async () => {
         supabase.auth.signInWithOAuth({provider: "google"})
     }
 
-    const signOut = async () => {}
+    const signOut = async () => {
+      supabase.auth.signOut();
+    }
     return <AuthContext.Provider value={{ user, signInWithGoogle, signOut }}> {children}</AuthContext.Provider>
  }
 

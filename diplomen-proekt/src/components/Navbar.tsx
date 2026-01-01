@@ -16,6 +16,7 @@ export const Navbar = () => {
 
     const isActive = (path: string) => location.pathname === path;
     const {signInWithGoogle, signOut, user} = useAuth();
+    const displayName = user?.user_metadata?.full_name || "User";
 
     return (
         <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-rose-100 sticky top-0 z-50">
@@ -60,9 +61,26 @@ export const Navbar = () => {
 
                     {/* desktop auth */}
                     <div>
-                        <button onClick={() => signInWithGoogle()} className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full text-lg font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md">
-                            Sign in with Google
-                        </button>
+                        {user ? (
+                            <div className="flex items-center space-x-4"> 
+                                <span className="mr-4 font-medium text-gray-700 bg-gradient-to-r from-rose-100 to-rose-200 px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+                                    Здравей, {displayName}!
+                                </span>
+                                <button
+                                    onClick={() => signOut()}
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-lg text-lg font-semibold transition-transform duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+                                >
+                                    Изход
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => signInWithGoogle()}
+                                className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-lg text-lg font-semibold transition-transform duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+                            >
+                                Sign in with Google
+                            </button>
+                        )}
                     </div>
 
                     {/* mobile menu button */}
