@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -14,6 +15,8 @@ export const Navbar = () => {
     ];
 
     const isActive = (path: string) => location.pathname === path;
+    const {signInWithGoogle, signOut, user} = useAuth();
+    const displayName = user?.user_metadata?.full_name || "User";
 
     return (
         <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-rose-100 sticky top-0 z-50">
@@ -54,6 +57,44 @@ export const Navbar = () => {
   
                     <div className="hidden md:flex md:items-center md:space-x-4 flex-shrink-0 md:min-w-[120px] lg:min-w-[160px]">
 
+                    </div>
+
+                    {/* desktop auth */}
+                    <div>
+                        {user ? (
+                            <div className="flex items-center space-x-4"> 
+                                <span className="mr-4 font-medium text-gray-700 bg-gradient-to-r from-rose-100 to-rose-200 px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
+                                    Здравей, {displayName}!
+                                </span>
+                                <button
+                                    onClick={() => signOut()}
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-lg text-lg font-semibold transition-transform duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+                                >
+                                    Изход
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => signInWithGoogle()}
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    Sign in with Google
+                                </button>
+                                <Link
+                                    to="/signup"
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    Sign Up
+                                </Link>
+                                <Link
+                                    to="/login"
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    Log In
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* mobile menu button */}
