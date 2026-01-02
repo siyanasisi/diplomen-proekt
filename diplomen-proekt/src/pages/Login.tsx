@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '../supabase-client';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,8 +25,13 @@ export default function Login() {
         setMessage('Грешка: ' + error.message);
         setMessageType('error');
       } else {
-        setMessage('Успешно влизане!');
+        setMessage('Успешно влизане! Пренасочване...');
         setMessageType('success');
+        
+        // Redirect to home page after 1 second
+        setTimeout(() => {
+          navigate('/home');
+        }, 1000);
       }
     } catch (error) {
       setMessage('Нещо се обърка!');
