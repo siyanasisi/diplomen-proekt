@@ -1,6 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
 import { Home } from './pages/Home'
-import { Navbar } from './components/Navbar'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
 import { LandingPage } from './pages/LandingPage'
@@ -14,7 +13,7 @@ function App() {
         path="/*"
         element={
           <div>
-            <Navbar />
+    {/* Navbar */}
             <Routes>
               <Route path="home" element={<Home />} />
               <Route path="signup" element={<SignUp />} />
