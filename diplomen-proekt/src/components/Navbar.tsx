@@ -77,15 +77,21 @@ export const Navbar = () => {
                             <div className="flex items-center space-x-4">
                                 <button
                                     onClick={() => signInWithGoogle()}
-                                    className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-lg text-lg font-semibold transition-transform duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
                                 >
                                     Sign in with Google
                                 </button>
                                 <Link
                                     to="/signup"
-                                    className="px-5 py-2 text-sm font-medium text-white bg-rose-600 rounded-lg shadow-md hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
                                 >
                                     Sign Up
+                                </Link>
+                                <Link
+                                    to="/login"
+                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                >
+                                    Log In
                                 </Link>
                             </div>
                         )}
