@@ -37,7 +37,7 @@ export const LandingPage = () => {
                                 Уроци, таймлайн, тестове и учители на едно място.
                             </p>
 
-                            {/* Button */}
+                            {/* Buttons */}
                             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                                 <button
                                     onClick={() => navigate('/signup')}
@@ -54,24 +54,12 @@ export const LandingPage = () => {
                                     </svg>
                                 </button>
 
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                                 <button
                                     onClick={() => navigate('/login')}
-                                    className="group inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-rose-600 to-rose-600 hover:from-rose-700 hover:to-rose-700 text-white font-semibold rounded-xl shadow-lg shadow-rose-600/25 hover:shadow-xl hover:shadow-rose-600/40 focus:outline-none focus:ring-4 focus:ring-rose-600/30 transition-all duration-300 transform hover:scale-105"
+                                    className="inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-gray-50 text-gray-900 font-semibold rounded-xl shadow-lg border-2 border-gray-200 hover:border-gray-300 focus:outline-none focus:ring-4 focus:ring-gray-200 transition-all duration-300"
                                 >
                                     Вход
-                                    <svg 
-                                        className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                    </svg>
                                 </button>
-
                             </div>
                         </div>
 
@@ -85,8 +73,8 @@ export const LandingPage = () => {
                             </div>
                         </div>
                     </div>
-                        </div>
-                    </div>
                 </div>
-            );
-        };
+            </div>
+        </div>
+    );
+};
