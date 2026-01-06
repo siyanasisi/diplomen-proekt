@@ -7,6 +7,8 @@ export const Home = () => {
     const [events, setEvents] = useState<{ [key: string]: string }>({});
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
+    const [currentStreak, setCurrentStreak] = useState(0); // To do
+    const [longestStreak, setLongestStreak] = useState(0); // To do
 
 
     const dziBelExamDate = new Date(2026, 4, 20);
@@ -131,6 +133,29 @@ export const Home = () => {
                     <div className="text-center bg-white/70 px-6 py-4 rounded-xl border border-amber-200">
                         <div className="text-4xl font-bold text-rose-700">{daysUntilExam}</div>
                         <div className="text-sm text-gray-600 font-medium">оставащи дни</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* streak section */}
+            <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-pink-50 shadow-lg rounded-xl p-6 mb-8 border-2 border-purple-200">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="text-4xl">🔥</div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">Streak на учене</h3>
+                            <p className="text-gray-600">Продължавай да учиш всеки ден!</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="text-center bg-white/70 px-6 py-4 rounded-xl border border-purple-200">
+                            <div className="text-4xl font-bold text-purple-700">{currentStreak}</div>
+                            <div className="text-sm text-gray-600 font-medium">текущ streak</div>
+                        </div>
+                        <div className="text-center bg-white/70 px-6 py-4 rounded-xl border border-purple-200">
+                            <div className="text-4xl font-bold text-rose-700">{longestStreak}</div>
+                            <div className="text-sm text-gray-600 font-medium">най-дълъг streak</div>
+                        </div>
                     </div>
                 </div>
             </div>
