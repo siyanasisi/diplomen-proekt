@@ -59,7 +59,7 @@ export const Navbar = () => {
 
                     </div>
 
-                    {/* desktop auth */}
+                    {/* desktop authc
                     <div>
                         {user ? (
                             <div className="flex items-center space-x-4"> 
@@ -95,7 +95,7 @@ export const Navbar = () => {
                                 </Link>
                             </div>
                         )}
-                    </div>
+                    </div> */}
 
                     {/* mobile menu button */}
                     <div className="md:hidden">

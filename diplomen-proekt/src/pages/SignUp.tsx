@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../supabase-client';
 
+
 interface InputFieldProps {
   id: string;
   label: string;
@@ -31,6 +32,10 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('student');
+  const [grade, setGrade] = useState('');
+  const [city, setCity] = useState('');
+  const [qualifications, setQualifications] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -53,7 +58,7 @@ export default function SignUp() {
       return `Паролата трябва да е поне ${minLength} символа.`;
     }
     if (!hasUpperCase) {
-      return 'Паролата трябва да съдържа поне една главна буква.';
+      return 'Паролата трябва да съдържа поне една главна буква. ';
     }
     if (!hasLowerCase) {
       return 'Паролата трябва да съдържа поне една малка буква.';
@@ -62,7 +67,7 @@ export default function SignUp() {
       return 'Паролата трябва да съдържа поне една цифра.';
     }
     if (!hasSpecialChar) {
-      return 'Паролата трябва да съдържа поне един специален символ.';
+      return 'Паролата трябва да съдържа поне един специален символ. ';
     }
     return '';
   };
@@ -83,9 +88,14 @@ export default function SignUp() {
     }
 
     try {
+      const additionalData = role === 'student' 
+        ? { role, grade, city }
+        : { role, city, qualifications };
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: { data: additionalData },
       });
 
       if (error) {
@@ -98,6 +108,9 @@ export default function SignUp() {
         setPassword('');
         setEmailError('');
         setPasswordError('');
+        setGrade('');
+        setCity('');
+        setQualifications('');
       }
     } catch (error) {
       setMessage('Нещо се обърка!');
@@ -161,7 +174,7 @@ export default function SignUp() {
                 error={emailError}
               />
 
-              {/* password field */}
+              {/* password field*/}
               <InputField
                 id="password"
                 label="Парола"
@@ -175,7 +188,74 @@ export default function SignUp() {
                 error={passwordError}
               />
 
-              {/* submit*/}
+              {/*role selection */}
+              <div className="relative">
+                <label htmlFor="role" className="block text-lg font-medium text-gray-700 mb-4">
+                  Роля
+                </label>
+                <select
+                  id="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                >
+                  <option value="student">Ученик</option>
+                  <option value="teacher">Учител</option>
+                </select>
+              </div>
+
+              {/*fields for students */}
+              {role === 'student' && (
+                <>
+                  <div className="relative">
+                    <label htmlFor="grade" className="block text-lg font-medium text-gray-700 mb-4">
+                      Клас
+                    </label>
+                    <select
+                      id="grade"
+                      value={grade}
+                      onChange={(e) => setGrade(e.target.value)}
+                      className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                    >
+                      <option value="">Изберете клас</option>
+                      <option value="11">11 клас</option>
+                      <option value="12">12 клас</option>
+                    </select>
+                  </div>
+                  <InputField
+                    id="city"
+                    label="Град"
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Пример: София"
+                  />
+                </>
+              )}
+
+              {/*fields for teachers */}
+              {role === 'teacher' && (
+                <>
+                  <InputField
+                    id="city"
+                    label="Град"
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Пример: София"
+                  />
+                  <InputField
+                    id="qualifications"
+                    label="Квалификации"
+                    type="text"
+                    value={qualifications}
+                    onChange={(e) => setQualifications(e.target.value)}
+                    placeholder="Пример: Математика, Физика"
+                  />
+                </>
+              )}
+
+              {/* submit button */}
               <div className="pt-4">
                 <button
                   type="submit"
@@ -216,7 +296,7 @@ export default function SignUp() {
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex-shrink-0 mt-0.5">
-                      {messageType === 'success' ?  (
+                      {messageType === 'success' ? (
                         <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
                           <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -225,7 +305,7 @@ export default function SignUp() {
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
                           <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4. 293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                         </div>
                       )}
@@ -237,7 +317,7 @@ export default function SignUp() {
             )}
           </div>
 
-          {/* Divider */}
+          {/* divider*/}
           <div className="px-10">
             <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
           </div>
@@ -262,7 +342,7 @@ export default function SignUp() {
             Регистрирайки се, вие приемате нашите{' '}
             <a 
               href="#" 
-              className="font-medium text-rose-600 hover: text-rose-700 transition-colors duration-200 hover:underline underline-offset-4"
+              className="font-medium text-rose-600 hover:text-rose-700 transition-colors duration-200 hover:underline underline-offset-4"
             >
               Условия за ползване
             </a>
