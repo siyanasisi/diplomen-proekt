@@ -8,6 +8,11 @@ export const Home = () => {
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
 
+
+    const dziBelExamDate = new Date(2026, 4, 20);
+    const today = new Date();
+    const daysUntilExam = Math.ceil((dziBelExamDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
         const month = date.getMonth();
@@ -37,6 +42,12 @@ export const Home = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         return `${year}-${month + 1}-${day}`;
+    };
+
+    const isExamDate = (day: number) => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        return year === 2026 && month === 4 && day === 20; 
     };
 
     const handleDayClick = (day: number) => {
@@ -107,6 +118,23 @@ export const Home = () => {
                 </div>
             </div>
 
+            {/* dzi bel*/}
+            <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 shadow-lg rounded-xl p-6 mb-8 border-2 border-amber-200">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="text-4xl">📚</div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">ДЗИ БЕЛ</h3>
+                            <p className="text-gray-600">Дата на изпита: 20.05.2026</p>
+                        </div>
+                    </div>
+                    <div className="text-center bg-white/70 px-6 py-4 rounded-xl border border-amber-200">
+                        <div className="text-4xl font-bold text-rose-700">{daysUntilExam}</div>
+                        <div className="text-sm text-gray-600 font-medium">оставащи дни</div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* calendar */}
                 <div className="lg:col-span-2 bg-white shadow-xl rounded-xl p-6 border border-gray-100">
@@ -159,21 +187,27 @@ export const Home = () => {
                             const dateKey = formatDateKey(day);
                             const hasEvent = events[dateKey];
                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+                            const isDziExamDate = isExamDate(day);
                             
                             return (
                                 <button
                                     key={day}
                                     onClick={() => handleDayClick(day)}
                                     className={`aspect-square border-2 rounded-xl flex flex-col items-center justify-center hover:shadow-lg transition-all transform hover:scale-105 ${
-                                        isToday 
-                                            ? 'border-rose-500 bg-gradient-to-br from-rose-100 to-rose-200 font-bold' 
-                                            : 'border-gray-200 hover:border-rose-300'
-                                    } ${hasEvent ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : 'bg-white'}`}
+                                        isDziExamDate
+                                            ? 'border-amber-500 bg-gradient-to-br from-amber-100 to-orange-100 font-bold ring-2 ring-amber-300'
+                                            : isToday 
+                                                ? 'border-rose-500 bg-gradient-to-br from-rose-100 to-rose-200 font-bold' 
+                                                : 'border-gray-200 hover:border-rose-300'
+                                    } ${hasEvent && !isDziExamDate ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400' : isDziExamDate ? '' : 'bg-white'}`}
                                 >
-                                    <span className={`text-sm font-semibold ${isToday ? 'text-rose-700' : 'text-gray-700'}`}>
+                                    <span className={`text-sm font-semibold ${isDziExamDate ? 'text-amber-700' : isToday ? 'text-rose-700' : 'text-gray-700'}`}>
                                         {day}
                                     </span>
-                                    {hasEvent && (
+                                    {isDziExamDate && (
+                                        <span className="text-xl leading-none">📚</span>
+                                    )}
+                                    {hasEvent && !isDziExamDate && (
                                         <span className="text-xl text-green-600 leading-none">●</span>
                                     )}
                                 </button>
