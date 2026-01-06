@@ -9,7 +9,7 @@ export const LandingPage = () => {
             <div className="min-h-screen flex items-center justify-center px-6 py-16">
                 <div className="max-w-6xl w-full">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
-                        {/* Left side */}
+                        {/* left side */}
                         <div className="text-center md:text-left">
                             {/* Logo */}
                             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 mb-8">
@@ -37,7 +37,7 @@ export const LandingPage = () => {
                                 Уроци, таймлайн, тестове и учители на едно място.
                             </p>
 
-                            {/* Buttons */}
+                    
                             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                                 <button
                                     onClick={() => navigate('/signup')}

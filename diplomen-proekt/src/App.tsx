@@ -3,6 +3,7 @@ import { Home } from './pages/Home'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
 import { LandingPage } from './pages/LandingPage'
+import { Navbar } from './components/Navbar'
 
 
 function App() { 
@@ -13,7 +14,7 @@ function App() {
         path="/*"
         element={
           <div>
-    {/* Navbar */}
+    <Navbar />
             <Routes>
               <Route path="home" element={<Home />} />
               <Route path="signup" element={<SignUp />} />
