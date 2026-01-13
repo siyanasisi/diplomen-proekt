@@ -1,5 +1,6 @@
 import { useAuth } from "../context/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabase-client";
 
 export const Home = () => {
     const { user } = useAuth();
@@ -7,9 +8,58 @@ export const Home = () => {
     const [events, setEvents] = useState<{ [key: string]: string }>({});
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
-    const [currentStreak, setCurrentStreak] = useState(0); // To do
-    const [longestStreak, setLongestStreak] = useState(0); // To do
+    const [currentStreak, setCurrentStreak] = useState(0);
+    const [longestStreak, setLongestStreak] = useState(0);
+    const [earnedPoints, setEarnedPoints] = useState(0);
+    const [loading, setLoading] = useState(true);
 
+
+    // Load events from Supabase when user changes
+    useEffect(() => {
+        if (user) {
+            loadEvents();
+            loadUserStats();
+        }
+    }, [user]);
+
+    const loadEvents = async () => {
+        if (!user) return;
+        
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('user_id', user.id);
+
+        if (error) {
+            console.error('Error loading events:', error);
+        } else if (data) {
+            const eventsMap: { [key: string]: string } = {};
+            data.forEach(event => {
+                eventsMap[event.date] = event.event_text;
+            });
+            setEvents(eventsMap);
+        }
+        setLoading(false);
+    };
+
+    const loadUserStats = async () => {
+        if (!user) return;
+
+        const { data, error } = await supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error loading stats:', error);
+        } else if (data) {
+            setCurrentStreak(data.current_streak || 0);
+            setLongestStreak(data.longest_streak || 0);
+            setEarnedPoints(data.earned_points || 0);
+        }
+    };
 
     const dziBelExamDate = new Date(2026, 4, 20);
     const today = new Date();
@@ -58,22 +108,65 @@ export const Home = () => {
         setEventText(events[dateKey] || "");
     };
 
-    const handleSaveEvent = () => {
-        if (selectedDay) {
-            if (eventText.trim()) {
-                setEvents({ ...events, [selectedDay]: eventText });
+    const handleSaveEvent = async () => {
+        if (!selectedDay || !user) return;
+
+        if (eventText.trim()) {
+            // check if event already exists
+            const { data: existingEvent } = await supabase
+                .from('calendar_events')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('date', selectedDay)
+                .single();
+
+            let error;
+            if (existingEvent) {
+                // update existing event
+                const result = await supabase
+                    .from('calendar_events')
+                    .update({ event_text: eventText })
+                    .eq('user_id', user.id)
+                    .eq('date', selectedDay);
+                error = result.error;
             } else {
-                const newEvents = { ...events };
-                delete newEvents[selectedDay];
-                setEvents(newEvents);
+                // insert new event
+                const result = await supabase
+                    .from('calendar_events')
+                    .insert({ 
+                        user_id: user.id, 
+                        date: selectedDay, 
+                        event_text: eventText 
+                    });
+                error = result.error;
             }
-            setSelectedDay(null);
-            setEventText("");
+
+            if (error) {
+                console.error('Error saving event:', error);
+                alert('Failed to save event. Check console for details.');
+            } else {
+                setEvents({ ...events, [selectedDay]: eventText });
+            }
+        } else {
+            // delete event if text is empty
+            await handleDeleteEvent();
         }
+        setSelectedDay(null);
+        setEventText("");
     };
 
-    const handleDeleteEvent = () => {
-        if (selectedDay) {
+    const handleDeleteEvent = async () => {
+        if (!selectedDay || !user) return;
+
+        const { error } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('date', selectedDay);
+
+        if (error) {
+            console.error('Error deleting event:', error);
+        } else {
             const newEvents = { ...events };
             delete newEvents[selectedDay];
             setEvents(newEvents);
@@ -156,6 +249,23 @@ export const Home = () => {
                             <div className="text-4xl font-bold text-rose-700">{longestStreak}</div>
                             <div className="text-sm text-gray-600 font-medium">най-дълъг streak</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* points */}
+            <div className="bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 shadow-lg rounded-xl p-6 mb-8 border-2 border-blue-200">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="text-4xl">⭐</div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">Точки от учене</h3>
+                            <p className="text-gray-600">Събирай точки за всяко завършено упражнение!</p>
+                        </div>
+                    </div>
+                    <div className="text-center bg-white/70 px-8 py-5 rounded-xl border border-blue-200">
+                        <div className="text-5xl font-bold text-blue-700">{earnedPoints}</div>
+                        <div className="text-sm text-gray-600 font-medium">общо точки</div>
                     </div>
                 </div>
             </div>
