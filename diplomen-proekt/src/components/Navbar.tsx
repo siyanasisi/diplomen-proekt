@@ -56,7 +56,17 @@ export const Navbar = () => {
 
   
                     <div className="hidden md:flex md:items-center md:space-x-4 flex-shrink-0 md:min-w-[120px] lg:min-w-[160px]">
-
+                        {user && (
+                            <Link
+                                to="/profile"
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                            >
+                                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-sm font-semibold">
+                                    {displayName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium">Профил</span>
+                            </Link>
+                        )}
                     </div>
 
                     {/* desktop authc
@@ -153,7 +163,18 @@ export const Navbar = () => {
                         {/* Mobile auth section */}
                         <div className="pt-4 mt-4 border-t border-rose-100">
                             <div className="px-4 py-2">
-                                
+                                {user && (
+                                    <Link
+                                        to="/profile"
+                                        className="flex items-center gap-3 px-5 py-4 rounded-full text-lg font-semibold text-slate-700 hover:text-rose-900 hover:bg-rose-50 transition-all"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-white text-sm font-semibold">
+                                            {displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span>Моят профил</span>
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>
