@@ -4,7 +4,7 @@ import { supabase } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Profile = () => {
-    const { user, role, signOut } = useAuth();
+    const { user, role, signOut, loading } = useAuth();
     const navigate = useNavigate();
 
     const [currentStreak, setCurrentStreak] = useState(0);
@@ -13,14 +13,24 @@ export const Profile = () => {
     const [totalEvents, setTotalEvents] = useState(0);
     const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
+    const [allEvents, setAllEvents] = useState<any[]>([]);
+    const [monthlyEvents, setMonthlyEvents] = useState<{ [key: string]: number }>({});
+    const [editMode, setEditMode] = useState(false);
+    const [editedFirstName, setEditedFirstName] = useState('');
+    const [editedLastName, setEditedLastName] = useState('');
+    const [editedCity, setEditedCity] = useState('');
+    const [editedQualifications, setEditedQualifications] = useState('');
+    const [loadingUpdate, setLoadingUpdate] = useState(false);
+    const [showAllEvents, setShowAllEvents] = useState(false);
 
     useEffect(() => {
         if (user) {
             loadUserData();
-        } else {
+        } else if (!user && !loading) {
+            // only redirect if we're sure the user is not logged in (not just loading)
             navigate("/login");
         }
-    }, [user, navigate]);
+    }, [user, navigate, loading]);
 
     const loadUserData = async () => {
         if (!user) return;
@@ -48,6 +58,17 @@ export const Profile = () => {
         setTotalEvents(count || 0);
 
         if (eventsData) {
+            setAllEvents(eventsData);
+            
+            // calculate monthly events
+            const monthly: { [key: string]: number } = {};
+            eventsData.forEach(event => {
+                const [year, month] = event.date.split('-').slice(0, 2);
+                const monthKey = `${year}-${month}`;
+                monthly[monthKey] = (monthly[monthKey] || 0) + 1;
+            });
+            setMonthlyEvents(monthly);
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -58,21 +79,23 @@ export const Profile = () => {
                     const eventDate = new Date(year, month - 1, day);
                     return eventDate >= today;
                 })
-                .slice(0, 3);
+                .slice(0, role === 'teacher' ? 10 : 3);
 
             setUpcomingEvents(upcoming);
 
-            // Get recent activity
-            const recent = eventsData
-                .filter(event => {
-                    const [year, month, day] = event.date.split('-').map(Number);
-                    const eventDate = new Date(year, month - 1, day);
-                    return eventDate < today;
-                })
-                .slice(-3)
-                .reverse();
+            // get recent activity (only for students)
+            if (role === 'student') {
+                const recent = eventsData
+                    .filter(event => {
+                        const [year, month, day] = event.date.split('-').map(Number);
+                        const eventDate = new Date(year, month - 1, day);
+                        return eventDate < today;
+                    })
+                    .slice(-5)
+                    .reverse();
 
-            setRecentActivity(recent);
+                setRecentActivity(recent);
+            }
         }
     };
 
@@ -86,6 +109,81 @@ export const Profile = () => {
         const date = new Date(year, month - 1, day);
         return date.toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' });
     };
+
+    const formatFullDate = (dateStr: string) => {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+    };
+
+    const handleUpdateProfile = async () => {
+        if (!user) return;
+        setLoadingUpdate(true);
+
+        try {
+            const updates: any = {};
+            if (editedFirstName) updates.first_name = editedFirstName.trim();
+            if (editedLastName) updates.last_name = editedLastName.trim();
+            if (editedCity) updates.city = editedCity.trim();
+            if (role === 'teacher' && editedQualifications) updates.qualifications = editedQualifications.trim();
+            if (editedFirstName || editedLastName) {
+                updates.full_name = `${editedFirstName.trim()} ${editedLastName.trim()}`.trim();
+            }
+
+            const { error } = await supabase.auth.updateUser({
+                data: updates
+            });
+
+            if (error) {
+                console.error('Error updating profile:', error);
+                alert('Грешка при обновяване на профила');
+            } else {
+                // wait for auth state change to propagate (onAuthStateChange in AuthContext will update user)
+                // then reload our local data without full page reload
+                await new Promise(resolve => setTimeout(resolve, 300));
+                await loadUserData();
+                setEditMode(false);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Грешка при обновяване на профила');
+        } finally {
+            setLoadingUpdate(false);
+        }
+    };
+
+    const handleDeleteEvent = async (eventId: string) => {
+        if (!confirm('Сигурни ли сте, че искате да изтриете това събитие?')) return;
+
+        const { error } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('id', eventId);
+
+        if (error) {
+            console.error('Error deleting event:', error);
+            alert('Грешка при изтриване на събитието');
+        } else {
+           
+            loadUserData();
+        }
+    };
+
+    // Get last 6 months for chart
+    const getLastMonths = () => {
+        const months: string[] = [];
+        const monthNames = ['Яну', 'Фев', 'Мар', 'Апр', 'Май', 'Юни', 'Юли', 'Авг', 'Сеп', 'Окт', 'Ное', 'Дек'];
+        const today = new Date();
+        
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            months.push(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
+        }
+        return months;
+    };
+
+    const last6Months = getLastMonths();
+    const maxMonthlyEvents = Math.max(...Object.values(monthlyEvents), 1);
 
     if (!user) return null;
 
@@ -158,18 +256,40 @@ export const Profile = () => {
                                     </div>
                                 </div>
                                 <div className="flex-1">
-                                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                                        <h2 className="text-3xl font-bold" style={{ color: '#203b46' }}>{displayName}</h2>
-                                        {roleLabel && (
-                                            <span 
-                                                className="px-3 py-1 text-xs font-bold rounded-full text-white"
-                                                style={{ 
-                                                    backgroundColor: role === 'teacher' ? '#fb0473' : '#5094af'
-                                                }}
-                                            >
-                                                {roleLabel}
-                                            </span>
-                                        )}
+                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <h2 className="text-3xl font-bold" style={{ color: '#203b46' }}>{displayName}</h2>
+                                            {roleLabel && (
+                                                <span 
+                                                    className="px-3 py-1 text-xs font-bold rounded-full text-white"
+                                                    style={{ 
+                                                        backgroundColor: role === 'teacher' ? '#fb0473' : '#5094af'
+                                                    }}
+                                                >
+                                                    {roleLabel}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setEditMode(true);
+                                                setEditedFirstName(firstName || '');
+                                                setEditedLastName(lastName || '');
+                                                setEditedCity(city || '');
+                                                setEditedQualifications(qualifications || '');
+                                            }}
+                                            className="px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105 border-2 flex items-center gap-2"
+                                            style={{ 
+                                                backgroundColor: '#eef4f7',
+                                                borderColor: '#dceaef',
+                                                color: '#40768c'
+                                            }}
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Редактирай
+                                        </button>
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex items-center gap-2">
@@ -210,28 +330,66 @@ export const Profile = () => {
 
                             {/* stats grid - only for students */}
                             {role === 'student' && (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f2faeb', borderColor: '#e6f5d6' }}>
-                                        <div className="text-3xl mb-2">🔥</div>
-                                        <div className="text-3xl font-bold mb-1" style={{ color: '#4d7a1f' }}>{currentStreak}</div>
-                                        <div className="text-xs font-medium" style={{ color: '#66a329' }}>Текуща серия</div>
+                                <>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                        <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105 cursor-pointer" style={{ backgroundColor: '#f2faeb', borderColor: '#e6f5d6' }}>
+                                            <div className="text-3xl mb-2">🔥</div>
+                                            <div className="text-3xl font-bold mb-1" style={{ color: '#4d7a1f' }}>{currentStreak}</div>
+                                            <div className="text-xs font-medium" style={{ color: '#66a329' }}>Текуща серия</div>
+                                        </div>
+                                        <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105 cursor-pointer" style={{ backgroundColor: '#ffe6f1', borderColor: '#fecde3' }}>
+                                            <div className="text-3xl mb-2">🏆</div>
+                                            <div className="text-3xl font-bold mb-1" style={{ color: '#970245' }}>{longestStreak}</div>
+                                            <div className="text-xs font-medium" style={{ color: '#c9035c' }}>Най-дълга серия</div>
+                                        </div>
+                                        <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105 cursor-pointer" style={{ backgroundColor: '#eef4f7', borderColor: '#dceaef' }}>
+                                            <div className="text-3xl mb-2">⭐</div>
+                                            <div className="text-3xl font-bold mb-1" style={{ color: '#305969' }}>{earnedPoints}</div>
+                                            <div className="text-xs font-medium" style={{ color: '#40768c' }}>Точки</div>
+                                        </div>
+                                        <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105 cursor-pointer" style={{ backgroundColor: '#f0f4f1', borderColor: '#e2e9e2' }}>
+                                            <div className="text-3xl mb-2">📝</div>
+                                            <div className="text-3xl font-bold mb-1" style={{ color: '#415843' }}>{totalEvents}</div>
+                                            <div className="text-xs font-medium" style={{ color: '#577559' }}>Събития</div>
+                                        </div>
                                     </div>
-                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#ffe6f1', borderColor: '#fecde3' }}>
-                                        <div className="text-3xl mb-2">🏆</div>
-                                        <div className="text-3xl font-bold mb-1" style={{ color: '#970245' }}>{longestStreak}</div>
-                                        <div className="text-xs font-medium" style={{ color: '#c9035c' }}>Най-дълга серия</div>
-                                    </div>
-                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#eef4f7', borderColor: '#dceaef' }}>
-                                        <div className="text-3xl mb-2">⭐</div>
-                                        <div className="text-3xl font-bold mb-1" style={{ color: '#305969' }}>{earnedPoints}</div>
-                                        <div className="text-xs font-medium" style={{ color: '#40768c' }}>Точки</div>
-                                    </div>
-                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f0f4f1', borderColor: '#e2e9e2' }}>
-                                        <div className="text-3xl mb-2">📝</div>
-                                        <div className="text-3xl font-bold mb-1" style={{ color: '#415843' }}>{totalEvents}</div>
-                                        <div className="text-xs font-medium" style={{ color: '#577559' }}>Събития</div>
-                                    </div>
-                                </div>
+
+                                    {/* monthly activity chart */}
+                                    {Object.keys(monthlyEvents).length > 0 && (
+                                        <div className="mt-6 pt-6 border-t-2" style={{ borderColor: '#dceaef' }}>
+                                            <h4 className="text-lg font-bold mb-4" style={{ color: '#203b46' }}>Месечна активност</h4>
+                                            <div className="space-y-3">
+                                                {last6Months.map((monthLabel, index) => {
+                                                    const today = new Date();
+                                                    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+                                                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                                                    const count = monthlyEvents[monthKey] || 0;
+                                                    const percentage = maxMonthlyEvents > 0 ? (count / maxMonthlyEvents) * 100 : 0;
+                                                    
+                                                    return (
+                                                        <div key={monthKey} className="flex items-center gap-3">
+                                                            <div className="w-20 text-xs font-semibold" style={{ color: '#40768c' }}>
+                                                                {monthLabel}
+                                                            </div>
+                                                            <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ backgroundColor: '#eef4f7' }}>
+                                                                <div 
+                                                                    className="h-full rounded-full transition-all duration-500"
+                                                                    style={{ 
+                                                                        width: `${percentage}%`,
+                                                                        background: 'linear-gradient(90deg, #80cc33 0%, #66a329 100%)'
+                                                                    }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="w-8 text-xs font-bold text-right" style={{ color: '#203b46' }}>
+                                                                {count}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
@@ -256,55 +414,103 @@ export const Profile = () => {
                                         </svg>
                                     </div>
                                     {role === 'teacher' ? 'Събития' : 'Предстоящи събития'}
+                                    {role === 'teacher' && allEvents.length > 0 && (
+                                        <span className="px-2 py-1 text-xs font-bold rounded-full" style={{ backgroundColor: '#ffe6f1', color: '#fb0473' }}>
+                                            {allEvents.length}
+                                        </span>
+                                    )}
                                 </h3>
-                                <button
-                                    onClick={() => navigate("/home")}
-                                    className="text-sm font-semibold transition-colors flex items-center gap-1"
-                                    style={{ 
-                                        color: role === 'teacher' ? '#fb0473' : '#5094af'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.color = role === 'teacher' ? '#c9035c' : '#40768c'}
-                                    onMouseLeave={(e) => e.currentTarget.style.color = role === 'teacher' ? '#fb0473' : '#5094af'}
-                                >
-                                    Виж всички
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {role === 'teacher' && allEvents.length > 0 && (
+                                        <button
+                                            onClick={() => setShowAllEvents(!showAllEvents)}
+                                            className="text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg"
+                                            style={{ 
+                                                backgroundColor: showAllEvents ? '#ffe6f1' : 'transparent',
+                                                color: '#fb0473'
+                                            }}
+                                        >
+                                            {showAllEvents ? 'Предстоящи' : 'Всички'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => navigate("/home")}
+                                        className="text-sm font-semibold transition-colors flex items-center gap-1"
+                                        style={{ 
+                                            color: role === 'teacher' ? '#fb0473' : '#5094af'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = role === 'teacher' ? '#c9035c' : '#40768c'}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = role === 'teacher' ? '#fb0473' : '#5094af'}
+                                    >
+                                        {role === 'teacher' ? 'Добави' : 'Виж всички'}
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
 
-                            {upcomingEvents.length > 0 ? (
+                            {(role === 'teacher' && showAllEvents ? allEvents : upcomingEvents).length > 0 ? (
                                 <div className="space-y-3">
-                                    {upcomingEvents.map((event, index) => (
-                                        <div 
-                                            key={index} 
-                                            className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] cursor-pointer"
-                                            style={{ 
-                                                backgroundColor: index % 2 === 0 ? '#f2faeb' : '#eef4f7',
-                                                borderColor: index % 2 === 0 ? '#e6f5d6' : '#dceaef'
-                                            }}
-                                            onClick={() => navigate("/home")}
-                                        >
+                                    {(role === 'teacher' && showAllEvents ? allEvents : upcomingEvents).map((event, index) => {
+                                        const [year, month, day] = event.date.split('-').map(Number);
+                                        const eventDate = new Date(year, month - 1, day);
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const isPast = eventDate < today;
+                                        
+                                        return (
                                             <div 
-                                                className="flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center text-white shadow-lg"
+                                                key={event.id || index} 
+                                                className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] group"
                                                 style={{ 
-                                                    background: index % 2 === 0 
-                                                        ? 'linear-gradient(135deg, #80cc33 0%, #66a329 100%)'
-                                                        : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                                    backgroundColor: isPast ? '#f0f4f1' : (index % 2 === 0 ? '#f2faeb' : '#eef4f7'),
+                                                    borderColor: isPast ? '#e2e9e2' : (index % 2 === 0 ? '#e6f5d6' : '#dceaef'),
+                                                    opacity: isPast ? 0.7 : 1
                                                 }}
                                             >
-                                                <div className="text-xs font-bold uppercase">{formatDate(event.date).split(' ')[1]}</div>
-                                                <div className="text-2xl font-bold leading-none">{formatDate(event.date).split(' ')[0]}</div>
+                                                <div 
+                                                    className="flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center text-white shadow-lg"
+                                                    style={{ 
+                                                        background: isPast 
+                                                            ? 'linear-gradient(135deg, #6c9370 0%, #577559 100%)'
+                                                            : index % 2 === 0 
+                                                                ? 'linear-gradient(135deg, #80cc33 0%, #66a329 100%)'
+                                                                : role === 'teacher'
+                                                                    ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
+                                                                    : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                                    }}
+                                                >
+                                                    <div className="text-xs font-bold uppercase">{formatDate(event.date).split(' ')[1]}</div>
+                                                    <div className="text-2xl font-bold leading-none">{formatDate(event.date).split(' ')[0]}</div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold mb-1" style={{ color: '#203b46' }}>{event.event_text}</p>
+                                                    <p className="text-xs" style={{ color: '#40768c' }}>{formatFullDate(event.date)}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {role === 'teacher' && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteEvent(event.id);
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg hover:scale-110"
+                                                            style={{ backgroundColor: '#f9ebeb', color: '#c43b3b' }}
+                                                            title="Изтрий събитие"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                    <svg className="w-5 h-5 flex-shrink-0 opacity-50" style={{ color: '#5094af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold mb-1" style={{ color: '#203b46' }}>{event.event_text}</p>
-                                                <p className="text-xs" style={{ color: '#40768c' }}>{formatDate(event.date)}</p>
-                                            </div>
-                                            <svg className="w-5 h-5 flex-shrink-0" style={{ color: '#5094af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                            </svg>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-center py-12">
@@ -313,11 +519,13 @@ export const Profile = () => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
-                                    <p className="text-sm font-medium" style={{ color: '#40768c' }}>Няма предстоящи събития</p>
+                                    <p className="text-sm font-medium mb-2" style={{ color: '#40768c' }}>
+                                        {showAllEvents ? 'Няма събития' : 'Няма предстоящи събития'}
+                                    </p>
                                     <button
                                         onClick={() => navigate("/home")}
                                         className="mt-4 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-105"
-                                        style={{ backgroundColor: '#5094af' }}
+                                        style={{ backgroundColor: role === 'teacher' ? '#fb0473' : '#5094af' }}
                                     >
                                         Добави събитие
                                     </button>
@@ -396,20 +604,41 @@ export const Profile = () => {
                                     Добави събитие
                                 </button>
                                 {role === 'student' && (
-                                    <button
-                                        onClick={() => navigate("/home")}
-                                        className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
-                                        style={{ 
-                                            backgroundColor: '#f2faeb',
-                                            borderColor: '#e6f5d6',
-                                            color: '#4d7a1f'
-                                        }}
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                        </svg>
-                                        Виж статистики
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => navigate("/home")}
+                                            className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
+                                            style={{ 
+                                                backgroundColor: '#f2faeb',
+                                                borderColor: '#e6f5d6',
+                                                color: '#4d7a1f'
+                                            }}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                            Виж статистики
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setEditMode(true);
+                                                setEditedFirstName(firstName || '');
+                                                setEditedLastName(lastName || '');
+                                                setEditedCity(city || '');
+                                            }}
+                                            className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
+                                            style={{ 
+                                                backgroundColor: '#eef4f7',
+                                                borderColor: '#dceaef',
+                                                color: '#40768c'
+                                            }}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Редактирай профил
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -501,6 +730,111 @@ export const Profile = () => {
                     </div>
                 </div>
             </main>
+
+            {/* edit profile */}
+            {editMode && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" style={{ borderColor: '#dceaef' }}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-2xl font-bold" style={{ color: '#203b46' }}>Редактирай профил</h3>
+                            <button
+                                onClick={() => {
+                                    setEditMode(false);
+                                }}
+                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }} className="space-y-5">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Име</label>
+                                            <input
+                                                type="text"
+                                                value={editedFirstName}
+                                                onChange={(e) => setEditedFirstName(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                                style={{ borderColor: '#dceaef' }}
+                                                placeholder="Име"
+                                                required
+                                            />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Фамилия</label>
+                                            <input
+                                                type="text"
+                                                value={editedLastName}
+                                                onChange={(e) => setEditedLastName(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                                style={{ borderColor: '#dceaef' }}
+                                                placeholder="Фамилия"
+                                                required
+                                            />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Град</label>
+                                    <input
+                                        type="text"
+                                        value={editedCity}
+                                        onChange={(e) => setEditedCity(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                        style={{ borderColor: '#dceaef' }}
+                                        placeholder="Град"
+                                    />
+                            </div>
+
+                            {role === 'teacher' && (
+                                <div>
+                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Квалификации</label>
+                                    <input
+                                        type="text"
+                                        value={editedQualifications}
+                                        onChange={(e) => setEditedQualifications(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                        style={{ borderColor: '#dceaef' }}
+                                        placeholder="Математика, Физика..."
+                                    />
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditMode(false);
+                                    }}
+                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-105 border-2"
+                                    style={{ 
+                                        backgroundColor: '#eef4f7',
+                                        borderColor: '#dceaef',
+                                        color: '#40768c'
+                                    }}
+                                >
+                                    Откажи
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loadingUpdate}
+                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{ 
+                                        background: role === 'teacher' 
+                                            ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
+                                            : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                    }}
+                                >
+                                    {loadingUpdate ? 'Запазване...' : 'Запази'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
