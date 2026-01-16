@@ -39,8 +39,9 @@ export const Navbar = () => {
     ];
 
     const isActive = (path: string) => location.pathname === path;
-    const { signOut, user, loading } = useAuth();
-    const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Студент";
+    const { signOut, user, role, loading } = useAuth();
+    const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -156,6 +157,11 @@ export const Navbar = () => {
                                         <div className="px-4 py-3 bg-gradient-to-br from-slate-50 to-white border-b border-slate-100">
                                             <p className="text-sm font-bold text-slate-900">{displayName}</p>
                                             <p className="text-xs text-slate-500 truncate mt-0.5">{user.email}</p>
+                                            {roleLabel && (
+                                                <span className="inline-flex items-center mt-1.5 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
                                         </div>
                                         <Link
                                             to="/profile"

@@ -4,7 +4,7 @@ import { supabase } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Profile = () => {
-    const { user, signOut } = useAuth();
+    const { user, role, signOut } = useAuth();
     const navigate = useNavigate();
 
     const [currentStreak, setCurrentStreak] = useState(0);
@@ -89,8 +89,13 @@ export const Profile = () => {
 
     if (!user) return null;
 
-    const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || "Студент";
+    const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
     const memberSince = new Date(user.created_at).toLocaleDateString('bg-BG', { month: 'long', year: 'numeric' });
+    const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
+    const userMetadata = user.user_metadata as any;
+    const grade = userMetadata?.grade;
+    const city = userMetadata?.city;
+    const qualifications = userMetadata?.qualifications;
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -131,8 +136,30 @@ export const Profile = () => {
                                         {displayName.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-bold text-slate-900">{displayName}</h2>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h2 className="text-2xl font-bold text-slate-900">{displayName}</h2>
+                                            {roleLabel && (
+                                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-sm text-slate-600">{user.email}</p>
+                                        {city && (
+                                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                {city}
+                                                {role === 'student' && grade && ` • ${grade} клас`}
+                                            </p>
+                                        )}
+                                        {role === 'teacher' && qualifications && (
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                Квалификации: {qualifications}
+                                            </p>
+                                        )}
                                         <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -279,6 +306,16 @@ export const Profile = () => {
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">ИМЕЙЛ АДРЕС</label>
                                     <p className="text-sm text-slate-900 font-medium">{user.email}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">РОЛЯ</label>
+                                    {roleLabel ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+                                            {roleLabel}
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm text-slate-500">Не е зададена</span>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">СТАТУС</label>
