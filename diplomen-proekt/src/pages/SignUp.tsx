@@ -105,11 +105,11 @@ export default function SignUp() {
         setMessage(`Грешка: ${error.message}`);
         setMessageType('error');
       } else {
-        // Check if user is immediately logged in (email confirmation disabled)
+        // check if user is immediately logged in (email confirmation disabled)
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          // User is logged in immediately, redirect to home
+          // user is logged in immediately, redirect to home
           setMessage('Успешно! Вие сте регистриран и влезли.');
           setMessageType('success');
           setEmail('');
@@ -124,7 +124,7 @@ export default function SignUp() {
             window.location.href = '/home';
           }, 1500);
         } else {
-          // Email confirmation required
+          // email confirmation required
           setMessage('Успешно! Моля проверете имейла си за потвърждение преди влизане.');
           setMessageType('success');
           setEmail('');
