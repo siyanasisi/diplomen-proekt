@@ -189,13 +189,11 @@ export const Profile = () => {
 
         const file = event.target.files[0];
         
-        // validate file type
         if (!file.type.startsWith('image/')) {
             alert('Моля изберете валиден файл (изображение)');
             return;
         }
 
-        // validate file size max 2mb
         if (file.size > 2 * 1024 * 1024) {
             alert('Файлът е твърде голям. Моля изберете изображение под 2MB');
             return;
@@ -246,7 +244,6 @@ export const Profile = () => {
             // wait for auth state change listener to update the user object
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // refresh user data to ensure everything is in sync
             await loadUserData();
             
             alert('Профилната снимка е обновена успешно!');
@@ -255,7 +252,7 @@ export const Profile = () => {
             alert(`Грешка при качване на снимката: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
-            // reset file input
+
             event.target.value = '';
         }
     };
@@ -399,7 +396,6 @@ export const Profile = () => {
         }
     };
 
-    // Get last 6 months for chart
     const getLastMonths = () => {
         const months: string[] = [];
         const monthNames = ['Яну', 'Фев', 'Мар', 'Апр', 'Май', 'Юни', 'Юли', 'Авг', 'Сеп', 'Окт', 'Ное', 'Дек'];
