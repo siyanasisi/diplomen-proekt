@@ -24,6 +24,12 @@ export const Profile = () => {
     const [showAllEvents, setShowAllEvents] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [changingPassword, setChangingPassword] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -251,6 +257,99 @@ export const Profile = () => {
             setUploadingAvatar(false);
             // reset file input
             event.target.value = '';
+        }
+    };
+
+    const validatePassword = (password: string) => {
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+        if (password.length < minLength) {
+            return `Паролата трябва да е поне ${minLength} символа.`;
+        }
+        if (!hasUpperCase) {
+            return 'Паролата трябва да съдържа поне една главна буква. ';
+        }
+        if (!hasLowerCase) {
+            return 'Паролата трябва да съдържа поне една малка буква.';
+        }
+        if (!hasNumber) {
+            return 'Паролата трябва да съдържа поне една цифра.';
+        }
+        if (!hasSpecialChar) {
+            return 'Паролата трябва да съдържа поне един специален символ. ';
+        }
+        return '';
+    };
+
+    const handleChangePassword = async () => {
+       
+        setPasswordError('');
+
+        if (!currentPassword) {
+            setPasswordError('Моля въведете текущата парола');
+            return;
+        }
+
+        // validate new password using same constraints as signup
+        const passwordValidationError = validatePassword(newPassword);
+        if (passwordValidationError) {
+            setPasswordError(passwordValidationError);
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError('Новата парола и потвърждението не съвпадат');
+            return;
+        }
+
+        if (currentPassword === newPassword) {
+            setPasswordError('Новата парола трябва да бъде различна от текущата');
+            return;
+        }
+
+        setChangingPassword(true);
+
+        try {
+            //first verify the current password by attempting to sign in
+            if (!user?.email) {
+                throw new Error('Email не е наличен');
+            }
+
+            const { error: verifyError } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: currentPassword,
+            });
+
+            if (verifyError) {
+                setPasswordError('Текущата парола е неправилна');
+                setChangingPassword(false);
+                return;
+            }
+
+            // update pass
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: newPassword
+            });
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            alert('Паролата е променена успешно!');
+            setShowChangePassword(false);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setPasswordError('');
+        } catch (error: any) {
+            console.error('Error changing password:', error);
+            setPasswordError(error.message || 'Грешка при промяна на паролата');
+        } finally {
+            setChangingPassword(false);
         }
     };
 
@@ -895,6 +994,20 @@ export const Profile = () => {
                             <h3 className="text-xl font-bold mb-6" style={{ color: '#203b46' }}>Настройки</h3>
                             <div className="space-y-3">
                                 <button
+                                    onClick={() => setShowChangePassword(true)}
+                                    className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
+                                    style={{ 
+                                        backgroundColor: '#eef4f7',
+                                        borderColor: '#dceaef',
+                                        color: '#40768c'
+                                    }}
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                    Смени парола
+                                </button>
+                                <button
                                     onClick={handleSignOut}
                                     className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
                                     style={{ 
@@ -913,6 +1026,146 @@ export const Profile = () => {
                     </div>
                 </div>
             </main>
+
+            {/* change password modal */}
+            {showChangePassword && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-2xl font-bold" style={{ color: '#203b46' }}>Смени парола</h3>
+                            <button
+                                onClick={() => {
+                                    setShowChangePassword(false);
+                                    setCurrentPassword('');
+                                    setNewPassword('');
+                                    setConfirmPassword('');
+                                    setPasswordError('');
+                                }}
+                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }} className="space-y-5">
+                            {passwordError && (
+                                <div className="p-4 rounded-xl bg-red-50 border-2 border-red-200">
+                                    <p className="text-sm font-semibold text-red-700">{passwordError}</p>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Текуща парола</label>
+                                <input
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                    style={{ borderColor: '#dceaef' }}
+                                    placeholder="Въведете текущата парола"
+                                    required
+                                    disabled={changingPassword}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Нова парола</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value);
+                                
+                                        if (e.target.value) {
+                                            setPasswordError(validatePassword(e.target.value));
+                                        } else {
+                                            setPasswordError('');
+                                        }
+                                    }}
+                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                    style={{ borderColor: passwordError && newPassword ? '#f3d8d8' : '#dceaef' }}
+                                    placeholder="Минимум 8 символа, главна буква, малка буква, цифра, специален символ"
+                                    required
+                                    disabled={changingPassword}
+                                    minLength={8}
+                                />
+                                {!passwordError && newPassword && (
+                                    <p className="mt-2 text-xs" style={{ color: '#80cc33' }}>
+                                        ✓ Паролата отговаря на изискванията
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Потвърди нова парола</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => {
+                                        setConfirmPassword(e.target.value);
+                                        if (e.target.value && e.target.value !== newPassword) {
+                                            setPasswordError('Паролите не съвпадат');
+                                        } else if (e.target.value && e.target.value === newPassword) {
+                                            // if passwords match, check if new password is valid
+                                            const validationError = validatePassword(newPassword);
+                                            setPasswordError(validationError);
+                                        } else {
+                                            // if confirm field is empty validate new password instead
+                                            const validationError = validatePassword(newPassword);
+                                            setPasswordError(validationError);
+                                        }
+                                    }}
+                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
+                                    style={{ borderColor: passwordError && confirmPassword && confirmPassword !== newPassword ? '#f3d8d8' : '#dceaef' }}
+                                    placeholder="Повтори новата парола"
+                                    required
+                                    disabled={changingPassword}
+                                    minLength={8}
+                                />
+                                {confirmPassword && confirmPassword === newPassword && !passwordError && (
+                                    <p className="mt-2 text-xs" style={{ color: '#80cc33' }}>
+                                        ✓ Паролите съвпадат
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowChangePassword(false);
+                                        setCurrentPassword('');
+                                        setNewPassword('');
+                                        setConfirmPassword('');
+                                        setPasswordError('');
+                                    }}
+                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-105 border-2"
+                                    style={{ 
+                                        backgroundColor: '#eef4f7',
+                                        borderColor: '#dceaef',
+                                        color: '#40768c'
+                                    }}
+                                    disabled={changingPassword}
+                                >
+                                    Откажи
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={changingPassword}
+                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{ 
+                                        background: 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                    }}
+                                >
+                                    {changingPassword ? 'Запазване...' : 'Смени парола'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* edit profile */}
             {editMode && (
