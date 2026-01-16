@@ -92,25 +92,49 @@ export default function SignUp() {
         ? { role, grade, city }
         : { role, city, qualifications };
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: additionalData },
+        options: { 
+          data: additionalData,
+          emailRedirectTo: window.location.origin + '/home'
+        },
       });
 
       if (error) {
         setMessage(`Грешка: ${error.message}`);
         setMessageType('error');
       } else {
-        setMessage('Успешно! Проверете имейла си, за да потвърдите акаунта си.');
-        setMessageType('success');
-        setEmail('');
-        setPassword('');
-        setEmailError('');
-        setPasswordError('');
-        setGrade('');
-        setCity('');
-        setQualifications('');
+        // Check if user is immediately logged in (email confirmation disabled)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          // User is logged in immediately, redirect to home
+          setMessage('Успешно! Вие сте регистриран и влезли.');
+          setMessageType('success');
+          setEmail('');
+          setPassword('');
+          setEmailError('');
+          setPasswordError('');
+          setGrade('');
+          setCity('');
+          setQualifications('');
+          
+          setTimeout(() => {
+            window.location.href = '/home';
+          }, 1500);
+        } else {
+          // Email confirmation required
+          setMessage('Успешно! Моля проверете имейла си за потвърждение преди влизане.');
+          setMessageType('success');
+          setEmail('');
+          setPassword('');
+          setEmailError('');
+          setPasswordError('');
+          setGrade('');
+          setCity('');
+          setQualifications('');
+        }
       }
     } catch (error) {
       setMessage('Нещо се обърка!');

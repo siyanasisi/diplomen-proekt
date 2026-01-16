@@ -12,14 +12,14 @@ export const Home = () => {
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
 
-    // Redirect to login if not authenticated
+    // redirect to login if not authenticated
     useEffect(() => {
         if (!user) {
             navigate('/login', { replace: true });
         }
     }, [user, navigate]);
 
-    // Load events from Supabase when user changes
+    // load events from supabase when user changes
     useEffect(() => {
         if (user) {
             loadEvents();

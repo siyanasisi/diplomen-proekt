@@ -16,22 +16,36 @@ export default function Login() {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
 
       if (error) {
-        setMessage('Грешка: ' + error.message);
+        // Remove email confirmation related error messages
+        let errorMessage = error.message;
+        if (errorMessage.includes('Email not confirmed') || 
+            errorMessage.includes('email confirmation') ||
+            errorMessage.includes('verify')) {
+          errorMessage = 'Грешен имейл или парола.';
+        }
+        setMessage('Грешка: ' + errorMessage);
         setMessageType('error');
       } else {
         setMessage('Успешно влизане! Пренасочване...');
         setMessageType('success');
         
-        // Redirect to home page after 1 second
-        setTimeout(() => {
-          navigate('/home');
-        }, 1000);
+        // wait for session to be established then redirect
+        const checkSession = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            navigate('/home');
+          } else {
+            // retry after a short delay
+            setTimeout(checkSession, 100);
+          }
+        };
+        setTimeout(checkSession, 100);
       }
     } catch (error) {
       setMessage('Нещо се обърка!');
