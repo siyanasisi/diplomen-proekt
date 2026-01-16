@@ -120,13 +120,15 @@ export const Profile = () => {
                     </button>
                     <div className="flex items-center justify-between">
                         <h1 className="text-4xl font-bold text-white">Моят профил</h1>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-                                <span className="text-xl">🔥</span>
-                                <span className="text-lg font-bold text-white">{currentStreak}</span>
-                                <span className="text-sm text-white/80">дни</span>
+                        {role === 'student' && (
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
+                                    <span className="text-xl">🔥</span>
+                                    <span className="text-lg font-bold text-white">{currentStreak}</span>
+                                    <span className="text-sm text-white/80">дни</span>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </header>
@@ -206,48 +208,63 @@ export const Profile = () => {
                                 </div>
                             </div>
 
-                            {/* stats grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f2faeb', borderColor: '#e6f5d6' }}>
-                                    <div className="text-3xl mb-2">🔥</div>
-                                    <div className="text-3xl font-bold mb-1" style={{ color: '#4d7a1f' }}>{currentStreak}</div>
-                                    <div className="text-xs font-medium" style={{ color: '#66a329' }}>Текуща серия</div>
+                            {/* stats grid - only for students */}
+                            {role === 'student' && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f2faeb', borderColor: '#e6f5d6' }}>
+                                        <div className="text-3xl mb-2">🔥</div>
+                                        <div className="text-3xl font-bold mb-1" style={{ color: '#4d7a1f' }}>{currentStreak}</div>
+                                        <div className="text-xs font-medium" style={{ color: '#66a329' }}>Текуща серия</div>
+                                    </div>
+                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#ffe6f1', borderColor: '#fecde3' }}>
+                                        <div className="text-3xl mb-2">🏆</div>
+                                        <div className="text-3xl font-bold mb-1" style={{ color: '#970245' }}>{longestStreak}</div>
+                                        <div className="text-xs font-medium" style={{ color: '#c9035c' }}>Най-дълга серия</div>
+                                    </div>
+                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#eef4f7', borderColor: '#dceaef' }}>
+                                        <div className="text-3xl mb-2">⭐</div>
+                                        <div className="text-3xl font-bold mb-1" style={{ color: '#305969' }}>{earnedPoints}</div>
+                                        <div className="text-xs font-medium" style={{ color: '#40768c' }}>Точки</div>
+                                    </div>
+                                    <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f0f4f1', borderColor: '#e2e9e2' }}>
+                                        <div className="text-3xl mb-2">📝</div>
+                                        <div className="text-3xl font-bold mb-1" style={{ color: '#415843' }}>{totalEvents}</div>
+                                        <div className="text-xs font-medium" style={{ color: '#577559' }}>Събития</div>
+                                    </div>
                                 </div>
-                                <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#ffe6f1', borderColor: '#fecde3' }}>
-                                    <div className="text-3xl mb-2">🏆</div>
-                                    <div className="text-3xl font-bold mb-1" style={{ color: '#970245' }}>{longestStreak}</div>
-                                    <div className="text-xs font-medium" style={{ color: '#c9035c' }}>Най-дълга серия</div>
-                                </div>
-                                <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#eef4f7', borderColor: '#dceaef' }}>
-                                    <div className="text-3xl mb-2">⭐</div>
-                                    <div className="text-3xl font-bold mb-1" style={{ color: '#305969' }}>{earnedPoints}</div>
-                                    <div className="text-xs font-medium" style={{ color: '#40768c' }}>Точки</div>
-                                </div>
-                                <div className="text-center p-5 rounded-xl border-2 transition-all hover:scale-105" style={{ backgroundColor: '#f0f4f1', borderColor: '#e2e9e2' }}>
-                                    <div className="text-3xl mb-2">📝</div>
-                                    <div className="text-3xl font-bold mb-1" style={{ color: '#415843' }}>{totalEvents}</div>
-                                    <div className="text-xs font-medium" style={{ color: '#577559' }}>Събития</div>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* upcoming events */}
                         <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold flex items-center gap-3" style={{ color: '#203b46' }}>
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffe6f1' }}>
-                                        <svg className="w-5 h-5" style={{ color: '#fb0473' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div 
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center" 
+                                        style={{ 
+                                            backgroundColor: role === 'teacher' ? '#ffe6f1' : '#ffe6f1'
+                                        }}
+                                    >
+                                        <svg 
+                                            className="w-5 h-5" 
+                                            style={{ color: role === 'teacher' ? '#fb0473' : '#fb0473' }} 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            viewBox="0 0 24 24"
+                                        >
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
-                                    Предстоящи събития
+                                    {role === 'teacher' ? 'Събития' : 'Предстоящи събития'}
                                 </h3>
                                 <button
                                     onClick={() => navigate("/home")}
                                     className="text-sm font-semibold transition-colors flex items-center gap-1"
-                                    style={{ color: '#5094af' }}
-                                    onMouseEnter={(e) => e.currentTarget.style.color = '#40768c'}
-                                    onMouseLeave={(e) => e.currentTarget.style.color = '#5094af'}
+                                    style={{ 
+                                        color: role === 'teacher' ? '#fb0473' : '#5094af'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.color = role === 'teacher' ? '#c9035c' : '#40768c'}
+                                    onMouseLeave={(e) => e.currentTarget.style.color = role === 'teacher' ? '#fb0473' : '#5094af'}
                                 >
                                     Виж всички
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,52 +325,54 @@ export const Profile = () => {
                             )}
                         </div>
 
-                        {/* recent activity  */}
-                        <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
-                            <h3 className="text-xl font-bold mb-6 flex items-center gap-3" style={{ color: '#203b46' }}>
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
-                                    <svg className="w-5 h-5" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                Последна активност
-                            </h3>
-
-                            {recentActivity.length > 0 ? (
-                                <div className="space-y-3">
-                                    {recentActivity.map((event, index) => (
-                                        <div 
-                                            key={index} 
-                                            className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:scale-[1.02]"
-                                            style={{ 
-                                                backgroundColor: '#f2faeb',
-                                                borderColor: '#e6f5d6'
-                                            }}
-                                        >
-                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: '#80cc33' }}></div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold mb-1" style={{ color: '#203b46' }}>{event.event_text}</p>
-                                                <p className="text-xs" style={{ color: '#40768c' }}>{formatDate(event.date)}</p>
-                                            </div>
-                                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#f2faeb' }}>
-                                                <svg className="w-5 h-5" style={{ color: '#80cc33' }} fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-12">
-                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
-                                        <svg className="w-8 h-8" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {/* recent activity - only for students */}
+                        {role === 'student' && (
+                            <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
+                                <h3 className="text-xl font-bold mb-6 flex items-center gap-3" style={{ color: '#203b46' }}>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
+                                        <svg className="w-5 h-5" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p className="text-sm font-medium" style={{ color: '#40768c' }}>Все още няма активност</p>
-                                </div>
-                            )}
-                        </div>
+                                    Последна активност
+                                </h3>
+
+                                {recentActivity.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {recentActivity.map((event, index) => (
+                                            <div 
+                                                key={index} 
+                                                className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:scale-[1.02]"
+                                                style={{ 
+                                                    backgroundColor: '#f2faeb',
+                                                    borderColor: '#e6f5d6'
+                                                }}
+                                            >
+                                                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: '#80cc33' }}></div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold mb-1" style={{ color: '#203b46' }}>{event.event_text}</p>
+                                                    <p className="text-xs" style={{ color: '#40768c' }}>{formatDate(event.date)}</p>
+                                                </div>
+                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#f2faeb' }}>
+                                                    <svg className="w-5 h-5" style={{ color: '#80cc33' }} fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
+                                            <svg className="w-8 h-8" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-sm font-medium" style={{ color: '#40768c' }}>Все още няма активност</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* right column */}
@@ -366,7 +385,9 @@ export const Profile = () => {
                                     onClick={() => navigate("/home")}
                                     className="w-full px-5 py-4 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-lg"
                                     style={{ 
-                                        background: 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                        background: role === 'teacher' 
+                                            ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
+                                            : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
                                     }}
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,20 +395,22 @@ export const Profile = () => {
                                     </svg>
                                     Добави събитие
                                 </button>
-                                <button
-                                    onClick={() => navigate("/home")}
-                                    className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
-                                    style={{ 
-                                        backgroundColor: '#f2faeb',
-                                        borderColor: '#e6f5d6',
-                                        color: '#4d7a1f'
-                                    }}
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                    </svg>
-                                    Виж статистики
-                                </button>
+                                {role === 'student' && (
+                                    <button
+                                        onClick={() => navigate("/home")}
+                                        className="w-full px-5 py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-105 border-2"
+                                        style={{ 
+                                            backgroundColor: '#f2faeb',
+                                            borderColor: '#e6f5d6',
+                                            color: '#4d7a1f'
+                                        }}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                        Виж статистики
+                                    </button>
+                                )}
                             </div>
                         </div>
 
