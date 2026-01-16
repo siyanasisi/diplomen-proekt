@@ -89,10 +89,13 @@ export const Profile = () => {
 
     if (!user) return null;
 
-    const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const userMetadata = user.user_metadata as any;
+    const firstName = userMetadata?.first_name;
+    const lastName = userMetadata?.last_name;
+    const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
+    const displayName = fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
     const memberSince = new Date(user.created_at).toLocaleDateString('bg-BG', { month: 'long', year: 'numeric' });
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
-    const userMetadata = user.user_metadata as any;
     const grade = userMetadata?.grade;
     const city = userMetadata?.city;
     const qualifications = userMetadata?.qualifications;
@@ -132,7 +135,7 @@ export const Profile = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Profile Card  */}
+                        {/* profile Card  */}
                         <div className="bg-white rounded-2xl p-8 shadow-xl border" style={{ borderColor: '#dceaef' }}>
                             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
                                 <div className="relative">
@@ -392,6 +395,14 @@ export const Profile = () => {
                         <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
                             <h3 className="text-xl font-bold mb-6" style={{ color: '#203b46' }}>Информация за акаунта</h3>
                             <div className="space-y-5">
+                                {(firstName || lastName) && (
+                                    <div className="p-4 rounded-xl" style={{ backgroundColor: '#ffe6f1' }}>
+                                        <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#c9035c' }}>ИМЕ</label>
+                                        <p className="text-sm font-semibold" style={{ color: '#203b46' }}>
+                                            {firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="p-4 rounded-xl" style={{ backgroundColor: '#eef4f7' }}>
                                     <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#40768c' }}>ИМЕЙЛ АДРЕС</label>
                                     <p className="text-sm font-semibold" style={{ color: '#203b46' }}>{user.email}</p>

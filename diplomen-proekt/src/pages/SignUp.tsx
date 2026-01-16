@@ -30,6 +30,8 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 );
 
 export default function SignUp() {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student');
@@ -87,13 +89,42 @@ export default function SignUp() {
       return;
     }
 
+    // validate name fields
+    if (!firstName.trim()) {
+      setMessage('Моля, въведете име.');
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setMessage('Моля, въведете фамилия.');
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
     try {
       const additionalData = role === 'student' 
-        ? { role, grade, city }
-        : { role, city, qualifications };
+        ? { 
+            role, 
+            grade, 
+            city, 
+            first_name: firstName.trim(), 
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`
+          }
+        : { 
+            role, 
+            city, 
+            qualifications, 
+            first_name: firstName.trim(), 
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`
+          };
 
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: { 
           data: additionalData,
@@ -105,36 +136,29 @@ export default function SignUp() {
         setMessage(`Грешка: ${error.message}`);
         setMessageType('error');
       } else {
-        // check if user is immediately logged in (email confirmation disabled)
-        const { data: { session } } = await supabase.auth.getSession();
+        setMessage('Успешно! Вие сте регистриран и влезли.');
+        setMessageType('success');
+        setFirstName('');
+        setLastName('');
+        setEmail('');
+        setPassword('');
+        setEmailError('');
+        setPasswordError('');
+        setGrade('');
+        setCity('');
+        setQualifications('');
         
-        if (session) {
-          // user is logged in immediately, redirect to home
-          setMessage('Успешно! Вие сте регистриран и влезли.');
-          setMessageType('success');
-          setEmail('');
-          setPassword('');
-          setEmailError('');
-          setPasswordError('');
-          setGrade('');
-          setCity('');
-          setQualifications('');
-          
-          setTimeout(() => {
+        // wait for session to be established then redirect
+        const checkSession = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
             window.location.href = '/home';
-          }, 1500);
-        } else {
-          // email confirmation required
-          setMessage('Успешно! Моля проверете имейла си за потвърждение преди влизане.');
-          setMessageType('success');
-          setEmail('');
-          setPassword('');
-          setEmailError('');
-          setPasswordError('');
-          setGrade('');
-          setCity('');
-          setQualifications('');
-        }
+          } else {
+            // retry after a short delay
+            setTimeout(checkSession, 100);
+          }
+        };
+        setTimeout(checkSession, 100);
       }
     } catch (error) {
       setMessage('Нещо се обърка!');
@@ -184,6 +208,26 @@ export default function SignUp() {
           <div className="px-10 pt-12 pb-10">
             <form onSubmit={handleSignUp} className="space-y-8">
               
+              {/* name fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <InputField
+                  id="firstName"
+                  label="Име"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Иван"
+                />
+                <InputField
+                  id="lastName"
+                  label="Фамилия"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Иванов"
+                />
+              </div>
+
               {/* email field */}
               <InputField
                 id="email"

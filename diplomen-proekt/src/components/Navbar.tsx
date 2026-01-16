@@ -40,7 +40,9 @@ export const Navbar = () => {
 
     const isActive = (path: string) => location.pathname === path;
     const { signOut, user, role, loading } = useAuth();
-    const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const userMetadata = user?.user_metadata as any;
+    const fullName = userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
+    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
 
     // Close dropdown when clicking outside

@@ -22,14 +22,7 @@ export default function Login() {
       });
 
       if (error) {
-        // Remove email confirmation related error messages
-        let errorMessage = error.message;
-        if (errorMessage.includes('Email not confirmed') || 
-            errorMessage.includes('email confirmation') ||
-            errorMessage.includes('verify')) {
-          errorMessage = 'Грешен имейл или парола.';
-        }
-        setMessage('Грешка: ' + errorMessage);
+        setMessage('Грешка: ' + error.message);
         setMessageType('error');
       } else {
         setMessage('Успешно влизане! Пренасочване...');
