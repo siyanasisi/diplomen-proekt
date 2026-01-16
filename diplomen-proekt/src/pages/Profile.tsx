@@ -22,10 +22,19 @@ export const Profile = () => {
     const [editedQualifications, setEditedQualifications] = useState('');
     const [loadingUpdate, setLoadingUpdate] = useState(false);
     const [showAllEvents, setShowAllEvents] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (user) {
             loadUserData();
+            //load avatar URL from user metadata
+            const userMetadata = user.user_metadata as any;
+            if (userMetadata?.avatar_url) {
+                setAvatarUrl(userMetadata.avatar_url);
+            } else {
+                setAvatarUrl(null);
+            }
         } else if (!user && !loading) {
             // only redirect if we're sure the user is not logged in (not just loading)
             navigate("/login");
@@ -169,6 +178,128 @@ export const Profile = () => {
         }
     };
 
+    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!user || !event.target.files || event.target.files.length === 0) return;
+
+        const file = event.target.files[0];
+        
+        // validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Моля изберете валиден файл (изображение)');
+            return;
+        }
+
+        // validate file size max 2mb
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Файлът е твърде голям. Моля изберете изображение под 2MB');
+            return;
+        }
+
+        setUploadingAvatar(true);
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/avatar.${fileExt}`;
+            const filePath = `${fileName}`;
+
+
+            const oldAvatar = (user.user_metadata as any)?.avatar_url;
+            if (oldAvatar) {
+                const oldPath = oldAvatar.split('/').slice(-2).join('/'); // Get user_id/avatar.ext
+                await supabase.storage.from('profile-pictures').remove([oldPath]);
+            }
+
+            // upload new avatar
+            const { error: uploadError } = await supabase.storage
+                .from('profile-pictures')
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            // get public URL
+            const { data } = supabase.storage
+                .from('profile-pictures')
+                .getPublicUrl(filePath);
+
+            const publicUrl = data.publicUrl;
+
+            // update user metadata with new avatar URL
+            const { error: updateError } = await supabase.auth.updateUser({
+                data: { avatar_url: publicUrl }
+            });
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            // update local state immediately
+            setAvatarUrl(publicUrl);
+            
+            // wait for auth state change listener to update the user object
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // refresh user data to ensure everything is in sync
+            await loadUserData();
+            
+            alert('Профилната снимка е обновена успешно!');
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            alert(`Грешка при качване на снимката: ${error.message}`);
+        } finally {
+            setUploadingAvatar(false);
+            // reset file input
+            event.target.value = '';
+        }
+    };
+
+    const handleRemoveAvatar = async () => {
+        if (!user || !confirm('Сигурни ли сте, че искате да премахнете профилната си снимка?')) return;
+
+        try {
+            const userMetadata = user.user_metadata as any;
+            const avatarUrl = userMetadata?.avatar_url;
+
+            if (avatarUrl) {
+                // extract path from URL
+                const urlParts = avatarUrl.split('/');
+                const filePath = urlParts.slice(-2).join('/'); 
+
+                // delete from storage
+                const { error: deleteError } = await supabase.storage
+                    .from('profile-pictures')
+                    .remove([filePath]);
+
+                if (deleteError) {
+                    console.error('Error deleting avatar:', deleteError);
+                }
+            }
+
+            // remove avatar_url from user metadata
+            const { error: updateError } = await supabase.auth.updateUser({
+                data: { avatar_url: null }
+            });
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            setAvatarUrl(null);
+            
+            // wait for auth state change listener to update the user object
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // refresh user data to ensure everything is in sync
+            await loadUserData();
+            
+            alert('Профилната снимка е премахната успешно!');
+        } catch (error: any) {
+            console.error('Error removing avatar:', error);
+            alert(`Грешка при премахване на снимката: ${error.message}`);
+        }
+    };
+
     // Get last 6 months for chart
     const getLastMonths = () => {
         const months: string[] = [];
@@ -197,6 +328,9 @@ export const Profile = () => {
     const grade = userMetadata?.grade;
     const city = userMetadata?.city;
     const qualifications = userMetadata?.qualifications;
+    
+    // use avatarUrl state or fallback to user metadata
+    const currentAvatarUrl = avatarUrl || userMetadata?.avatar_url || null;
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: '#eef4f7' }}>
@@ -238,21 +372,72 @@ export const Profile = () => {
                         {/* profile Card  */}
                         <div className="bg-white rounded-2xl p-8 shadow-xl border" style={{ borderColor: '#dceaef' }}>
                             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
-                                <div className="relative">
-                                    <div 
-                                        className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-4xl font-bold shadow-2xl"
-                                        style={{ 
-                                            background: role === 'teacher' 
-                                                ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
-                                                : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
-                                        }}
-                                    >
-                                        {displayName.charAt(0).toUpperCase()}
+                                <div className="relative group">
+                                    <div className="relative">
+                                        {currentAvatarUrl ? (
+                                            <img 
+                                                src={currentAvatarUrl} 
+                                                alt={displayName}
+                                                className="w-24 h-24 rounded-2xl object-cover shadow-2xl"
+                                            />
+                                        ) : (
+                                            <div 
+                                                className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-4xl font-bold shadow-2xl"
+                                                style={{ 
+                                                    background: role === 'teacher' 
+                                                        ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
+                                                        : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
+                                                }}
+                                            >
+                                                {displayName.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: '#80cc33' }}>
+                                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: '#80cc33' }}>
-                                        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
+                                    {/* Upload overlay on hover */}
+                                    <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <label className="cursor-pointer">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleAvatarUpload}
+                                                    className="hidden"
+                                                    disabled={uploadingAvatar}
+                                                />
+                                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold bg-white/20 hover:bg-white/30 transition-colors">
+                                                    {uploadingAvatar ? (
+                                                        <>
+                                                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                            Качване...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                            </svg>
+                                                            {currentAvatarUrl ? 'Смени' : 'Добави'}
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </label>
+                                            {currentAvatarUrl && (
+                                                <button
+                                                    onClick={handleRemoveAvatar}
+                                                    className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold bg-red-500/80 hover:bg-red-600/80 transition-colors"
+                                                    disabled={uploadingAvatar}
+                                                >
+                                                    Премахни
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex-1">
