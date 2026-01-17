@@ -133,7 +133,67 @@ export default function SignUp() {
       });
 
       if (error) {
-        setMessage(`Грешка: ${error.message}`);
+        // log error for debugging
+        console.error('SignUp error:', error);
+        console.error('Error message:', error.message);
+        console.error('Error status:', (error as any).status);
+        console.error('Error code:', (error as any).code);
+        
+        let errorMessage = error.message;
+        const errorLower = error.message.toLowerCase();
+        const errorStatus = (error as any).status;
+        const errorCode = (error as any).code;
+        
+        // check if user_already_exists error  verify if account is usable
+        if (
+          errorStatus === 422 || 
+          errorCode === 'user_already_registered' ||
+          errorCode === 'user_already_exists' ||
+          (errorLower.includes('user already registered') || errorLower.includes('user already exists'))
+        ) {
+          // try to check if the user can sign in
+          try {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: email.trim(),
+              password: password,
+            });
+            
+            if (!signInError && signInData.user) {
+              setMessage('Успешно! Вие сте влезли в акаунта си.');
+              setMessageType('success');
+              setLoading(false);
+              
+              const checkSession = async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                  navigate('/home');
+                } else {
+                  setTimeout(checkSession, 100);
+                }
+              };
+              setTimeout(checkSession, 100);
+              return;
+            } else if (signInError) {
+              if (signInError.message.includes('Invalid login') || signInError.message.includes('password')) {
+                errorMessage = 'Този имейл адрес вече е регистриран, но паролата е неправилна. Моля опитайте да влезете или използвайте "Забравена парола".';
+              } else {
+                errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си.';
+              }
+            }
+          } catch (checkError) {
+            errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си или използвайте друг имейл.';
+          }
+        } else if (errorLower.includes('invalid email') || errorLower.includes('email format')) {
+          errorMessage = 'Невалиден имейл адрес. Моля проверете имейла си.';
+        } else if (errorLower.includes('password') && (errorLower.includes('weak') || errorLower.includes('short'))) {
+          errorMessage = 'Паролата не отговаря на изискванията. Моля проверете изискванията.';
+        } else if (errorLower.includes('rate limit') || errorLower.includes('too many')) {
+          errorMessage = 'Твърде много опити. Моля изчакайте малко и опитайте отново.';
+        } else {
+          errorMessage = error.message || 'Възникна грешка при регистрация. Моля опитайте отново.';
+        }
+        
+        setMessage(`Грешка: ${errorMessage}`);
         setMessageType('error');
       } else {
         setMessage('Успешно! Вие сте регистриран и влезли.');

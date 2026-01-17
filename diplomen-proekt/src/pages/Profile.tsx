@@ -30,6 +30,10 @@ export const Profile = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [changingPassword, setChangingPassword] = useState(false);
+    const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deletingAccount, setDeletingAccount] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -117,6 +121,92 @@ export const Profile = () => {
     const handleSignOut = async () => {
         await signOut();
         navigate("/");
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!user) return;
+
+        if (!deletePassword) {
+            alert('Моля въведете паролата си за потвърждение');
+            return;
+        }
+        if (deleteConfirmText !== 'ИЗТРИЙ') {
+            alert('Моля напишете "ИЗТРИЙ" за потвърждение');
+            return;
+        }
+
+        if (!user.email) {
+            alert('Email не е наличен');
+            return;
+        }
+
+        setDeletingAccount(true);
+
+        try {
+            const { error: verifyError } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: deletePassword,
+            });
+
+            if (verifyError) {
+                alert('Паролата е неправилна. Моля опитайте отново.');
+                setDeletingAccount(false);
+                return;
+            }
+
+            const { error: eventsError } = await supabase
+                .from('calendar_events')
+                .delete()
+                .eq('user_id', user.id);
+
+            if (eventsError) {
+                console.error('Error deleting events:', eventsError);
+            }
+
+            const { error: statsError } = await supabase
+                .from('user_stats')
+                .delete()
+                .eq('user_id', user.id);
+
+            if (statsError) {
+                console.error('Error deleting stats:', statsError);
+            }
+
+            // Delete profile picture from storage
+            const userMetadata = user.user_metadata as any;
+            const avatarUrl = userMetadata?.avatar_url;
+            if (avatarUrl) {
+                try {
+                    const urlParts = avatarUrl.split('/');
+                    const filePath = urlParts.slice(-2).join('/');
+                    await supabase.storage
+                        .from('profile-pictures')
+                        .remove([filePath]);
+                } catch (storageError) {
+                    console.error('Error deleting avatar:', storageError);
+                }
+            }
+
+            // Optionally call database function to delete auth user
+            // Uncomment this if you've created the delete_user_account function in Supabase
+            // const { error: deleteUserError } = await supabase.rpc('delete_user_account', {
+            //     user_id_to_delete: user.id
+            // });
+            // if (deleteUserError) {
+            //     console.error('Error deleting auth user:', deleteUserError);
+            // }
+
+            alert('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
+            
+            // Sign out and redirect
+            await signOut();
+            navigate("/");
+        } catch (error: any) {
+            console.error('Error deleting account:', error);
+            alert(`Грешка при изтриване на акаунта: ${error.message}`);
+        } finally {
+            setDeletingAccount(false);
+        }
     };
 
     const formatDate = (dateStr: string) => {
@@ -1010,6 +1100,15 @@ export const Profile = () => {
                                     </svg>
                                     Изход от профил
                                 </button>
+                                <button
+                                    onClick={() => setShowDeleteAccount(true)}
+                                    className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700 shadow-lg hover:shadow-xl"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Изтрий акаунт
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1152,6 +1251,114 @@ export const Profile = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+
+            {/* delete account modal */}
+            {showDeleteAccount && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 border-2 border-red-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-2xl font-extrabold text-red-600">Изтрий акаунт</h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowDeleteAccount(false);
+                                    setDeletePassword('');
+                                    setDeleteConfirmText('');
+                                }}
+                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                                disabled={deletingAccount}
+                            >
+                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-200">
+                                <p className="text-sm font-semibold text-red-800 mb-2">⚠️ Внимание: Това действие е необратимо!</p>
+                                <ul className="text-xs text-red-700 space-y-1 list-disc list-inside">
+                                    <li>Всички ваши събития ще бъдат изтрити</li>
+                                    <li>Всички статистики ще бъдат загубени</li>
+                                    <li>Профилната ви снимка ще бъде премахната</li>
+                                    <li>Няма да можете да възстановите акаунта си</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold mb-2 text-slate-700">Потвърди с парола</label>
+                                <input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => setDeletePassword(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-red-200 focus:ring-4 focus:ring-red-300 focus:outline-none transition-all"
+                                    placeholder="Въведете паролата си"
+                                    required
+                                    disabled={deletingAccount}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold mb-2 text-slate-700">
+                                    Напишете <span className="font-extrabold text-red-600">ИЗТРИЙ</span> за потвърждение
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border-2 border-red-200 focus:ring-4 focus:ring-red-300 focus:outline-none transition-all uppercase"
+                                    placeholder="ИЗТРИЙ"
+                                    required
+                                    disabled={deletingAccount}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowDeleteAccount(false);
+                                        setDeletePassword('');
+                                        setDeleteConfirmText('');
+                                    }}
+                                    className="flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200 text-slate-700 hover:from-slate-100 hover:to-slate-200"
+                                    disabled={deletingAccount}
+                                >
+                                    Откажи
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteAccount}
+                                    disabled={deletingAccount || deleteConfirmText !== 'ИЗТРИЙ' || !deletePassword}
+                                    className="flex-1 px-5 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                    style={{ 
+                                        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                                    }}
+                                >
+                                    {deletingAccount ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Изтриване...
+                                        </span>
+                                    ) : (
+                                        'Изтрий завинаги'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
