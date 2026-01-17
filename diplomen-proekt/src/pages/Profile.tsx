@@ -1,5 +1,5 @@
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
@@ -34,24 +34,16 @@ export const Profile = () => {
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deletingAccount, setDeletingAccount] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    useEffect(() => {
-        if (user) {
-            loadUserData();
-            //load avatar URL from user metadata
-            const userMetadata = user.user_metadata as any;
-            if (userMetadata?.avatar_url) {
-                setAvatarUrl(userMetadata.avatar_url);
-            } else {
-                setAvatarUrl(null);
-            }
-        } else if (!user && !loading) {
-            // only redirect if we're sure the user is not logged in (not just loading)
-            navigate("/login");
-        }
-    }, [user, navigate, loading]);
+    // show notification and hide after 3s
+    const showNotification = useCallback((type: 'success' | 'error', message: string) => {
+        setNotification({ type, message });
+        setTimeout(() => setNotification(null), 3000);
+    }, []);
 
-    const loadUserData = async () => {
+    const loadUserData = useCallback(async () => {
         if (!user) return;
 
         // Load user stats 
@@ -140,7 +132,24 @@ export const Profile = () => {
                 setRecentActivity(recent);
             }
         }
-    };
+    }, [user, role]);
+
+    useEffect(() => {
+        if (user) {
+            setIsLoadingData(true);
+            loadUserData().finally(() => setIsLoadingData(false));
+            //load avatar URL from user metadata
+            const userMetadata = user.user_metadata as any;
+            if (userMetadata?.avatar_url) {
+                setAvatarUrl(userMetadata.avatar_url);
+            } else {
+                setAvatarUrl(null);
+            }
+        } else if (!user && !loading) {
+            // only redirect if we're sure the user is not logged in (not just loading)
+            navigate("/login");
+        }
+    }, [user, navigate, loading, loadUserData]);
 
     const handleSignOut = async () => {
         await signOut();
@@ -173,7 +182,7 @@ export const Profile = () => {
             });
 
             if (verifyError) {
-                alert('Паролата е неправилна. Моля опитайте отново.');
+                showNotification('error', 'Паролата е неправилна. Моля опитайте отново.');
                 setDeletingAccount(false);
                 return;
             }
@@ -258,23 +267,24 @@ export const Profile = () => {
 
             if (error) {
                 console.error('Error updating profile:', error);
-                alert('Грешка при обновяване на профила');
+                showNotification('error', 'Грешка при обновяване на профила');
             } else {
                 // wait for auth state change to propagate (onAuthStateChange in AuthContext will update user)
                 // then reload our local data without full page reload
                 await new Promise(resolve => setTimeout(resolve, 300));
                 await loadUserData();
                 setEditMode(false);
+                showNotification('success', 'Профилът е обновен успешно!');
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Грешка при обновяване на профила');
+            showNotification('error', 'Грешка при обновяване на профила');
         } finally {
             setLoadingUpdate(false);
         }
     };
 
-    const handleDeleteEvent = async (eventId: string) => {
+    const handleDeleteEvent = useCallback(async (eventId: string) => {
         if (!confirm('Сигурни ли сте, че искате да изтриете това събитие?')) return;
 
         const { error } = await supabase
@@ -284,12 +294,12 @@ export const Profile = () => {
 
         if (error) {
             console.error('Error deleting event:', error);
-            alert('Грешка при изтриване на събитието');
+            showNotification('error', 'Грешка при изтриване на събитието');
         } else {
-           
+            showNotification('success', 'Събитието е изтрито успешно');
             loadUserData();
         }
-    };
+    }, [showNotification, loadUserData]);
 
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!user || !event.target.files || event.target.files.length === 0) return;
@@ -353,13 +363,12 @@ export const Profile = () => {
             
             await loadUserData();
             
-            alert('Профилната снимка е обновена успешно!');
+            showNotification('success', 'Профилната снимка е обновена успешно!');
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
-            alert(`Грешка при качване на снимката: ${error.message}`);
+            showNotification('error', `Грешка при качване на снимката: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
-
             event.target.value = '';
         }
     };
@@ -443,7 +452,7 @@ export const Profile = () => {
                 throw updateError;
             }
 
-            alert('Паролата е променена успешно!');
+            showNotification('success', 'Паролата е променена успешно!');
             setShowChangePassword(false);
             setCurrentPassword('');
             setNewPassword('');
@@ -518,14 +527,31 @@ export const Profile = () => {
     const last6Months = getLastMonths();
     const maxMonthlyEvents = Math.max(...Object.values(monthlyEvents), 1);
 
+
+    
     if (!user) return null;
 
-    const userMetadata = user.user_metadata as any;
+    // Memoize computed values 
+    const userMetadata = useMemo(() => (user.user_metadata as any) || {}, [user]);
+    const displayName = useMemo(() => {
+        const firstName = userMetadata?.first_name;
+        const lastName = userMetadata?.last_name;
+        const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
+        return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    }, [userMetadata, user.email, role]);
+    
+    const memberSince = useMemo(() => {
+        if (!user.created_at) return '';
+        try {
+            return new Date(user.created_at).toLocaleDateString('bg-BG', { month: 'long', year: 'numeric' });
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return '';
+        }
+    }, [user.created_at]);
+
     const firstName = userMetadata?.first_name;
     const lastName = userMetadata?.last_name;
-    const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
-    const displayName = fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
-    const memberSince = new Date(user.created_at).toLocaleDateString('bg-BG', { month: 'long', year: 'numeric' });
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
     const grade = userMetadata?.grade;
     const city = userMetadata?.city;
@@ -536,6 +562,51 @@ export const Profile = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+            {/* notification toast */}
+            {notification && (
+                <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-5 duration-300">
+                    <div className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border-2 flex items-center gap-3 ${
+                        notification.type === 'success' 
+                            ? 'bg-emerald-50/90 border-emerald-200 text-emerald-800' 
+                            : 'bg-red-50/90 border-red-200 text-red-800'
+                    }`}>
+                        {notification.type === 'success' ? (
+                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                        ) : (
+                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                        )}
+                        <p className="font-semibold text-sm">{notification.message}</p>
+                        <button
+                            onClick={() => setNotification(null)}
+                            className="ml-2 p-1 rounded-lg hover:bg-black/10 transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* loading overlay */}
+            {isLoadingData && (
+                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
+                    <div className="bg-white rounded-3xl p-8 shadow-2xl">
+                        <div className="flex flex-col items-center gap-4">
+                            <svg className="animate-spin w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p className="text-sm font-semibold text-slate-700">Зареждане на данни...</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* header */}
             <header className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
                 <div className="absolute inset-0">
