@@ -53,12 +53,15 @@ export const Home = () => {
             .from('user_stats')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Error loading stats:', error);
         } else if (data) {
             setLongestStreak(data.longest_streak || 0);
+        } else {
+            // No stats row exists - use default
+            setLongestStreak(0);
         }
     };
 

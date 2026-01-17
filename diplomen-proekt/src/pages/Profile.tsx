@@ -54,17 +54,41 @@ export const Profile = () => {
     const loadUserData = async () => {
         if (!user) return;
 
-        // Load user stats
-        const { data: statsData } = await supabase
+        // Load user stats 
+        const { data: statsData, error: statsError } = await supabase
             .from('user_stats')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-        if (statsData) {
+        if (statsError) {
+            console.warn('Could not load user stats:', statsError);
+            setCurrentStreak(0);
+            setLongestStreak(0);
+            setEarnedPoints(0);
+        } else if (statsData) {
+
             setCurrentStreak(statsData.current_streak || 0);
             setLongestStreak(statsData.longest_streak || 0);
             setEarnedPoints(statsData.earned_points || 0);
+        } else {
+            // no stats row exists - create one with defaults
+            const { error: insertError } = await supabase
+                .from('user_stats')
+                .insert({
+                    user_id: user.id,
+                    current_streak: 0,
+                    longest_streak: 0,
+                    earned_points: 0
+                });
+
+            if (insertError) {
+                console.warn('Could not create user stats:', insertError);
+            }
+            
+            setCurrentStreak(0);
+            setLongestStreak(0);
+            setEarnedPoints(0);
         }
 
         // Load events
@@ -172,7 +196,7 @@ export const Profile = () => {
                 console.error('Error deleting stats:', statsError);
             }
 
-            // Delete profile picture from storage
+            // delete profile picture from storage
             const userMetadata = user.user_metadata as any;
             const avatarUrl = userMetadata?.avatar_url;
             if (avatarUrl) {
@@ -187,18 +211,11 @@ export const Profile = () => {
                 }
             }
 
-            // Optionally call database function to delete auth user
-            // Uncomment this if you've created the delete_user_account function in Supabase
-            // const { error: deleteUserError } = await supabase.rpc('delete_user_account', {
-            //     user_id_to_delete: user.id
-            // });
-            // if (deleteUserError) {
-            //     console.error('Error deleting auth user:', deleteUserError);
-            // }
 
             alert('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
             
-            // Sign out and redirect
+
+
             await signOut();
             navigate("/");
         } catch (error: any) {
