@@ -1,6 +1,6 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
-import { supabase } from "../supabase-client";
+import { supabase, refreshSessionIfNeeded } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Home = () => {
@@ -30,12 +30,36 @@ export const Home = () => {
     const loadEvents = async () => {
         if (!user) return;
         
+        await refreshSessionIfNeeded();
+        
         const { data, error } = await supabase
             .from('calendar_events')
             .select('*')
             .eq('user_id', user.id);
 
         if (error) {
+            // if still getting auth error - refresh sessionn
+            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                const refreshedSession = await refreshSessionIfNeeded();
+                if (refreshedSession) {
+                    // retry request 
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('calendar_events')
+                        .select('*')
+                        .eq('user_id', user.id);
+                    
+                    if (retryError) {
+                        console.error('Error loading events:', retryError);
+                    } else if (retryData) {
+                        const eventsMap: { [key: string]: string } = {};
+                        retryData.forEach(event => {
+                            eventsMap[event.date] = event.event_text;
+                        });
+                        setEvents(eventsMap);
+                    }
+                    return;
+                }
+            }
             console.error('Error loading events:', error);
         } else if (data) {
             const eventsMap: { [key: string]: string } = {};
@@ -49,6 +73,8 @@ export const Home = () => {
     const loadUserStats = async () => {
         if (!user) return;
 
+        await refreshSessionIfNeeded();
+
         const { data, error } = await supabase
             .from('user_stats')
             .select('*')
@@ -56,6 +82,27 @@ export const Home = () => {
             .maybeSingle();
 
         if (error) {
+            // If still getting auth error  refresh session
+            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                const refreshedSession = await refreshSessionIfNeeded();
+                if (refreshedSession) {
+                    // retry request
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('user_stats')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    
+                    if (retryError) {
+                        console.error('Error loading stats:', retryError);
+                    } else if (retryData) {
+                        setLongestStreak(retryData.longest_streak || 0);
+                    } else {
+                        setLongestStreak(0);
+                    }
+                    return;
+                }
+            }
             console.error('Error loading stats:', error);
         } else if (data) {
             setLongestStreak(data.longest_streak || 0);

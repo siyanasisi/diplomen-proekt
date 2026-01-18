@@ -1,6 +1,6 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase } from "../supabase-client";
+import { supabase, refreshSessionIfNeeded } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Profile = () => {
@@ -40,13 +40,24 @@ export const Profile = () => {
     // show notification and hide after 3s
     const showNotification = useCallback((type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
-        setTimeout(() => setNotification(null), 3000);
+        setTimeout(() => {
+            setNotification((prev) => {
+                // Only clear if this is still the current notification
+                if (prev?.type === type && prev?.message === message) {
+                    return null;
+                }
+                return prev;
+            });
+        }, 3000);
     }, []);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
-
-        // Load user stats 
+ 
+        try {
+        
+            await refreshSessionIfNeeded();
+        
         const { data: statsData, error: statsError } = await supabase
             .from('user_stats')
             .select('*')
@@ -132,24 +143,64 @@ export const Profile = () => {
                 setRecentActivity(recent);
             }
         }
+        } catch (error) {
+            console.error('Error in loadUserData:', error);
+            // Set defaults on error to prevent blank page
+            setCurrentStreak(0);
+            setLongestStreak(0);
+            setEarnedPoints(0);
+            setTotalEvents(0);
+            setUpcomingEvents([]);
+            setRecentActivity([]);
+            setAllEvents([]);
+            setMonthlyEvents({});
+        }
     }, [user, role]);
 
     useEffect(() => {
+        let isMounted = true;
+        
         if (user) {
             setIsLoadingData(true);
-            loadUserData().finally(() => setIsLoadingData(false));
-            //load avatar URL from user metadata
-            const userMetadata = user.user_metadata as any;
-            if (userMetadata?.avatar_url) {
-                setAvatarUrl(userMetadata.avatar_url);
-            } else {
-                setAvatarUrl(null);
-            }
+            loadUserData()
+                .then(() => {
+                    if (isMounted) {
+                        setIsLoadingData(false);
+                        //load avatar URL from user metadata
+                        const userMetadata = user.user_metadata as any;
+                        if (userMetadata?.avatar_url) {
+                            setAvatarUrl(userMetadata.avatar_url);
+                        } else {
+                            setAvatarUrl(null);
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error loading user data:', error);
+                    if (isMounted) {
+                        setIsLoadingData(false);
+                    }
+                });
         } else if (!user && !loading) {
             // only redirect if we're sure the user is not logged in (not just loading)
-            navigate("/login");
+            // Add a small delay to prevent flash of blank page
+            const redirectTimeout = setTimeout(() => {
+                if (isMounted) {
+                    navigate("/login");
+                }
+            }, 100);
+            
+            return () => {
+                isMounted = false;
+                clearTimeout(redirectTimeout);
+            };
         }
-    }, [user, navigate, loading, loadUserData]);
+        
+        return () => {
+            isMounted = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, navigate, loading]); // loadUserData is stable (useCallback with user, role deps)
 
     const handleSignOut = async () => {
         await signOut();
@@ -525,30 +576,50 @@ export const Profile = () => {
     };
 
     const last6Months = getLastMonths();
-    const maxMonthlyEvents = Math.max(...Object.values(monthlyEvents), 1);
+    const monthlyValues = Object.values(monthlyEvents);
+    const maxMonthlyEvents = monthlyValues.length > 0 ? Math.max(...monthlyValues, 1) : 1;
 
-
+    // Show loading state while checking authentication
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
+                <div className="text-center">
+                    <svg className="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-slate-600 font-medium">Зареждане...</p>
+                </div>
+            </div>
+        );
+    }
     
+    // If no user after loading, return null (will redirect in useEffect)
     if (!user) return null;
 
-    // Memoize computed values 
-    const userMetadata = useMemo(() => (user.user_metadata as any) || {}, [user]);
+    // Memoize computed values (user is guaranteed to be non-null here)
+    const userMetadata = useMemo(() => {
+        if (!user?.user_metadata) return {};
+        return (user.user_metadata as any) || {};
+    }, [user]);
+    
     const displayName = useMemo(() => {
+        if (!user) return 'Потребител';
         const firstName = userMetadata?.first_name;
         const lastName = userMetadata?.last_name;
         const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
         return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
-    }, [userMetadata, user.email, role]);
+    }, [userMetadata, user?.email, role]);
     
     const memberSince = useMemo(() => {
-        if (!user.created_at) return '';
+        if (!user?.created_at) return '';
         try {
             return new Date(user.created_at).toLocaleDateString('bg-BG', { month: 'long', year: 'numeric' });
         } catch (error) {
             console.error('Error formatting date:', error);
             return '';
         }
-    }, [user.created_at]);
+    }, [user?.created_at]);
 
     const firstName = userMetadata?.first_name;
     const lastName = userMetadata?.last_name;
@@ -613,27 +684,27 @@ export const Profile = () => {
                     <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-pink-500/20 blur-[120px] animate-pulse"></div>
                     <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-emerald-500/20 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
                 </div>
-                <div className="relative max-w-7xl mx-auto px-4 md:px-8 py-12">
+                <div className="relative max-w-7xl mx-auto px-4 md:px-8 py-14 md:py-16">
                     <button
                         onClick={() => navigate("/home")}
-                        className="text-white/70 hover:text-white flex items-center gap-2 mb-8 transition-all duration-200 text-sm font-medium group hover:gap-3"
+                        className="text-white/70 hover:text-white flex items-center gap-2 mb-10 transition-all duration-200 text-sm font-medium group"
                     >
                         <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                         <span>Назад към начало</span>
                     </button>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                         <div>
-                            <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-2 tracking-tight">Моят профил</h1>
-                            <p className="text-white/60 text-sm font-medium">Управление на акаунта и настройки</p>
+                            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight leading-tight">Моят профил</h1>
+                            <p className="text-white/70 text-base font-medium">Управление на акаунта и настройки</p>
                         </div>
                         {role === 'student' && (
-                            <div className="flex items-center gap-3 px-5 py-3 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-xl">
-                                <div className="text-2xl animate-pulse">🔥</div>
+                            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-xl hover:bg-white/15 transition-all duration-300">
+                                <div className="text-3xl">🔥</div>
                                 <div>
-                                    <div className="text-2xl font-bold text-white leading-none">{currentStreak}</div>
-                                    <div className="text-xs text-white/70 font-medium">дни серия</div>
+                                    <div className="text-3xl font-bold text-white leading-none tabular-nums">{currentStreak}</div>
+                                    <div className="text-xs text-white/70 font-medium mt-0.5">дни серия</div>
                                 </div>
                             </div>
                         )}
@@ -646,154 +717,199 @@ export const Profile = () => {
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* profile card */}
-                        <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-10 shadow-2xl border border-white/50 hover:shadow-3xl transition-all duration-300">
-                            <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-10">
-                                <div className="relative group">
-                                    <div className="relative">
-                                        {currentAvatarUrl ? (
-                                            <img 
-                                                src={currentAvatarUrl} 
-                                                alt={displayName}
-                                                className="w-32 h-32 rounded-3xl object-cover shadow-2xl ring-4 ring-white/50"
-                                            />
-                                        ) : (
-                                            <div 
-                                                className="w-32 h-32 rounded-3xl flex items-center justify-center text-white text-5xl font-bold shadow-2xl ring-4 ring-white/50"
-                                                style={{ 
-                                                    background: role === 'teacher' 
-                                                        ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
-                                                        : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
-                                                }}
-                                            >
-                                                {displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
-                                        <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-                                            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    {/*  upload overlay */}
-                                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/80 via-black/60 to-black/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer backdrop-blur-sm">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <label className="cursor-pointer">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleAvatarUpload}
-                                                    className="hidden"
-                                                    disabled={uploadingAvatar}
+                        <div className="relative overflow-hidden bg-gradient-to-br from-white via-white to-slate-50/50 rounded-3xl shadow-2xl border border-slate-200/60 hover:shadow-3xl transition-all duration-500">
+                            {/* Decorative background elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-100/30 to-purple-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-pink-100/30 to-rose-100/30 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                            
+                            <div className="relative p-8 md:p-12">
+                                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8 lg:gap-12 mb-8">
+                                    {/* Avatar Section */}
+                                    <div className="relative group flex-shrink-0">
+                                        <div className="relative">
+                                            {currentAvatarUrl ? (
+                                                <img 
+                                                    src={currentAvatarUrl} 
+                                                    alt={displayName}
+                                                    className="w-36 h-36 md:w-40 md:h-40 rounded-3xl object-cover shadow-2xl ring-4 ring-white/80 transition-transform duration-300 group-hover:scale-105"
                                                 />
-                                                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all duration-200 hover:scale-105 border border-white/30">
-                                                    {uploadingAvatar ? (
-                                                        <>
-                                                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                            Качване...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                            </svg>
-                                                            {currentAvatarUrl ? 'Смени' : 'Добави'}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </label>
-                                            {currentAvatarUrl && (
-                                                <button
-                                                    onClick={handleRemoveAvatar}
-                                                    className="px-4 py-2 rounded-xl text-white text-sm font-semibold bg-red-500/90 hover:bg-red-600/90 backdrop-blur-md transition-all duration-200 hover:scale-105 border border-red-400/30"
-                                                    disabled={uploadingAvatar}
-                                                >
-                                                    Премахни
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <h2 className="text-4xl font-extrabold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">{displayName}</h2>
-                                            {roleLabel && (
-                                                <span 
-                                                    className="px-4 py-1.5 text-xs font-bold rounded-full text-white shadow-lg"
+                                            ) : (
+                                                <div 
+                                                    className="w-36 h-36 md:w-40 md:h-40 rounded-3xl flex items-center justify-center text-white text-6xl font-bold shadow-2xl ring-4 ring-white/80 transition-transform duration-300 group-hover:scale-105"
                                                     style={{ 
                                                         background: role === 'teacher' 
                                                             ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
                                                             : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
                                                     }}
                                                 >
-                                                    {roleLabel}
-                                                </span>
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
                                             )}
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                setEditMode(true);
-                                                setEditedFirstName(firstName || '');
-                                                setEditedLastName(lastName || '');
-                                                setEditedCity(city || '');
-                                                setEditedQualifications(qualifications || '');
-                                            }}
-                                            className="px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-105 border-2 flex items-center gap-2 shadow-md hover:shadow-lg bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200 text-slate-700 hover:from-slate-100 hover:to-slate-200"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Редактирай
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-                                            <div className="p-2 rounded-lg bg-blue-100">
-                                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            {/* Online status badge */}
+                                            <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-white bg-gradient-to-br from-emerald-400 to-emerald-600">
+                                                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                                 </svg>
                                             </div>
-                                            <p className="text-sm font-semibold text-slate-700">{user.email}</p>
                                         </div>
-                                        {city && (
-                                            <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100">
-                                                <div className="p-2 rounded-lg bg-emerald-100">
-                                                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
+                                        {/* Upload overlay */}
+                                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/90 via-black/70 to-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer backdrop-blur-md">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <label className="cursor-pointer">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleAvatarUpload}
+                                                        className="hidden"
+                                                        disabled={uploadingAvatar}
+                                                    />
+                                                    <div className="flex items-center gap-2 px-5 py-3 rounded-xl text-white text-sm font-bold bg-white/25 hover:bg-white/35 backdrop-blur-md transition-all duration-200 hover:scale-110 border-2 border-white/40 shadow-xl">
+                                                        {uploadingAvatar ? (
+                                                            <>
+                                                                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                Качване...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                                {currentAvatarUrl ? 'Смени' : 'Добави'}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </label>
+                                                {currentAvatarUrl && (
+                                                    <button
+                                                        onClick={handleRemoveAvatar}
+                                                        className="px-5 py-2.5 rounded-xl text-white text-sm font-bold bg-red-500/90 hover:bg-red-600/90 backdrop-blur-md transition-all duration-200 hover:scale-110 border-2 border-red-400/50 shadow-lg"
+                                                        disabled={uploadingAvatar}
+                                                    >
+                                                        Премахни
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Profile Info Section */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+                                            <div className="space-y-3">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent">
+                                                        {displayName}
+                                                    </h2>
+                                                    {roleLabel && (
+                                                        <span 
+                                                            className="px-5 py-2 text-sm font-bold rounded-full text-white shadow-lg transform hover:scale-105 transition-transform"
+                                                            style={{ 
+                                                                background: role === 'teacher' 
+                                                                    ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
+                                                                    : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
+                                                            }}
+                                                        >
+                                                            {roleLabel}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <p className="text-sm font-semibold text-slate-700">
-                                                    {city}
-                                                    {role === 'student' && grade && ` • ${grade} клас`}
+                                                <p className="text-slate-600 font-medium flex items-center gap-2">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                    Активен профил
                                                 </p>
                                             </div>
-                                        )}
-                                        {role === 'teacher' && qualifications && (
-                                            <div className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100">
-                                                <div className="p-2 rounded-lg bg-purple-100 mt-0.5">
-                                                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                                    </svg>
-                                                </div>
-                                                <p className="text-sm font-semibold text-slate-700">Квалификации: {qualifications}</p>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
-                                            <div className="p-2 rounded-lg bg-amber-100">
-                                                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            <button
+                                                onClick={() => {
+                                                    setEditMode(true);
+                                                    setEditedFirstName(firstName || '');
+                                                    setEditedLastName(lastName || '');
+                                                    setEditedCity(city || '');
+                                                    setEditedQualifications(qualifications || '');
+                                                }}
+                                                className="px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200 hover:scale-105 border-2 flex items-center gap-2 shadow-lg hover:shadow-xl bg-gradient-to-r from-slate-50 to-white border-slate-300 text-slate-800 hover:from-slate-100 hover:to-slate-50 whitespace-nowrap"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
+                                                Редактирай профил
+                                            </button>
+                                        </div>
+
+                                        {/* Info Cards Grid */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border-2 border-blue-200/50 hover:border-blue-300 transition-all duration-300 hover:shadow-lg">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Имейл</p>
+                                                        <p className="text-sm font-bold text-slate-800 truncate">{user.email}</p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <p className="text-xs font-semibold text-slate-600">Член от {memberSince}</p>
+
+                                            {city && (
+                                                <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-200/50 hover:border-emerald-300 transition-all duration-300 hover:shadow-lg">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Град</p>
+                                                            <p className="text-sm font-bold text-slate-800">
+                                                                {city}
+                                                                {role === 'student' && grade && <span className="text-emerald-600"> • {grade} клас</span>}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {role === 'teacher' && qualifications && (
+                                                <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 border-2 border-purple-200/50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg sm:col-span-2">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Квалификации</p>
+                                                            <p className="text-sm font-bold text-slate-800">{qualifications}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-200/50 hover:border-amber-300 transition-all duration-300 hover:shadow-lg sm:col-span-2">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Член от</p>
+                                                        <p className="text-sm font-bold text-slate-800">{memberSince}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
+                            
                             {/* stats grid - only for students */}
                             {role === 'student' && (
                                 <>
