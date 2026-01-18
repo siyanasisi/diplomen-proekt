@@ -16,7 +16,7 @@ export default function Login() {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
@@ -28,10 +28,17 @@ export default function Login() {
         setMessage('Успешно влизане! Пренасочване...');
         setMessageType('success');
         
-        // Redirect to home page after 1 second
-        setTimeout(() => {
-          navigate('/home');
-        }, 1000);
+        // wait for session to be established then redirect
+        const checkSession = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            navigate('/home');
+          } else {
+            // retry after a short delay
+            setTimeout(checkSession, 100);
+          }
+        };
+        setTimeout(checkSession, 100);
       }
     } catch (error) {
       setMessage('Нещо се обърка!');

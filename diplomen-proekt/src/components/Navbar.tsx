@@ -1,164 +1,327 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
     const location = useLocation();
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const navLinks = [
-        { to: "/", label: "Начало" },
-        { to: "/matura-bel", label: "Матура БЕЛ" },
-        { to: "/matura-math", label: "Матура Математика" },
-        { to: "/find-tutor", label: "Намери преподавател" },
-        { to: "/make-plan", label: "Направи ми план" },
+        { 
+            to: "/home", 
+            label: "Начало", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+            )
+        },
+        { 
+            to: "/calendar", 
+            label: "Календар", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            )
+        },
+        { 
+            to: "/study", 
+            label: "Учене", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+            )
+        },
     ];
 
     const isActive = (path: string) => location.pathname === path;
-    const {signInWithGoogle, signOut, user} = useAuth();
-    const displayName = user?.user_metadata?.full_name || "User";
+    const { signOut, user, role, loading } = useAuth();
+    const userMetadata = user?.user_metadata as any;
+    const fullName = userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
+    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setDropdownOpen(false);
+            }
+        };
+
+        if (dropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [dropdownOpen]);
+
+    // Close mobile menu when route changes
+    useEffect(() => {
+        setMenuOpen(false);
+    }, [location.pathname]);
 
     return (
-        <nav className="bg-white/95 backdrop-blur-sm shadow-lg border-b border-rose-100 sticky top-0 z-50">
+        <nav className="bg-white/90 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-50 shadow-sm shadow-slate-900/5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-20">
+                <div className="flex justify-between items-center h-16">
+                    {/* Logo */}
                     <Link 
-                        to={"/"} 
-                        className="group flex items-center space-x-2 flex-shrink-0"
+                        to={user ? "/home" : "/"} 
+                        className="flex items-center gap-2.5 group"
                     >
-                        <span className="text-3xl font-extrabold bg-gradient-to-r from-rose-900 via-rose-700 to-rose-900 bg-clip-text text-transparent group-hover:from-rose-700 group-hover:to-rose-900 transition-all duration-300">
-                            Матура
-                        </span>
-                        <span className="text-3xl font-extrabold text-rose-600 group-hover:text-rose-700 group-hover:scale-110 transition-transform duration-300 inline-block">
-                            +
+                        <div className="relative">
+                            <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/20 group-hover:shadow-xl group-hover:shadow-slate-900/30 transition-all duration-300 group-hover:scale-105">
+                                <span className="text-white text-lg font-bold">М</span>
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 to-orange-500/20 rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
+                        </div>
+                        <span className="text-xl font-bold text-slate-900 hidden sm:block tracking-tight">
+                            Матура<span className="text-rose-600">+</span>
                         </span>
                     </Link>
 
-                    {/* desktop nav*/}
-                    <div className="hidden md:flex md:items-center md:flex-1 md:justify-center md:mx-4 lg:mx-8">
-                        <div className="flex items-center gap-6 lg:gap-8">
+                    {/* desktop navigation */}
+                    {!loading && user && (
+                        <div className="hidden md:flex items-center gap-1.5">
                             {navLinks.map((link) => (
                                 <Link
                                     key={link.to}
                                     to={link.to}
-                                    aria-current={isActive(link.to) ? 'page' : undefined}
-                                    className={`px-5 lg:px-6 py-3 text-lg font-semibold rounded-full transition-transform duration-200 transform shadow-sm whitespace-nowrap flex items-center justify-center ${
+                                    className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
                                         isActive(link.to)
-                                            ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-100 scale-105'
-                                            : 'text-gray-700 hover:text-rose-900 hover:bg-rose-50/40 hover:scale-105'
+                                            ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg shadow-slate-900/20 scale-105'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95'
                                     }`}
                                 >
-                                    {link.label}
+                                    <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                    <span>{link.label}</span>
+                                    {isActive(link.to) && (
+                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+                                    )}
                                 </Link>
                             ))}
                         </div>
-                    </div>
+                    )}
 
-  
-                    <div className="hidden md:flex md:items-center md:space-x-4 flex-shrink-0 md:min-w-[120px] lg:min-w-[160px]">
-
-                    </div>
-
-                    {/* desktop authc
-                    <div>
-                        {user ? (
-                            <div className="flex items-center space-x-4"> 
-                                <span className="mr-4 font-medium text-gray-700 bg-gradient-to-r from-rose-100 to-rose-200 px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                                    Здравей, {displayName}!
-                                </span>
-                                <button
-                                    onClick={() => signOut()}
-                                    className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-lg text-lg font-semibold transition-transform duration-300 transform hover:scale-105 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
-                                >
-                                    Изход
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center space-x-4">
-                                <button
-                                    onClick={() => signInWithGoogle()}
-                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                >
-                                    Sign in with Google
-                                </button>
-                                <Link
-                                    to="/signup"
-                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                >
-                                    Sign Up
-                                </Link>
+                    {/* desktop auth  */}
+                    <div className="hidden md:flex items-center gap-3">
+                        {!loading && !user && (
+                            <>
                                 <Link
                                     to="/login"
-                                    className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                    className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
                                 >
-                                    Log In
+                                    Вход
                                 </Link>
+                                <Link
+                                    to="/signup"
+                                    className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-rose-500/30 hover:shadow-lg hover:shadow-rose-500/40 transition-all duration-200 hover:scale-105 active:scale-100"
+                                >
+                                    Регистрация
+                                </Link>
+                            </>
+                        )}
+                        {!loading && user && (
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                                    className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
+                                >
+                                    <div className="relative">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                            {displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                                    </div>
+                                    <span className="text-sm font-semibold text-slate-900 max-w-[140px] truncate">
+                                        {displayName}
+                                    </span>
+                                    <svg 
+                                        className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {/* dropdown menu */}
+                                {dropdownOpen && (
+                                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/80 py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="px-4 py-3 bg-gradient-to-br from-slate-50 to-white border-b border-slate-100">
+                                            <p className="text-sm font-bold text-slate-900">{displayName}</p>
+                                            <p className="text-xs text-slate-500 truncate mt-0.5">{user.email}</p>
+                                            {roleLabel && (
+                                                <span className="inline-flex items-center mt-1.5 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <Link
+                                            to="/profile"
+                                            className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
+                                            onClick={() => setDropdownOpen(false)}
+                                        >
+                                            <div className="w-8 h-8 bg-slate-100 group-hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors">
+                                                <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                            </div>
+                                            Моят профил
+                                        </Link>
+                                        <Link
+                                            to="/settings"
+                                            className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
+                                            onClick={() => setDropdownOpen(false)}
+                                        >
+                                            <div className="w-8 h-8 bg-slate-100 group-hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors">
+                                                <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </div>
+                                            Настройки
+                                        </Link>
+                                        <div className="border-t border-slate-100 mt-1 pt-1">
+                                            <button
+                                                onClick={() => {
+                                                    setDropdownOpen(false);
+                                                    signOut();
+                                                }}
+                                                className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors group"
+                                            >
+                                                <div className="w-8 h-8 bg-red-50 group-hover:bg-red-100 rounded-lg flex items-center justify-center transition-colors">
+                                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                    </svg>
+                                                </div>
+                                                Изход
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
-                    </div> */}
+                    </div>
 
                     {/* mobile menu button */}
-                    <div className="md:hidden">
+                    <div className="md:hidden flex items-center gap-2">
+                        {!loading && !user && (
+                            <>
+                                <Link
+                                    to="/login"
+                                    className="px-3 py-2 text-sm font-semibold text-slate-700"
+                                >
+                                    Вход
+                                </Link>
+                                <Link
+                                    to="/signup"
+                                    className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white text-sm font-semibold rounded-lg"
+                                >
+                                    Рег.
+                                </Link>
+                            </>
+                        )}
                         <button
-                            onClick={() => setMenuOpen((prev) => !prev)}
-                            className="relative inline-flex items-center justify-center p-3 rounded-xl text-gray-700 hover:text-rose-900 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 transition-all duration-300 active:scale-95"
-                            aria-label="Toggle menu"
-                            aria-expanded={menuOpen}
+                            onClick={() => setMenuOpen(!menuOpen)}
+                            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 active:scale-95"
                         >
-                            <div className="relative w-6 h-6">
-                                <span
-                                    className={`absolute top-0 left-0 w-6 h-0.5 bg-current transform transition-all duration-300 ${
-                                        menuOpen ? "rotate-45 translate-y-2.5" : ""
-                                    }`}
-                                ></span>
-                                <span
-                                    className={`absolute top-2.5 left-0 w-6 h-0.5 bg-current transform transition-all duration-300 ${
-                                        menuOpen ? "opacity-0" : ""
-                                    }`}
-                                ></span>
-                                <span
-                                    className={`absolute top-5 left-0 w-6 h-0.5 bg-current transform transition-all duration-300 ${
-                                        menuOpen ? "-rotate-45 -translate-y-2.5" : ""
-                                    }`}
-                                ></span>
-                            </div>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {menuOpen ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                )}
+                            </svg>
                         </button>
                     </div>
                 </div>
 
                 {/* mobile nav */}
-                <div
-                    className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-                        menuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                >
-                    <div className="px-4 pt-4 pb-6 space-y-3 border-t border-rose-100">
-                        {navLinks.map((link, index) => (
-                            <Link
-                                key={link.to}
-                                to={link.to}
-                                className={`block px-5 py-4 rounded-full text-lg font-semibold transition-all duration-200 transform ${
-                                    isActive(link.to)
-                                        ? 'text-rose-900 bg-rose-50 shadow-sm scale-105'
-                                        : 'text-gray-700 hover:text-rose-900 hover:bg-rose-50/50 active:scale-95'
-                                }`}
-                                onClick={() => setMenuOpen(false)}
-                                style={{
-                                    animationDelay: `${index * 50}ms`,
-                                }}
-                            >
-                                {link.label}
-                            </Link>
-                        ))}
-                        {/* Mobile auth section */}
-                        <div className="pt-4 mt-4 border-t border-rose-100">
-                            <div className="px-4 py-2">
+                {menuOpen && !loading && (
+                    <div className="md:hidden border-t border-slate-200/80 py-4 animate-in slide-in-from-top duration-200">
+                        {user ? (
+                            <>
+                                <div className="space-y-1.5 mb-4">
+                                    {navLinks.map((link) => (
+                                        <Link
+                                            key={link.to}
+                                            to={link.to}
+                                            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                                                isActive(link.to)
+                                                    ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg'
+                                                    : 'text-slate-700 hover:bg-slate-100 active:scale-95'
+                                            }`}
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                            <span>{link.label}</span>
+                                        </Link>
+                                    ))}
+                                </div>
                                 
+                                <div className="pt-4 border-t border-slate-200 space-y-1.5">
+                                    <Link
+                                        to="/profile"
+                                        className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                            {displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-semibold">{displayName}</p>
+                                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                                        </div>
+                                    </Link>
+                                    <button
+                                        onClick={() => {
+                                            setMenuOpen(false);
+                                            signOut();
+                                        }}
+                                        className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors active:scale-95"
+                                    >
+                                        <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                        </div>
+                                        <span>Изход</span>
+                                    </button>
+                                </div>
+                            </>
+                        ) : !user && (
+                            <div className="text-center py-4">
+                                <p className="text-sm text-slate-600 mb-4">Влезте в акаунта си за достъп</p>
+                                <div className="flex flex-col gap-2">
+                                    <Link
+                                        to="/login"
+                                        className="px-4 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        Вход
+                                    </Link>
+                                    <Link
+                                        to="/signup"
+                                        className="px-4 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white text-sm font-semibold rounded-xl hover:from-rose-600 hover:to-rose-700 transition-colors"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        Регистрация
+                                    </Link>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
-                </div>
+                )}
             </div>
         </nav>
-    )
-}
+    );
+};

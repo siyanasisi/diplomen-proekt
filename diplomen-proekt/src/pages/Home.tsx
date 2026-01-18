@@ -1,18 +1,23 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
-import { supabase } from "../supabase-client";
+import { supabase, refreshSessionIfNeeded } from "../supabase-client";
+import { useNavigate } from "react-router-dom";
 
 export const Home = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<{ [key: string]: string }>({});
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
-    const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
-    const [earnedPoints, setEarnedPoints] = useState(0);
-    const [loading, setLoading] = useState(true);
 
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!user) {
+            navigate('/login', { replace: true });
+        }
+    }, [user, navigate]);
 
     // Load events from Supabase when user changes
     useEffect(() => {
@@ -25,13 +30,36 @@ export const Home = () => {
     const loadEvents = async () => {
         if (!user) return;
         
-        setLoading(true);
+        await refreshSessionIfNeeded();
+        
         const { data, error } = await supabase
             .from('calendar_events')
             .select('*')
             .eq('user_id', user.id);
 
         if (error) {
+            // if still getting auth error - refresh sessionn
+            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                const refreshedSession = await refreshSessionIfNeeded();
+                if (refreshedSession) {
+                    // retry request 
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('calendar_events')
+                        .select('*')
+                        .eq('user_id', user.id);
+                    
+                    if (retryError) {
+                        console.error('Error loading events:', retryError);
+                    } else if (retryData) {
+                        const eventsMap: { [key: string]: string } = {};
+                        retryData.forEach(event => {
+                            eventsMap[event.date] = event.event_text;
+                        });
+                        setEvents(eventsMap);
+                    }
+                    return;
+                }
+            }
             console.error('Error loading events:', error);
         } else if (data) {
             const eventsMap: { [key: string]: string } = {};
@@ -40,24 +68,47 @@ export const Home = () => {
             });
             setEvents(eventsMap);
         }
-        setLoading(false);
     };
 
     const loadUserStats = async () => {
         if (!user) return;
 
+        await refreshSessionIfNeeded();
+
         const { data, error } = await supabase
             .from('user_stats')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
+            // If still getting auth error  refresh session
+            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                const refreshedSession = await refreshSessionIfNeeded();
+                if (refreshedSession) {
+                    // retry request
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('user_stats')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    
+                    if (retryError) {
+                        console.error('Error loading stats:', retryError);
+                    } else if (retryData) {
+                        setLongestStreak(retryData.longest_streak || 0);
+                    } else {
+                        setLongestStreak(0);
+                    }
+                    return;
+                }
+            }
             console.error('Error loading stats:', error);
         } else if (data) {
-            setCurrentStreak(data.current_streak || 0);
             setLongestStreak(data.longest_streak || 0);
-            setEarnedPoints(data.earned_points || 0);
+        } else {
+            // No stats row exists - use default
+            setLongestStreak(0);
         }
     };
 
@@ -191,93 +242,138 @@ export const Home = () => {
     const dayNames = ["Нед", "Пон", "Вто", "Сря", "Чет", "Пет", "Съб"];
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            {/*   header */}
-            <header className="bg-white border-b border-slate-200">
-                <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-white text-base font-semibold">
-                                {user?.email?.charAt(0).toUpperCase()}
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+            <main className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-8">
+                {/* hero section */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl mb-6 md:mb-8">
+                    {/* background pattern */}
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                        <div className="absolute bottom-0 left-0 w-96 h-96 bg-rose-500 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+                    </div>
+                    
+                    <div className="relative p-6 md:p-10">
+                        <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                            {/* left: Exam Info */}
+                            <div className="flex-1 text-center lg:text-left">
+                                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
+                                    <span className="text-2xl">📚</span>
+                                    <span className="text-white font-medium">ДЗИ БЕЛ 2026</span>
+                                </div>
+                                <h2 className="text-4xl md:text-5xl font-bold text-white mb-3">
+                                    Твоят изпит наближава
+                                </h2>
+                                <p className="text-slate-300 text-lg mb-6">
+                                    20 май 2026 • {daysUntilExam} дни остават
+                                </p>
+                                
+                                {/* progress bar */}
+                                <div className="max-w-md mx-auto lg:mx-0">
+                                    <div className="flex items-center justify-between text-sm text-slate-300 mb-2">
+                                        <span>Напредък</span>
+                                        <span className="font-semibold">{Math.min(100, Math.round(((365 - daysUntilExam) / 365) * 100))}%</span>
+                                    </div>
+                                    <div className="h-3 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+                                        <div 
+                                            className="h-full bg-gradient-to-r from-rose-500 to-orange-500 rounded-full transition-all duration-1000 shadow-lg"
+                                            style={{ width: `${Math.min(100, ((365 - daysUntilExam) / 365) * 100)}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-900">{user?.email}</p>
-                                <p className="text-xs text-slate-500">{user?.user_metadata?.role}</p>
+
+                            {/* countdown */}
+                            <div className="relative">
+                                <div className="relative bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 shadow-2xl">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-3xl"></div>
+                                    <div className="relative text-center">
+                                        <div className="text-8xl md:text-9xl font-black text-white mb-4 tabular-nums tracking-tight leading-none">
+                                            {daysUntilExam}
+                                        </div>
+                                        <div className="text-xl font-semibold text-slate-200 uppercase tracking-wider">
+                                            ДНИ
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* glow effect */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 to-orange-500/20 rounded-3xl blur-2xl -z-10"></div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
-                                <span className="text-base">🔥</span>
-                                <span className="text-sm font-bold text-slate-900">{currentStreak}</span>
-                                <span className="text-xs text-slate-600">дни</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg">
-                                <span className="text-base">⭐</span>
-                                <span className="text-sm font-bold text-slate-900">{earnedPoints}</span>
-                            </div>
+
+                        {/* quick actions    */}
+                        <div className="mt-8 flex flex-wrap gap-3 justify-center lg:justify-start">
+                            <button 
+                                onClick={() => handleDayClick(new Date().getDate())}
+                                className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-900 rounded-xl font-semibold transition-all hover:scale-105 shadow-lg flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Добави събитие
+                            </button>
+                            <button className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold transition-all hover:scale-105 border border-white/20 flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                План за учене
+                            </button>
+                            <button 
+                                onClick={goToToday}
+                                className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-xl font-semibold transition-all hover:scale-105 border border-white/20 flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Към днес
+                            </button>
                         </div>
                     </div>
                 </div>
-            </header>
 
-            <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-                {/*еxam цountdown */}
-                <div className="bg-white border border-slate-200 rounded-lg p-8 mb-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                                <span className="text-4xl">📚</span>
-                                <div>
-                                    <h1 className="text-xl font-semibold text-slate-900">ДЗИ БЕЛ 2026</h1>
-                                    <p className="text-sm text-slate-600">20 май 2026</p>
+                {/* two-column layout*/}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* left column */}
+                    <div className="lg:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-lg border border-slate-200/60">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900">Календар</h2>
+                            <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-3 text-xs mr-4">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 bg-slate-900 rounded"></div>
+                                        <span className="text-slate-600">Днес</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                                        <span className="text-slate-600">Изпит</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-3 h-3 border-2 border-emerald-500 rounded relative">
+                                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-emerald-500 rounded-full"></div>
+                                        </div>
+                                        <span className="text-slate-600">Събития</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="text-center">
-                            <div className="text-6xl font-bold text-slate-900 mb-2 tabular-nums">{daysUntilExam}</div>
-                            <div className="text-sm font-medium text-slate-600">дни до изпита</div>
-                            <div className="mt-4 w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-rose-500 rounded-full transition-all"
-                                    style={{ width: `${Math.min(100, ((365 - daysUntilExam) / 365) * 100)}%` }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* main content grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* calendar */}
-                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-semibold text-slate-900">Календар</h2>
-                            <button 
-                                onClick={goToToday}
-                                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition"
-                            >
-                                Днес
-                            </button>
-                        </div>
                         
                         {/* month navigation */}
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-8">
                             <button 
                                 onClick={goToPreviousMonth}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors group"
                             >
-                                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-slate-600 group-hover:text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
-                            <h3 className="text-base font-semibold text-slate-900">
+                            <h3 className="text-lg font-bold text-slate-900">
                                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                             </h3>
                             <button 
                                 onClick={goToNextMonth}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                                className="p-2.5 hover:bg-slate-100 rounded-xl transition-colors group"
                             >
-                                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-slate-600 group-hover:text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                             </button>
@@ -287,7 +383,7 @@ export const Home = () => {
                         <div className="grid grid-cols-7 gap-2">
                             {/* day headers  */}
                             {dayNames.map(day => (
-                                <div key={day} className="text-center text-xs font-medium text-slate-600 py-2">
+                                <div key={day} className="text-center text-sm font-semibold text-slate-600 py-3">
                                     {day}
                                 </div>
                             ))}
@@ -309,17 +405,24 @@ export const Home = () => {
                                     <button
                                         key={day}
                                         onClick={() => handleDayClick(day)}
-                                        className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all hover:border-slate-300 ${
+                                        className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-semibold transition-all ${
                                             isToday
-                                                ? 'bg-slate-900 text-white font-semibold shadow-sm'
+                                                ? 'bg-slate-900 text-white shadow-lg scale-105 hover:scale-110'
                                                 : isDziExamDate
-                                                    ? 'bg-amber-500 text-white font-semibold'
-                                                    : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                    ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg hover:scale-105'
+                                                    : hasEvent
+                                                        ? 'bg-emerald-50 text-slate-900 border-2 border-emerald-500 hover:bg-emerald-100 hover:scale-105'
+                                                        : 'text-slate-700 hover:bg-slate-100 hover:scale-105'
                                         }`}
                                     >
-                                        {day}
+                                        <span className={isToday ? 'text-lg' : ''}>{day}</span>
                                         {hasEvent && !isToday && !isDziExamDate && (
-                                            <span className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-emerald-500 rounded-full"></span>
+                                            <div className="absolute bottom-1.5 flex gap-0.5">
+                                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                            </div>
+                                        )}
+                                        {isDziExamDate && (
+                                            <span className="text-[10px] font-medium mt-0.5">изпит</span>
                                         )}
                                     </button>
                                 );
@@ -327,42 +430,102 @@ export const Home = () => {
                         </div>
                     </div>
 
-                    {/* events sidebar  */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
-                        <h3 className="text-base font-semibold text-slate-900 mb-4">
-                            Предстоящи събития
-                        </h3>
-                        
-                        <div className="space-y-3">
-                            {getUpcomingEvents().length === 0 ? (
-                                <div className="text-center py-8">
-                                    <span className="text-3xl mb-2 block">📅</span>
-                                    <p className="text-xs text-slate-500">Няма предстоящи събития</p>
-                                </div>
-                            ) : (
-                                getUpcomingEvents().map(({ date, dateStr, event }) => (
-                                    <div 
-                                        key={dateStr} 
-                                        className="border border-slate-200 rounded-lg p-3 hover:border-slate-300 hover:shadow-sm transition cursor-pointer"
-                                        onClick={() => {
-                                            setSelectedDay(dateStr);
-                                            setEventText(event);
-                                        }}
-                                    >
-                                        <div className="flex items-start gap-2">
-                                            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xs font-bold text-emerald-700">{date.getDate()}</span>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-slate-600 mb-1">
-                                                    {date.toLocaleDateString('bg-BG', { month: 'long', day: 'numeric' })}
-                                                </p>
-                                                <p className="text-sm text-slate-900 line-clamp-2">{event}</p>
+                    {/* right column */}
+                    <div className="lg:col-span-1 space-y-6">
+                        {/* upcoming events card */}
+                        <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200/60">
+                            <div className="flex items-center justify-between mb-5">
+                                <h3 className="text-lg font-bold text-slate-900">
+                                    Предстоящи събития
+                                </h3>
+                                <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                                    {getUpcomingEvents().length}
+                                </span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                {getUpcomingEvents().length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                            <svg className="w-7 h-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-sm font-medium text-slate-900 mb-1">Няма предстоящи събития</p>
+                                        <p className="text-xs text-slate-500 mb-4">Кликни на ден в календара за да добавиш</p>
+                                        <button 
+                                            onClick={() => handleDayClick(new Date().getDate())}
+                                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-xl transition-colors inline-flex items-center gap-2"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Добави събитие
+                                        </button>
+                                    </div>
+                                ) : (
+                                    getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                        <div 
+                                            key={dateStr} 
+                                            className="group relative bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-all cursor-pointer hover:shadow-md"
+                                            onClick={() => {
+                                                setSelectedDay(dateStr);
+                                                setEventText(event);
+                                            }}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex flex-col items-center justify-center text-white shadow-md">
+                                                    <span className="text-xs font-medium uppercase">
+                                                        {date.toLocaleDateString('bg-BG', { month: 'short' })}
+                                                    </span>
+                                                    <span className="text-lg font-bold leading-none">{date.getDate()}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-slate-500 mb-1">
+                                                        {date.toLocaleDateString('bg-BG', { weekday: 'long' })}
+                                                    </p>
+                                                    <p className="text-sm font-semibold text-slate-900 line-clamp-2 group-hover:text-slate-700">
+                                                        {event}
+                                                    </p>
+                                                </div>
+                                                <svg className="w-5 h-5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
                                             </div>
                                         </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* stats card */}
+                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 shadow-lg text-white">
+                            <h3 className="text-lg font-bold mb-4">Твоята статистика</h3>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                                            <span className="text-xl">🏆</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-300">Най-дълга серия</p>
+                                            <p className="text-xl font-bold">{longestStreak} дни</p>
+                                        </div>
                                     </div>
-                                ))
-                            )}
+                                </div>
+                                <div className="h-px bg-white/10"></div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                                            <span className="text-xl">📅</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-300">Общо събития</p>
+                                            <p className="text-xl font-bold">{Object.keys(events).length}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -370,44 +533,71 @@ export const Home = () => {
 
             {/* event modal */}
             {selectedDay && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-                        <div className="mb-4">
-                            <h3 className="text-base font-semibold text-slate-900 mb-1">
-                                Събитие
-                            </h3>
-                            <p className="text-xs text-slate-500">{selectedDay}</p>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-2xl font-bold text-slate-900">
+                                    {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                </h3>
+                                <button
+                                    onClick={() => {
+                                        setSelectedDay(null);
+                                        setEventText("");
+                                    }}
+                                    className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                                >
+                                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className="font-medium">{selectedDay}</span>
+                            </div>
                         </div>
                         <textarea
                             value={eventText}
                             onChange={(e) => setEventText(e.target.value)}
-                            placeholder="Добави описание..."
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 h-24 text-sm focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition resize-none"
+                            placeholder="Напр: Учене за матура, Преговор на материал, Решаване на тест..."
+                            className="w-full border-2 border-slate-200 focus:border-slate-900 rounded-xl px-4 py-3 mb-6 h-32 text-sm focus:ring-4 focus:ring-slate-900/10 outline-none transition resize-none"
+                            autoFocus
                         />
-                        <div className="flex justify-end gap-2">
+                        <div className="flex items-center justify-between gap-3">
                             {events[selectedDay] && (
                                 <button
                                     onClick={handleDeleteEvent}
-                                    className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
+                                    className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2"
                                 >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                     Изтрий
                                 </button>
                             )}
-                            <button
-                                onClick={() => {
-                                    setSelectedDay(null);
-                                    setEventText("");
-                                }}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
-                            >
-                                Откажи
-                            </button>
-                            <button
-                                onClick={handleSaveEvent}
-                                className="px-4 py-2 text-sm font-medium bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition"
-                            >
-                                Запази
-                            </button>
+                            <div className="flex gap-2 ml-auto">
+                                <button
+                                    onClick={() => {
+                                        setSelectedDay(null);
+                                        setEventText("");
+                                    }}
+                                    className="px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                                >
+                                    Откажи
+                                </button>
+                                <button
+                                    onClick={handleSaveEvent}
+                                    className="px-6 py-3 text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-lg hover:shadow-xl flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Запази
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
