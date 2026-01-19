@@ -357,17 +357,12 @@ export const Home = () => {
 
                     {/* sidebar footer stats */}
                     <div className="p-6 border-t border-slate-200/40 space-y-4">
-                        <div className="bg-gradient-to-br from-slate-50 to-purple-50/30 rounded-2xl p-5 border border-slate-200/50 shadow-sm">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Бърза статистика</p>
+                        <div className="bg-gradient-to-br from-slate-50/80 to-slate-100/50 rounded-2xl p-5 border border-slate-200/50 shadow-sm">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Бърза статистика</p>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-slate-600 font-medium">Общо събития</span>
-                                    <span className="text-lg font-bold text-slate-800">{Object.keys(events).length}</span>
-                                </div>
-                                <div className="h-px bg-purple-100/50"></div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-slate-600 font-medium">Серия</span>
-                                    <span className="text-lg font-bold text-slate-800">{longestStreak} дни</span>
+                                    <span className="text-lg font-semibold text-slate-900">{Object.keys(events).length}</span>
                                 </div>
                             </div>
                         </div>
@@ -382,128 +377,110 @@ export const Home = () => {
                             <div className="space-y-8">
                                 {/* welcome header */}
                                 <div className="mb-10">
-                                    <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">
+                                    <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">
                                         Добре дошли обратно!
-                                </h2>
-
-                                    <p className="text-lg text-slate-600 font-medium">
-                                        Управлявайте своя календар, събития и активност професионално
+                                    </h2>
+                                    <p className="text-base font-normal text-slate-500">
+                                        Преглед на днешната активност
                                     </p>
                                 </div>
 
-                                {/* stats cards grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="bg-white rounded-3xl p-7 shadow-lg shadow-slate-900/5 border border-purple-100/50 hover:shadow-xl hover:shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1">
+                                {/* statistics row */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Total events card */}
+                                    <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-md shadow-purple-500/20">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)' }}>
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                    </div>
-
+                                            </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Общо събития</p>
-                                                <p className="text-3xl font-bold text-slate-800 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Общо събития</p>
+                                                <p className="text-3xl font-semibold text-slate-900 tracking-tight">{Object.keys(events).length}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-
-                                    <div className="bg-white rounded-3xl p-7 shadow-lg shadow-slate-900/5 border border-purple-100/50 hover:shadow-xl hover:shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1">
+                                    {/* Upcoming events card */}
+                                    <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-500 rounded-2xl flex items-center justify-center shadow-md shadow-slate-500/20">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #A5B5BF 0%, #9BA5AF 100%)' }}>
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
-                                        </div>
-
+                                            </div>
                                             <div>
-                                                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Предстоящи</p>
-                                                <p className="text-3xl font-bold text-slate-800 tracking-tight">{getUpcomingEvents().length}</p>
+                                                <p className="text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Предстоящи</p>
+                                                <p className="text-3xl font-semibold text-slate-900 tracking-tight">{getUpcomingEvents().length}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                    
-                                    <div className="bg-white rounded-3xl p-7 shadow-lg shadow-slate-900/5 border border-purple-100/50 hover:shadow-xl hover:shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 bg-gradient-to-br from-amber-200 to-yellow-300 rounded-2xl flex items-center justify-center shadow-md shadow-amber-300/30">
-                                                <svg className="w-8 h-8 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Най-дълга серия</p>
-                                                <p className="text-3xl font-bold text-slate-800 tracking-tight">{longestStreak} <span className="text-lg text-slate-600">дни</span></p>
-                                            </div>
-                                        </div>
-                            </div>
-                        </div>
-
-
                                 {/* Quick Actions */}
-                                <div className="bg-white rounded-3xl p-8 shadow-lg shadow-slate-900/5 border border-purple-100/50">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-6 tracking-tight">Бързи действия</h3>
+                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
+                                    <h3 className="text-lg font-semibold text-slate-900 mb-5 tracking-tight">Бързи действия</h3>
                                     <div className="flex flex-wrap gap-4">
-                            <button 
-
+                                        <button 
                                             onClick={() => {
                                                 setActiveMenu('calendar');
                                                 handleDayClick(new Date().getDate());
                                             }}
-                                            className="px-6 py-4 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-2xl font-semibold transition-all duration-300 hover:scale-105 shadow-lg shadow-purple-500/20 flex items-center gap-3 text-base"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                Добави събитие
-                            </button>
+                                            className="px-6 py-3.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-base shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                                            style={{ 
+                                                background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)',
+                                                color: 'white'
+                                            }}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Добави събитие
+                                        </button>
 
-                                        <button className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 flex items-center gap-3 text-base">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-
-                                            Създай материал
-                            </button>
-                            <button 
-
+                                        <button 
                                             onClick={() => {
                                                 setActiveMenu('calendar');
                                                 goToToday();
                                             }}
-                                            className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 flex items-center gap-3 text-base"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Към днес
-                            </button>
-                        </div>
-                    </div>
-
+                                            className="px-6 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-base border border-slate-200/60 hover:border-slate-300/60 hover:-translate-y-0.5"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            Днес
+                                        </button>
+                                    </div>
+                                </div>
 
                                 {/* recent events */}
-                                <div className="bg-white rounded-3xl p-8 shadow-lg shadow-slate-900/5 border border-purple-100/50">
+                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xl font-bold text-slate-800 tracking-tight">Последни събития</h3>
+                                        <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Последни събития</h3>
                                         <button 
                                             onClick={() => setActiveMenu('calendar')}
-                                            className="text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+                                            className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
                                         >
                                             Виж всички →
                                         </button>
-                </div>
+                                    </div>
 
                                     <div className="space-y-3">
                                         {getAllEvents().slice(0, 5).length === 0 ? (
-                                            <p className="text-center py-12 text-slate-500 text-lg font-medium">Няма събития. Добавете ново събитие от календара.</p>
+                                            <div className="text-center py-12">
+                                                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
+                                            </div>
                                         ) : (
                                             getAllEvents().slice(0, 5).map(({ date, dateStr, event }) => (
                                                 <div 
                                                     key={dateStr} 
-                                                    className="group relative bg-gradient-to-r from-slate-50 to-purple-50/30 hover:from-purple-50 hover:to-indigo-50 border border-purple-100/50 rounded-2xl p-5 transition-all duration-300 cursor-pointer hover:shadow-md"
+                                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
@@ -511,17 +488,17 @@ export const Home = () => {
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
-                                                        <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex flex-col items-center justify-center text-white shadow-md">
-                                                            <span className="text-xs font-bold uppercase tracking-wide">
+                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm" style={{ background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)' }}>
+                                                            <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                             </span>
-                                                            <span className="text-lg font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                            <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
+                                                            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wide">
                                                                 {date.toLocaleDateString('bg-BG', { weekday: 'long' })}
                                                             </p>
-                                                            <p className="text-base font-semibold text-slate-800 line-clamp-2 leading-relaxed">
+                                                            <p className="text-base font-medium text-slate-900 line-clamp-1">
                                                                 {event}
                                                             </p>
                                                         </div>
@@ -537,10 +514,13 @@ export const Home = () => {
                         {/* calendar view */}
                         {activeMenu === 'calendar' && (
                             <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-12">
-                                <div className="max-w-4xl w-full">
+                                <div className="max-w-7xl w-full">
 
 
-                                    <div className="bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
+                                    {/* two column layout */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* calendar */}
+                                        <div className="lg:col-span-2 bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
 
                                     {/* calendar */}
                                     {/* month navigation */}
@@ -632,10 +612,59 @@ export const Home = () => {
                                             Добави
                                         </button>
                                     </div>
+                                        </div>
+
+                                        {/* upcoming events column */}
+                                        <div className="lg:col-span-1">
+                                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
+                                                <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
+                                                
+                                                <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+                                                    {getUpcomingEvents().length === 0 ? (
+                                                        <div className="text-center py-8">
+                                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                                                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </div>
+                                                            <p className="text-xs font-medium text-slate-500">Няма предстоящи събития</p>
+                                                        </div>
+                                                    ) : (
+                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                            <div 
+                                                                key={dateStr} 
+                                                                className="group bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-sm"
+                                                                onClick={() => {
+                                                                    setSelectedDay(dateStr);
+                                                                    setEventText(event);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-[#8B7FA8] rounded-lg flex flex-col items-center justify-center text-white">
+                                                                        <span className="text-[9px] font-bold uppercase leading-tight">
+                                                                            {date.toLocaleDateString('bg-BG', { month: 'short' })}
+                                                                        </span>
+                                                                        <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[10px] font-medium text-slate-500 mb-1 uppercase">
+                                                                            {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
+                                                                        </p>
+                                                                        <p className="text-sm font-medium text-slate-800 line-clamp-2 leading-snug">
+                                                                            {event}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
 
                         {/* settings view */}
@@ -869,9 +898,11 @@ export const Home = () => {
                     {/* calendar view */}
                     {activeMenu === 'calendar' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-12">
-                            <div className="max-w-4xl w-full">
-                                {/* calendar */}
-                                <div className="bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
+                            <div className="max-w-7xl w-full">
+                                {/* two column layout */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* calendar */}
+                                    <div className="lg:col-span-2 bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
                                     {/* month nav */}
                                     <div className="flex items-center justify-center gap-8 mb-10">
                                         <button 
@@ -961,10 +992,59 @@ export const Home = () => {
                                             Добави
                                         </button>
                                     </div>
+                                        </div>
+
+                                        {/* upcoming events column */}
+                                        <div className="lg:col-span-1">
+                                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
+                                                <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
+                                                
+                                                <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+                                                    {getUpcomingEvents().length === 0 ? (
+                                                        <div className="text-center py-8">
+                                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                                                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </div>
+                                                            <p className="text-xs font-medium text-slate-500">Няма предстоящи събития</p>
+                                                        </div>
+                                                    ) : (
+                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                            <div 
+                                                                key={dateStr} 
+                                                                className="group bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-sm"
+                                                                onClick={() => {
+                                                                    setSelectedDay(dateStr);
+                                                                    setEventText(event);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-[#8B7FA8] rounded-lg flex flex-col items-center justify-center text-white">
+                                                                        <span className="text-[9px] font-bold uppercase leading-tight">
+                                                                            {date.toLocaleDateString('bg-BG', { month: 'short' })}
+                                                                        </span>
+                                                                        <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-[10px] font-medium text-slate-500 mb-1 uppercase">
+                                                                            {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
+                                                                        </p>
+                                                                        <p className="text-sm font-medium text-slate-800 line-clamp-2 leading-snug">
+                                                                            {event}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
 
                     
