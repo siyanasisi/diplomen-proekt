@@ -12,10 +12,7 @@ export const Home = () => {
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
-
-    const [currentStreak, setCurrentStreak] = useState(0);
-    const [totalEvents, setTotalEvents] = useState(0);
-    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'progress' | 'events' | 'settings'>('dashboard');
+    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings'>('dashboard');
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -102,10 +99,8 @@ export const Home = () => {
                         console.error('Error loading stats:', retryError);
                     } else if (retryData) {
                         setLongestStreak(retryData.longest_streak || 0);
-                        setCurrentStreak(retryData.current_streak || 0);
                     } else {
                         setLongestStreak(0);
-                        setCurrentStreak(0);
                     }
                     return;
                 }
@@ -113,13 +108,9 @@ export const Home = () => {
             console.error('Error loading stats:', error);
         } else if (data) {
             setLongestStreak(data.longest_streak || 0);
-
-            setCurrentStreak(data.current_streak || 0);
         } else {
             // No stats row exists - use default
             setLongestStreak(0);
-
-            setCurrentStreak(0);
         }
     };
 
@@ -156,12 +147,6 @@ export const Home = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         return `${year}-${month + 1}-${day}`;
-    };
-
-    const isExamDate = (day: number) => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        return year === 2026 && month === 4 && day === 20; 
     };
 
     const handleDayClick = (day: number) => {
@@ -237,11 +222,6 @@ export const Home = () => {
         }
     };
 
-    useEffect(() => {
-        if (user && role === 'teacher') {
-            setTotalEvents(Object.keys(events).length);
-        }
-    }, [events, user, role]);
 
 
     const getUpcomingEvents = () => {
@@ -271,13 +251,12 @@ export const Home = () => {
     const dayNames = ["Нед", "Пон", "Вто", "Сря", "Чет", "Пет", "Съб"];
 
 
-    // menu items for sidebar
     const menuItems = [
         { 
             id: 'dashboard' as const, 
             label: 'Табло', 
             icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
             )
@@ -286,7 +265,7 @@ export const Home = () => {
             id: 'calendar' as const, 
             label: 'Календар', 
             icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
             )
@@ -295,8 +274,8 @@ export const Home = () => {
             id: 'events' as const, 
             label: 'Събития', 
             icon: (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
             )
         },
@@ -308,61 +287,115 @@ export const Home = () => {
     if (role === 'teacher') {
     return (
 
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 flex">
+            <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex overflow-hidden relative">
+                {/* Subtle animated background */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-100/20 via-transparent to-transparent pointer-events-none"></div>
                 {/* left sidebar nav*/}
-                <aside className="w-72 bg-white/90 backdrop-blur-sm border-r border-slate-200/60 flex flex-col shadow-sm">
+                <aside className="w-72 h-full bg-white/98 backdrop-blur-xl border-r border-slate-200/80 flex flex-col shadow-2xl shadow-slate-900/10 relative z-10">
                     {/* sidebar header */}
-                    <div className="p-8 border-b border-slate-200/40">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #8B7FA8 0%, #9B8FA8 100%)' }}>
-                                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
+                    <div className="flex-shrink-0 p-6 border-b border-slate-200/60 bg-gradient-to-br from-purple-900/5 via-purple-50/30 to-transparent">
+                        <div className="flex items-center gap-3.5">
+                            <div className="relative">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/30 bg-gradient-to-br from-purple-900 to-purple-800 ring-2 ring-purple-900/20 transition-all duration-300 group-hover:ring-purple-900/40 group-hover:shadow-xl group-hover:shadow-purple-900/40">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                {/* badge indicator */}
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-purple-900 to-purple-800 rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                </div>
                             </div>
-                            <div>
-                                <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Учителски панел</h1>
-                                <p className="text-sm font-normal text-slate-500">Добре дошли обратно</p>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                    <h1 className="text-base font-bold text-slate-900 tracking-tight">Учителски панел</h1>
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold text-purple-900 bg-purple-900/10 rounded-md uppercase tracking-wider">
+                                        TEACHER
+                                    </span>
+                                </div>
+                                <p className="text-xs font-medium text-slate-500 truncate">Добре дошли обратно</p>
                             </div>
                         </div>
                     </div>
-                    
 
                     {/* nav menu */}
-                    <nav className="flex-1 px-5 py-6">
-                        <div className="space-y-20">
-                            {menuItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => setActiveMenu(item.id)}
-                                    className={`w-full flex items-center gap-6 px-6 py-6 rounded-xl transition-all duration-200 text-left ${
-                                        activeMenu === item.id
-                                            ? 'bg-[#8B7FA8]/10 text-[#8B7FA8]'
-                                            : 'text-slate-800 hover:bg-slate-50/60'
-                                    }`}
-                                >
-                                    <span className={`flex-shrink-0 ${
-                                        activeMenu === item.id ? 'text-[#8B7FA8]' : 'text-slate-800'
-                                    }`}>
-                                        {item.icon}
-                                    </span>
-                                    <span className={`text-base font-bold tracking-tight ${
-                                        activeMenu === item.id ? 'text-[#8B7FA8]' : 'text-slate-800'
-                                    }`}>
-                                        {item.label}
-                                    </span>
-                                </button>
-                            ))}
+                    <nav 
+                        className="flex-1 overflow-y-auto" 
+                        aria-label="Main navigation" 
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <div className="px-4 pt-6 pb-2">
+                            {/* section label */}
+                            <div className="px-3 mb-3">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Навигация</p>
+                            </div>
+                            {/* menu items  */}
+                            <div className="flex flex-col gap-10 ">
+                                {menuItems.map((item) => {
+                                    const isActive = activeMenu === item.id;
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => setActiveMenu(item.id)}
+                                            aria-current={isActive ? 'page' : undefined}
+                                            className={`
+                                                group relative w-full flex items-center 
+                                                gap-5 px-5 py-4 
+                                                rounded-xl transition-all duration-300 ease-out
+                                                text-left focus:outline-none 
+                                                focus-visible:ring-2 focus-visible:ring-purple-500/30 focus-visible:ring-offset-2
+                                                ${isActive ? 'text-purple-900 bg-gradient-to-r from-purple-50 to-purple-50/50 shadow-sm' : 'text-slate-600 hover:text-purple-900 hover:bg-slate-50/80'}
+                                            `}
+                                        >
+                                            {/* active indicator - left border */}
+                                            {isActive && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-600 via-purple-900 to-purple-600 rounded-r-full shadow-lg shadow-purple-500/50"></div>
+                                            )}
+                                            {/* subtle hover indicator */}
+                                            {!isActive && (
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-r-full bg-gradient-to-b from-purple-600 to-purple-900 group-hover:h-10 transition-all duration-300 ease-out shadow-lg shadow-purple-500/30"></div>
+                                            )}
+
+                                            <span className={`
+                                                relative flex-shrink-0 w-7 h-7 flex items-center justify-center 
+                                                transition-colors duration-150
+                                                ${isActive ? 'text-purple-900' : 'text-slate-500 group-hover:text-purple-900'}
+                                            `}>
+                                                {item.icon}
+                                            </span
+                                            <span className={`
+                                                flex-1 text-lg font-semibold tracking-tight 
+                                                transition-colors duration-150
+                                                ${isActive ? 'text-purple-900' : 'text-slate-700 group-hover:text-purple-900'}
+                                            `}>
+                                                {item.label}
+                                            </span>
+                                            {/* active checkmark indicator */}
+                                            {isActive && (
+                                                <svg className="w-5 h-5 text-purple-900 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </nav>
 
                     {/* sidebar footer stats */}
-                    <div className="p-6 border-t border-slate-200/40 space-y-4">
-                        <div className="bg-gradient-to-br from-slate-50/80 to-slate-100/50 rounded-2xl p-5 border border-slate-200/50 shadow-sm">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Бърза статистика</p>
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-slate-600 font-medium">Общо събития</span>
-                                    <span className="text-lg font-semibold text-slate-900">{Object.keys(events).length}</span>
+                    <div className="flex-shrink-0 p-4 border-t border-slate-200/60">
+                        <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-4 border border-slate-200/60 shadow-md hover:shadow-lg transition-shadow duration-300">
+                            <div className="flex items-center gap-2 mb-3">
+                                <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Бърза статистика</p>
+                            </div>
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl border border-purple-100/50">
+                                    <span className="text-xs font-medium text-slate-600">Общо събития</span>
+                                    <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
                                 </div>
                             </div>
                         </div>
@@ -370,7 +403,7 @@ export const Home = () => {
                 </aside>
 
                 {/* main content area */}
-                <main className="flex-1 overflow-y-auto">
+                <main className="flex-1 overflow-hidden">
                     <div className="max-w-7xl mx-auto px-8 py-10">
                         {/* dashboard view */}
                         {activeMenu === 'dashboard' && (
@@ -390,7 +423,7 @@ export const Home = () => {
                                     {/* Total events card */}
                                     <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)' }}>
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md bg-purple-900">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
@@ -405,7 +438,7 @@ export const Home = () => {
                                     {/* Upcoming events card */}
                                     <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md" style={{ background: 'linear-gradient(135deg, #A5B5BF 0%, #9BA5AF 100%)' }}>
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md bg-purple-900">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
@@ -427,11 +460,7 @@ export const Home = () => {
                                                 setActiveMenu('calendar');
                                                 handleDayClick(new Date().getDate());
                                             }}
-                                            className="px-6 py-3.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2.5 text-base shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                                            style={{ 
-                                                background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)',
-                                                color: 'white'
-                                            }}
+                                            className="px-6 py-3.5 rounded-xl font-semibold transition-all duration-300 ease-out flex items-center gap-2.5 text-base shadow-lg shadow-purple-900/30 hover:shadow-xl hover:shadow-purple-900/40 hover:-translate-y-1 hover:scale-[1.02] bg-gradient-to-r from-purple-900 to-purple-800 text-white"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -488,7 +517,7 @@ export const Home = () => {
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
-                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm" style={{ background: 'linear-gradient(135deg, #B0A1BA 0%, #A5B5BF 100%)' }}>
+                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                             </span>
@@ -529,7 +558,7 @@ export const Home = () => {
                                             onClick={goToPreviousMonth}
                                             className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-[#8B7FA8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                             </svg>
                                         </button>
@@ -540,7 +569,7 @@ export const Home = () => {
                                             onClick={goToNextMonth}
                                             className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-[#8B7FA8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                             </svg>
                                         </button>
@@ -573,14 +602,14 @@ export const Home = () => {
                                                     onClick={() => handleDayClick(day)}
                                                     className={`relative aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all duration-200 ${
                                                         isToday
-                                                            ? 'bg-[#8B7FA8] text-white shadow-sm'
+                                                            ? 'bg-purple-900 text-white shadow-sm'
                                                             : 'text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
                                                     {day}
                                                     {hasEvent && !isToday && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-[#8B7FA8] rounded-full block"></span>
+                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
                                                         </div>
                                                     )}
                                                 </button>
@@ -592,19 +621,19 @@ export const Home = () => {
                                     <div className="flex items-center justify-between mt-10 pt-8 border-t border-slate-100">
                                         <div className="flex items-center gap-8 text-xs">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-2.5 h-2.5 bg-[#8B7FA8] rounded-full"></div>
+                                                <div className="w-2.5 h-2.5 bg-purple-900 rounded-full"></div>
                                                 <span className="text-slate-600 font-normal">Днес</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 border border-slate-300 rounded-full relative">
-                                                    <div className="absolute inset-0 m-auto w-1 h-1 bg-[#8B7FA8] rounded-full"></div>
+                                                    <div className="absolute inset-0 m-auto w-1 h-1 bg-purple-900 rounded-full"></div>
                                                 </div>
                                                 <span className="text-slate-600 font-normal">Събития</span>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => handleDayClick(new Date().getDate())}
-                                            className="px-4 py-2 bg-[#8B7FA8] hover:bg-[#7A6F98] text-white rounded-xl font-medium transition-all duration-200 text-sm flex items-center gap-2 shadow-sm"
+                                            className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white rounded-xl font-medium transition-all duration-200 text-sm flex items-center gap-2 shadow-sm"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -619,7 +648,7 @@ export const Home = () => {
                                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
                                                 <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
                                                 
-                                                <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+                                                <div className="space-y-3 overflow-hidden pr-1">
                                                     {getUpcomingEvents().length === 0 ? (
                                                         <div className="text-center py-8">
                                                             <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -640,7 +669,7 @@ export const Home = () => {
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-[#8B7FA8] rounded-lg flex flex-col items-center justify-center text-white">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-purple-900 rounded-lg flex flex-col items-center justify-center text-white">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
@@ -666,6 +695,61 @@ export const Home = () => {
                             </div>
                         )}
 
+                        {/* events view */}
+                        {activeMenu === 'events' && (
+                            <div className="space-y-8">
+                                <div className="mb-10">
+                                    <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">Събития</h2>
+                                    <p className="text-base font-normal text-slate-500">Прегледайте всички ваши събития</p>
+                                </div>
+                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Всички събития</h3>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {getAllEvents().length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
+                                            </div>
+                                        ) : (
+                                            getAllEvents().map(({ date, dateStr, event }) => (
+                                                <div 
+                                                    key={dateStr} 
+                                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
+                                                    onClick={() => {
+                                                        setActiveMenu('calendar');
+                                                        setSelectedDay(dateStr);
+                                                        setEventText(event);
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
+                                                            <span className="uppercase leading-tight">
+                                                                {date.toLocaleDateString('bg-BG', { month: 'short' })}
+                                                            </span>
+                                                            <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wide">
+                                                                {date.toLocaleDateString('bg-BG', { weekday: 'long' })}
+                                                            </p>
+                                                            <p className="text-base font-medium text-slate-900 line-clamp-1">
+                                                                {event}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* settings view */}
                         {activeMenu === 'settings' && (
@@ -674,9 +758,9 @@ export const Home = () => {
                                     <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Настройки</h2>
                                     <p className="text-lg text-slate-600 font-medium">Персонализирайте вашите настройки</p>
                                 </div>
-                                <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-100/50 text-center">
-                                    <div className="w-20 h-20 bg-purple-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                        <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-900/20 text-center">
+                                    <div className="w-20 h-20 bg-purple-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                        <svg className="w-10 h-10 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
@@ -692,7 +776,7 @@ export const Home = () => {
                 {/* event modal */}
                 {selectedDay && (
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-100/50">
+                        <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20">
                             <div className="mb-6">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
@@ -710,8 +794,8 @@ export const Home = () => {
                                         </svg>
                                     </button>
                                 </div>
-                                <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-50/30 px-4 py-2.5 rounded-xl border border-purple-100/50">
-                                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-900/10 px-4 py-2.5 rounded-xl border border-purple-900/20">
+                                    <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                     <span className="font-semibold text-slate-700">{selectedDay}</span>
@@ -721,7 +805,7 @@ export const Home = () => {
                                 value={eventText}
                                 onChange={(e) => setEventText(e.target.value)}
                                 placeholder="Напр: Урок, Консултация, Среща, Подготовка..."
-                                className="w-full border-2 border-slate-200 focus:border-purple-500 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-500/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
+                                className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
                                 autoFocus
                             />
                             <div className="flex items-center justify-between gap-3">
@@ -748,7 +832,7 @@ export const Home = () => {
                                     </button>
                                     <button
                                         onClick={handleSaveEvent}
-                                        className="px-6 py-3 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover:scale-105 flex items-center gap-2"
+                                        className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -766,67 +850,130 @@ export const Home = () => {
 
     // Student Dashboard View
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 flex">
+        <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 flex overflow-hidden">
             {/* left sidebar nav */}
-            <aside className="w-72 bg-white/90 backdrop-blur-sm border-r border-slate-200/60 flex flex-col shadow-sm">
+            <aside className="w-72 h-full bg-white/95 backdrop-blur-sm border-r border-slate-200/60 flex flex-col shadow-lg">
                 {/* sidebar header */}
-                <div className="p-8 border-b border-slate-200/40">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg, #8B7FA8 0%, #9B8FA8 100%)' }}>
-                            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
+                <div className="flex-shrink-0 p-6 border-b border-slate-200/60 bg-gradient-to-br from-purple-900/5 to-purple-900/0">
+                    <div className="flex items-center gap-3.5">
+                        <div className="relative">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md bg-purple-900 ring-2 ring-purple-900/20">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                            </div>
+                            {/* badge indicator */}
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-900 rounded-full border-2 border-white flex items-center justify-center">
+                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-semibold text-slate-900 tracking-tight">Ученически панел</h1>
-                            <p className="text-sm font-normal text-slate-500">Подготовка за изпит</p>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                                <h1 className="text-base font-bold text-slate-900 tracking-tight">Ученически панел</h1>
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold text-purple-900 bg-purple-900/10 rounded-md uppercase tracking-wider">
+                                    STUDENT
+                                </span>
+                            </div>
+                            <p className="text-xs font-medium text-slate-500 truncate">Подготовка за изпит</p>
                         </div>
                     </div>
                 </div>
 
                 {/* nav menu */}
-                <nav className="flex-1 px-5 py-6">
-                    <div className="space-y-20">
-                        {menuItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveMenu(item.id)}
-                                className={`w-full flex items-center gap-6 px-6 py-6 rounded-xl transition-all duration-200 text-left ${
-                                    activeMenu === item.id
-                                        ? 'bg-[#8B7FA8]/10 text-[#8B7FA8]'
-                                        : 'text-slate-800 hover:bg-slate-50/60'
-                                }`}
-                            >
-                                <span className={`flex-shrink-0 ${
-                                    activeMenu === item.id ? 'text-[#8B7FA8]' : 'text-slate-800'
-                                }`}>
-                                    {item.icon}
-                                </span>
-                                <span className={`text-base font-bold tracking-tight ${
-                                    activeMenu === item.id ? 'text-[#8B7FA8]' : 'text-slate-800'
-                                }`}>
-                                    {item.label}
-                                </span>
-                            </button>
-                        ))}
+                <nav 
+                    className="flex-1 overflow-y-auto" 
+                    aria-label="Main navigation" 
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    <div className="px-4 pt-6 pb-2">
+                        {/* section label */}
+                        <div className="px-3 mb-3">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Навигация</p>
+                        </div>
+                        {/* menu items */}
+                        <div className="flex flex-col gap-10">
+                            {menuItems.map((item) => {
+                                const isActive = activeMenu === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveMenu(item.id)}
+                                        aria-current={isActive ? 'page' : undefined}
+                                        className={`
+                                            group relative w-full flex items-center 
+                                            gap-5 px-5 py-4 
+                                            rounded-xl transition-all duration-150 
+                                            text-left focus:outline-none 
+                                            focus-visible:ring-2 focus-visible:ring-purple-900/20 focus-visible:ring-offset-2
+                                            ${isActive ? 'text-purple-900' : 'text-slate-600 hover:text-purple-900'}
+                                        `}
+                                    >
+                                        {/* active indicator - left border */}
+                                        {isActive && (
+                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-purple-900 rounded-r-full"></div>
+                                        )}
+                                        {/* subtle hover indicator */}
+                                        {!isActive && (
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-r-full bg-purple-900 group-hover:h-8 transition-all duration-200"></div>
+                                        )}
+                                        {/* icon container - easily adjustable size */}
+                                        <span className={`
+                                            relative flex-shrink-0 w-7 h-7 flex items-center justify-center 
+                                            transition-colors duration-150
+                                            ${isActive ? 'text-purple-900' : 'text-slate-500 group-hover:text-purple-900'}
+                                        `}>
+                                            {item.icon}
+                                        </span>
+                                        {/* label */}
+                                        <span className={`
+                                            flex-1 text-lg font-semibold tracking-tight 
+                                            transition-colors duration-150
+                                            ${isActive ? 'text-purple-900' : 'text-slate-700 group-hover:text-purple-900'}
+                                        `}>
+                                            {item.label}
+                                        </span>
+                                        {/* active checkmark indicator */}
+                                        {isActive && (
+                                            <svg className="w-5 h-5 text-purple-900 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </nav>
 
                 {/* sidebar footer stats */}
-                <div className="p-6 border-t border-purple-100/50 space-y-4">
-                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50/30 rounded-2xl p-5 border border-amber-100/50 shadow-sm">
-                        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">Дни до изпита</p>
+                <div className="flex-shrink-0 p-4 border-t border-slate-200/60">
+                    <div className="bg-white rounded-xl p-4 border border-slate-200/60 shadow-sm mb-3">
+                        <div className="flex items-center gap-2 mb-3">
+                            <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Дни до изпита</p>
+                        </div>
                         <div className="text-center">
-                            <p className="text-4xl font-black text-slate-800 tracking-tight mb-1">{daysUntilExam}</p>
-                            <p className="text-sm font-semibold text-slate-600">дни остават</p>
+                            <p className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">{daysUntilExam}</p>
+                            <p className="text-xs font-medium text-slate-600 mt-1">дни остават</p>
                         </div>
                     </div>
-                    <div className="bg-gradient-to-br from-slate-50 to-purple-50/30 rounded-2xl p-5 border border-purple-100/50 shadow-sm">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Бърза статистика</p>
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-600 font-medium">Серия</span>
-                                <span className="text-lg font-bold text-slate-800">{longestStreak} дни</span>
+                    <div className="bg-white rounded-xl p-4 border border-slate-200/60 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                            <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Бърза статистика</p>
+                        </div>
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between py-1.5 px-2 bg-purple-900/5 rounded-lg">
+                                <span className="text-xs font-medium text-slate-600">Серия</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{longestStreak} дни</span>
+                            </div>
+                            <div className="flex items-center justify-between py-1.5 px-2 bg-purple-900/5 rounded-lg">
+                                <span className="text-xs font-medium text-slate-600">Събития</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
                             </div>
                         </div>
                     </div>
@@ -834,7 +981,7 @@ export const Home = () => {
             </aside>
 
             {/* main content area */}
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-hidden">
                 <div className="max-w-7xl mx-auto px-8 py-10">
                     {/* dashboard view */}
                     {activeMenu === 'dashboard' && (
@@ -861,10 +1008,9 @@ export const Home = () => {
                                             <div className="flex items-center gap-4 mb-2">
                                                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                                                     <div 
-                                                        className="h-full rounded-full transition-all duration-700"
+                                                        className="h-full rounded-full transition-all duration-700 bg-purple-900"
                                                         style={{ 
-                                                            width: `${Math.min(100, Math.max(0, ((365 - daysUntilExam) / 365) * 100))}%`,
-                                                            backgroundColor: '#8B7FA8'
+                                                            width: `${Math.min(100, Math.max(0, ((365 - daysUntilExam) / 365) * 100))}%`
                                                         }}
                                                     ></div>
                                                 </div>
@@ -875,20 +1021,34 @@ export const Home = () => {
                                             <p className="text-xs font-normal text-slate-400 mt-2">Готовност</p>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* stat cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* events card */}
-                                    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200/50 text-center">
-                                        <p className="text-sm font-normal text-slate-500 mb-4">Запланирани събития</p>
-                                        <p className="text-5xl font-light text-slate-900">{Object.keys(events).length}</p>
-                                    </div>
-                                    
-                                    {/* study streak card */}
-                                    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200/50 text-center">
-                                        <p className="text-sm font-normal text-slate-500 mb-4">Най-дълга серия</p>
-                                        <p className="text-5xl font-light text-slate-900">{longestStreak} <span className="text-xl font-normal text-slate-400">дни</span></p>
+                                    {/* stat sections at bottom - inside the card */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-slate-100">
+                                        {/* events section */}
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-purple-900/10 flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Запланирани събития</p>
+                                                <p className="text-3xl font-bold text-slate-900">{Object.keys(events).length}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* study streak section */}
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-purple-900/10 flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Най-дълга серия</p>
+                                                <p className="text-3xl font-bold text-slate-900">{longestStreak} <span className="text-lg font-normal text-slate-500">дни</span></p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -909,7 +1069,7 @@ export const Home = () => {
                                             onClick={goToPreviousMonth}
                                             className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-[#8B7FA8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                             </svg>
                                         </button>
@@ -920,7 +1080,7 @@ export const Home = () => {
                                             onClick={goToNextMonth}
                                             className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-[#8B7FA8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                             </svg>
                                         </button>
@@ -953,14 +1113,14 @@ export const Home = () => {
                                                     onClick={() => handleDayClick(day)}
                                                     className={`relative aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all duration-200 ${
                                                         isToday
-                                                            ? 'bg-[#8B7FA8] text-white shadow-sm'
+                                                            ? 'bg-purple-900 text-white shadow-sm'
                                                             : 'text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
                                                     {day}
                                                     {hasEvent && !isToday && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-[#8B7FA8] rounded-full block"></span>
+                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
                                                         </div>
                                                     )}
                                                 </button>
@@ -972,19 +1132,19 @@ export const Home = () => {
                                     <div className="flex items-center justify-between mt-10 pt-8 border-t border-slate-100">
                                         <div className="flex items-center gap-8 text-xs">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-2.5 h-2.5 bg-[#8B7FA8] rounded-full"></div>
+                                                <div className="w-2.5 h-2.5 bg-purple-900 rounded-full"></div>
                                                 <span className="text-slate-600 font-normal">Днес</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 border border-slate-300 rounded-full relative">
-                                                    <div className="absolute inset-0 m-auto w-1 h-1 bg-[#8B7FA8] rounded-full"></div>
+                                                    <div className="absolute inset-0 m-auto w-1 h-1 bg-purple-900 rounded-full"></div>
                                                 </div>
                                                 <span className="text-slate-600 font-normal">Събития</span>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => handleDayClick(new Date().getDate())}
-                                            className="px-4 py-2 bg-[#8B7FA8] hover:bg-[#7A6F98] text-white rounded-xl font-medium transition-all duration-200 text-sm flex items-center gap-2 shadow-sm"
+                                            className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white rounded-xl font-medium transition-all duration-200 text-sm flex items-center gap-2 shadow-sm"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -999,7 +1159,7 @@ export const Home = () => {
                                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
                                                 <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
                                                 
-                                                <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+                                                <div className="space-y-3 overflow-hidden pr-1">
                                                     {getUpcomingEvents().length === 0 ? (
                                                         <div className="text-center py-8">
                                                             <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -1020,7 +1180,7 @@ export const Home = () => {
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-[#8B7FA8] rounded-lg flex flex-col items-center justify-center text-white">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-purple-900 rounded-lg flex flex-col items-center justify-center text-white">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
@@ -1047,63 +1207,34 @@ export const Home = () => {
                         )}
 
 
-                    
 
-                    {/* progress view */}
-                    {activeMenu === 'progress' && (
-                        <div className="space-y-8">
-                            <div className="mb-10">
-                                <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Напредък</h2>
-                                <p className="text-lg text-slate-600 font-medium">Следвайте вашия напредък и статистика</p>
-                            </div>
-                            <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-100/50 text-center">
-                                <div className="w-20 h-20 bg-purple-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                    <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-3">Функционалността скоро ще бъде достъпна</h3>
-                                <p className="text-lg text-slate-500 font-medium">Работим по добавянето на статистика за напредък</p>
-                            </div>
-                        </div>
-                    )}
 
                     {/* events view */}
                     {activeMenu === 'events' && (
                         <div className="space-y-8">
                             <div className="mb-10">
-                                <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Събития</h2>
-                                <p className="text-lg text-slate-600 font-medium">Прегледайте всички ваши събития</p>
+                                <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">Събития</h2>
+                                <p className="text-base font-normal text-slate-500">Прегледайте всички ваши събития</p>
                             </div>
-                            <div className="bg-white rounded-3xl p-8 shadow-lg shadow-slate-900/5 border border-purple-100/50">
+                            <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Всички събития</h3>
+                                </div>
                                 <div className="space-y-3">
                                     {getAllEvents().length === 0 ? (
                                         <div className="text-center py-12">
-                                            <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                                <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
                                             </div>
-                                            <p className="text-sm font-semibold text-slate-700 mb-2">Няма събития</p>
-                                            <p className="text-xs text-slate-500 mb-5">Добавете ново събитие</p>
-                                            <button 
-                                                onClick={() => {
-                                                    setActiveMenu('calendar');
-                                                    handleDayClick(new Date().getDate());
-                                                }}
-                                                className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-md shadow-purple-500/20 inline-flex items-center gap-2"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                </svg>
-                                                Добави събитие
-                                            </button>
+                                            <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                         </div>
                                     ) : (
                                         getAllEvents().map(({ date, dateStr, event }) => (
                                             <div 
                                                 key={dateStr} 
-                                                className="group relative bg-gradient-to-r from-slate-50 to-purple-50/30 hover:from-purple-50 hover:to-indigo-50 border border-purple-100/50 rounded-2xl p-5 transition-all duration-300 cursor-pointer hover:shadow-md"
+                                                className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                 onClick={() => {
                                                     setActiveMenu('calendar');
                                                     setSelectedDay(dateStr);
@@ -1111,17 +1242,17 @@ export const Home = () => {
                                                 }}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex flex-col items-center justify-center text-white shadow-md">
-                                                        <span className="text-xs font-bold uppercase tracking-wide">
+                                                    <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
+                                                        <span className="uppercase leading-tight">
                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                         </span>
-                                                        <span className="text-lg font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                        <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
+                                                        <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wide">
                                                             {date.toLocaleDateString('bg-BG', { weekday: 'long' })}
                                                         </p>
-                                                        <p className="text-base font-semibold text-slate-800 line-clamp-2 leading-relaxed">
+                                                        <p className="text-base font-medium text-slate-900 line-clamp-1">
                                                             {event}
                                                         </p>
                                                     </div>
@@ -1141,9 +1272,9 @@ export const Home = () => {
                                 <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Настройки</h2>
                                 <p className="text-lg text-slate-600 font-medium">Персонализирайте вашите настройки</p>
                             </div>
-                            <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-100/50 text-center">
-                                <div className="w-20 h-20 bg-purple-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                    <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-900/20 text-center">
+                                <div className="w-20 h-20 bg-purple-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                    <svg className="w-10 h-10 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
@@ -1160,7 +1291,7 @@ export const Home = () => {
             {selectedDay && (
 
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-100/50">
+                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20">
                         <div className="mb-6">
 
                             <div className="flex items-center justify-between mb-3">
@@ -1182,8 +1313,8 @@ export const Home = () => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-50/30 px-4 py-2.5 rounded-xl border border-purple-100/50">
-                                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-900/10 px-4 py-2.5 rounded-xl border border-purple-900/20">
+                                <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
 
@@ -1195,7 +1326,7 @@ export const Home = () => {
                             onChange={(e) => setEventText(e.target.value)}
                             placeholder="Напр: Учене за матура, Преговор на материал, Решаване на тест..."
 
-                            className="w-full border-2 border-slate-200 focus:border-purple-500 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-500/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
+                            className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
                             autoFocus
                         />
                         <div className="flex items-center justify-between gap-3">
@@ -1226,7 +1357,7 @@ export const Home = () => {
                                 <button
                                     onClick={handleSaveEvent}
 
-                                    className="px-6 py-3 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover:scale-105 flex items-center gap-2"
+                                    className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1236,8 +1367,8 @@ export const Home = () => {
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                    </div>
+                )}
         </div>
     );
 
