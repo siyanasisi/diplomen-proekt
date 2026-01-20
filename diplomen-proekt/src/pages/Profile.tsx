@@ -1,6 +1,6 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { supabase, refreshSessionIfNeeded } from "../supabase-client";
+import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Profile = () => {
@@ -55,8 +55,8 @@ export const Profile = () => {
         if (!user) return;
  
         try {
-        
-            await refreshSessionIfNeeded();
+            // ensure we have a valid access token before making request
+            await ensureValidSession();
         
         const { data: statsData, error: statsError } = await supabase
             .from('user_stats')
@@ -579,25 +579,7 @@ export const Profile = () => {
     const monthlyValues = Object.values(monthlyEvents);
     const maxMonthlyEvents = monthlyValues.length > 0 ? Math.max(...monthlyValues, 1) : 1;
 
-    // Show loading state while checking authentication
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-slate-600 font-medium">Зареждане...</p>
-                </div>
-            </div>
-        );
-    }
-    
-    // If no user after loading, return null (will redirect in useEffect)
-    if (!user) return null;
-
-    // Memoize computed values (user is guaranteed to be non-null here)
+    // memoize computed values 
     const userMetadata = useMemo(() => {
         if (!user?.user_metadata) return {};
         return (user.user_metadata as any) || {};
@@ -620,6 +602,22 @@ export const Profile = () => {
             return '';
         }
     }, [user?.created_at]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
+                <div className="text-center">
+                    <svg className="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-slate-600 font-medium">Зареждане...</p>
+                </div>
+            </div>
+        );
+    }
+    
+    if (!user) return null;
 
     const firstName = userMetadata?.first_name;
     const lastName = userMetadata?.last_name;

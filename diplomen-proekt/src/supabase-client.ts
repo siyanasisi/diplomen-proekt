@@ -7,30 +7,60 @@ export const supabase = createClient(supabaseURL, supabaseAnonKey, {
     auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storageKey: 'supabase-auth-token'
     }
 });
 
-// helper fun to refresh session 
-export const refreshSessionIfNeeded = async () => {
+// get a valid, unexpired access token
+export const getAccessToken = async (): Promise<string | null> => {
+    // force getting a fresh session
     const { data: { session }, error } = await supabase.auth.getSession();
+    
     if (error || !session) {
+        console.error('No session found:', error);
         return null;
     }
     
-    // check if session is expired or will soon do
+    // check if token is expired or will soon expire
     const expiresAt = session.expires_at;
     if (expiresAt) {
-        const expiresIn = expiresAt - Math.floor(Date.now() / 1000);
-        if (expiresIn <= 60) {
-            const { data, error: refreshError } = await supabase.auth.refreshSession(session);
-            if (refreshError) {
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = expiresAt - now;
+        
+        console.log(`Token expires in ${expiresIn}s`);
+        
+        if (expiresIn <= 300) {
+            console.log('Refreshing token...');
+            
+            // clear the old session 
+            await supabase.auth.stopAutoRefresh();
+            
+            const { data, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError || !data.session) {
                 console.error('Error refreshing session:', refreshError);
+                await supabase.auth.signOut();
                 return null;
             }
-            return data.session;
+            
+            console.log('Token refreshed successfully, new expiry:', data.session.expires_at);
+            
+            // restart auto-refresh
+            supabase.auth.startAutoRefresh();
+            
+            return data.session.access_token;
         }
     }
     
-    return session;
+    return session.access_token;
+};
+
+// helper function to ensure valid session before requests
+export const ensureValidSession = async () => {
+    const token = await getAccessToken();
+    if (!token) {
+        throw new Error('Failed to get valid access token');
+    }
+    return token;
 };

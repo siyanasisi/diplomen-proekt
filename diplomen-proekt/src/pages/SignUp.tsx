@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase-client';
 
 
@@ -30,6 +31,7 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 );
 
 export default function SignUp() {
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');

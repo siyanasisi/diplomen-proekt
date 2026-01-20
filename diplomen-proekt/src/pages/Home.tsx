@@ -1,6 +1,6 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
-import { supabase, refreshSessionIfNeeded } from "../supabase-client";
+import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Home = () => {
@@ -32,85 +32,69 @@ export const Home = () => {
     const loadEvents = async () => {
         if (!user) return;
         
-        await refreshSessionIfNeeded();
-        
-        const { data, error } = await supabase
-            .from('calendar_events')
-            .select('*')
-            .eq('user_id', user.id);
+        try {
+            // ensure we have a valid access token before making request
+            await ensureValidSession();
+            
+            const { data, error } = await supabase
+                .from('calendar_events')
+                .select('*')
+                .eq('user_id', user.id);
 
-        if (error) {
-            // if still getting auth error - refresh sessionn
-            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
-                const refreshedSession = await refreshSessionIfNeeded();
-                if (refreshedSession) {
-                    // retry request 
-                    const { data: retryData, error: retryError } = await supabase
-                        .from('calendar_events')
-                        .select('*')
-                        .eq('user_id', user.id);
-                    
-                    if (retryError) {
-                        console.error('Error loading events:', retryError);
-                    } else if (retryData) {
-                        const eventsMap: { [key: string]: string } = {};
-                        retryData.forEach(event => {
-                            eventsMap[event.date] = event.event_text;
-                        });
-                        setEvents(eventsMap);
-                    }
+            if (error) {
+                // if auth error persists-  sign out
+                if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                    console.error('Authentication error, signing out...');
+                    await supabase.auth.signOut();
+                    navigate('/login');
                     return;
                 }
+                console.error('Error loading events:', error);
+            } else if (data) {
+                const eventsMap: { [key: string]: string } = {};
+                data.forEach(event => {
+                    eventsMap[event.date] = event.event_text;
+                });
+                setEvents(eventsMap);
             }
-            console.error('Error loading events:', error);
-        } else if (data) {
-            const eventsMap: { [key: string]: string } = {};
-            data.forEach(event => {
-                eventsMap[event.date] = event.event_text;
-            });
-            setEvents(eventsMap);
+        } catch (error) {
+            console.error('Failed to ensure valid session:', error);
+            await supabase.auth.signOut();
+            navigate('/login');
         }
     };
 
     const loadUserStats = async () => {
         if (!user) return;
 
-        await refreshSessionIfNeeded();
+        try {
+            // ensure we have a valid access token before making request
+            await ensureValidSession();
 
-        const { data, error } = await supabase
-            .from('user_stats')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
+            const { data, error } = await supabase
+                .from('user_stats')
+                .select('*')
+                .eq('user_id', user.id)
+                .maybeSingle();
 
-        if (error) {
-            // If still getting auth error  refresh session
-            if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
-                const refreshedSession = await refreshSessionIfNeeded();
-                if (refreshedSession) {
-                    // retry request
-                    const { data: retryData, error: retryError } = await supabase
-                        .from('user_stats')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-                    
-                    if (retryError) {
-                        console.error('Error loading stats:', retryError);
-                    } else if (retryData) {
-                        setLongestStreak(retryData.longest_streak || 0);
-                    } else {
-                        setLongestStreak(0);
-                    }
+            if (error) {
+                // if auth error persists-  sign out
+                if (error.code === 'PGRST303' || error.message?.includes('JWT')) {
+                    console.error('Authentication error, signing out...');
+                    await supabase.auth.signOut();
+                    navigate('/login');
                     return;
                 }
+                console.error('Error loading stats:', error);
+            } else if (data) {
+                setLongestStreak(data.longest_streak || 0);
+            } else {
+                setLongestStreak(0);
             }
-            console.error('Error loading stats:', error);
-        } else if (data) {
-            setLongestStreak(data.longest_streak || 0);
-        } else {
-            // No stats row exists - use default
-            setLongestStreak(0);
+        } catch (error) {
+            console.error('Failed to ensure valid session:', error);
+            await supabase.auth.signOut();
+            navigate('/login');
         }
     };
 
@@ -158,67 +142,85 @@ export const Home = () => {
     const handleSaveEvent = async () => {
         if (!selectedDay || !user) return;
 
-        if (eventText.trim()) {
-            // check if event already exists
-            const { data: existingEvent } = await supabase
-                .from('calendar_events')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('date', selectedDay)
-                .single();
+        try {
+            // ensure we have a valid access token before making request
+            await ensureValidSession();
 
-            let error;
-            if (existingEvent) {
-                // update existing event
-                const result = await supabase
+            if (eventText.trim()) {
+                // check if event already exists
+                const { data: existingEvent } = await supabase
                     .from('calendar_events')
-                    .update({ event_text: eventText })
+                    .select('id')
                     .eq('user_id', user.id)
-                    .eq('date', selectedDay);
-                error = result.error;
-            } else {
-                // insert new event
-                const result = await supabase
-                    .from('calendar_events')
-                    .insert({ 
-                        user_id: user.id, 
-                        date: selectedDay, 
-                        event_text: eventText 
-                    });
-                error = result.error;
-            }
+                    .eq('date', selectedDay)
+                    .single();
 
-            if (error) {
-                console.error('Error saving event:', error);
-                alert('Failed to save event. Check console for details.');
+                let error;
+                if (existingEvent) {
+                    // update existing event
+                    const result = await supabase
+                        .from('calendar_events')
+                        .update({ event_text: eventText })
+                        .eq('user_id', user.id)
+                        .eq('date', selectedDay);
+                    error = result.error;
+                } else {
+                    // insert new event
+                    const result = await supabase
+                        .from('calendar_events')
+                        .insert({ 
+                            user_id: user.id, 
+                            date: selectedDay, 
+                            event_text: eventText 
+                        });
+                    error = result.error;
+                }
+
+                if (error) {
+                    console.error('Error saving event:', error);
+                    alert('Failed to save event. Check console for details.');
+                } else {
+                    setEvents({ ...events, [selectedDay]: eventText });
+                }
             } else {
-                setEvents({ ...events, [selectedDay]: eventText });
+                // delete event if text is empty
+                await handleDeleteEvent();
             }
-        } else {
-            // delete event if text is empty
-            await handleDeleteEvent();
+            setSelectedDay(null);
+            setEventText("");
+        } catch (error) {
+            console.error('Failed to ensure valid session:', error);
+            await supabase.auth.signOut();
+            navigate('/login');
         }
-        setSelectedDay(null);
-        setEventText("");
     };
 
     const handleDeleteEvent = async () => {
         if (!selectedDay || !user) return;
 
-        const { error } = await supabase
-            .from('calendar_events')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('date', selectedDay);
+        try {
+            // ensure we have a valid access token before making request
+            await ensureValidSession();
 
-        if (error) {
-            console.error('Error deleting event:', error);
-        } else {
-            const newEvents = { ...events };
-            delete newEvents[selectedDay];
-            setEvents(newEvents);
-            setSelectedDay(null);
-            setEventText("");
+            const { error } = await supabase
+                .from('calendar_events')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('date', selectedDay);
+
+            if (error) {
+                console.error('Error deleting event:', error);
+            } else {
+                const newEvents = { ...events };
+                delete newEvents[selectedDay];
+                setEvents(newEvents);
+                setSelectedDay(null);
+                setEventText("");
+            }
+        } catch (error) {
+            console.error('Failed to ensure valid session:', error);
+            await supabase.auth.signOut();
+            navigate('/login');
         }
     };
 
@@ -362,7 +364,7 @@ export const Home = () => {
                                                 ${isActive ? 'text-purple-900' : 'text-slate-500 group-hover:text-purple-900'}
                                             `}>
                                                 {item.icon}
-                                            </span
+                                            </span>
                                             <span className={`
                                                 flex-1 text-lg font-semibold tracking-tight 
                                                 transition-colors duration-150
