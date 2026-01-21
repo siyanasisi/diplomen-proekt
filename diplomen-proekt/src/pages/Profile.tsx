@@ -14,7 +14,6 @@ export const Profile = () => {
     const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [allEvents, setAllEvents] = useState<any[]>([]);
-    const [monthlyEvents, setMonthlyEvents] = useState<{ [key: string]: number }>({});
     const [editMode, setEditMode] = useState(false);
     const [editedFirstName, setEditedFirstName] = useState('');
     const [editedLastName, setEditedLastName] = useState('');
@@ -105,15 +104,6 @@ export const Profile = () => {
 
         if (eventsData) {
             setAllEvents(eventsData);
-            
-            // calculate monthly events
-            const monthly: { [key: string]: number } = {};
-            eventsData.forEach(event => {
-                const [year, month] = event.date.split('-').slice(0, 2);
-                const monthKey = `${year}-${month}`;
-                monthly[monthKey] = (monthly[monthKey] || 0) + 1;
-            });
-            setMonthlyEvents(monthly);
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -153,7 +143,6 @@ export const Profile = () => {
             setUpcomingEvents([]);
             setRecentActivity([]);
             setAllEvents([]);
-            setMonthlyEvents({});
         }
     }, [user, role]);
 
@@ -563,22 +552,6 @@ export const Profile = () => {
         }
     };
 
-    const getLastMonths = () => {
-        const months: string[] = [];
-        const monthNames = ['Яну', 'Фев', 'Мар', 'Апр', 'Май', 'Юни', 'Юли', 'Авг', 'Сеп', 'Окт', 'Ное', 'Дек'];
-        const today = new Date();
-        
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            months.push(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
-        }
-        return months;
-    };
-
-    const last6Months = getLastMonths();
-    const monthlyValues = Object.values(monthlyEvents);
-    const maxMonthlyEvents = monthlyValues.length > 0 ? Math.max(...monthlyValues, 1) : 1;
-
     // memoize computed values 
     const userMetadata = useMemo(() => {
         if (!user?.user_metadata) return {};
@@ -605,9 +578,9 @@ export const Profile = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
+            <div className={`min-h-screen flex items-center justify-center ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'}`}>
                 <div className="text-center">
-                    <svg className="animate-spin w-12 h-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin w-12 h-12 text-purple-900 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -630,14 +603,20 @@ export const Profile = () => {
     const currentAvatarUrl = avatarUrl || userMetadata?.avatar_url || null;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        <div className={`min-h-screen ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'} relative overflow-hidden`}>
+            {/* background*/}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl"></div>
+            </div>
             {/* notification toast */}
             {notification && (
-                <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-5 duration-300">
-                    <div className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border-2 flex items-center gap-3 ${
+                <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 duration-500 ease-out">
+                    <div className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-2xl border-2 flex items-center gap-3 transform transition-all duration-500 hover:scale-105 ${
                         notification.type === 'success' 
-                            ? 'bg-emerald-50/90 border-emerald-200 text-emerald-800' 
-                            : 'bg-red-50/90 border-red-200 text-red-800'
+                            ? 'bg-gradient-to-br from-emerald-50/95 to-emerald-100/80 border-emerald-300/60 text-emerald-900 shadow-emerald-900/20' 
+                            : 'bg-gradient-to-br from-red-50/95 to-red-100/80 border-red-300/60 text-red-900 shadow-red-900/20'
                     }`}>
                         {notification.type === 'success' ? (
                             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -664,9 +643,9 @@ export const Profile = () => {
             {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
-                    <div className="bg-white rounded-3xl p-8 shadow-2xl">
+                    <div className="bg-white rounded-3xl p-8 shadow-2xl border border-slate-200/60">
                         <div className="flex flex-col items-center gap-4">
-                            <svg className="animate-spin w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin w-12 h-12 text-purple-900" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -676,149 +655,120 @@ export const Profile = () => {
                 </div>
             )}
 
-            {/* header */}
-            <header className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                <div className="absolute inset-0">
-                    <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-pink-500/20 blur-[120px] animate-pulse"></div>
-                    <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-emerald-500/20 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
-                </div>
-                <div className="relative max-w-7xl mx-auto px-4 md:px-8 py-14 md:py-16">
+            <main className="max-w-7xl mx-auto px-8 py-16 relative z-10">
+                {/* header */}
+                <div className="mb-16">
                     <button
                         onClick={() => navigate("/home")}
-                        className="text-white/70 hover:text-white flex items-center gap-2 mb-10 transition-all duration-200 text-sm font-medium group"
+                        className="text-slate-600 hover:text-purple-900 flex items-center gap-2 mb-10 transition-all duration-500 text-sm font-semibold group hover:gap-3 px-4 py-2 rounded-xl hover:bg-white/60 backdrop-blur-sm hover:shadow-lg"
                     >
-                        <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        <svg className="w-5 h-5 group-hover:-translate-x-2 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                         </svg>
                         <span>Назад към начало</span>
                     </button>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                        <div>
-                            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight leading-tight">Моят профил</h1>
-                            <p className="text-white/70 text-base font-medium">Управление на акаунта и настройки</p>
+                    <div className="flex items-center justify-between gap-8 mb-4">
+                        <div className="space-y-2">
+                            <h1 className="text-6xl font-black text-slate-900 tracking-tight mb-4 bg-gradient-to-r from-slate-900 via-purple-900 via-purple-800 to-slate-900 bg-clip-text text-transparent leading-tight">
+                                Профил
+                            </h1>
+                            <p className="text-lg font-medium text-slate-600">Управление на акаунта и настройки</p>
                         </div>
                         {role === 'student' && (
-                            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-xl hover:bg-white/15 transition-all duration-300">
-                                <div className="text-3xl">🔥</div>
-                                <div>
-                                    <div className="text-3xl font-bold text-white leading-none tabular-nums">{currentStreak}</div>
-                                    <div className="text-xs text-white/70 font-medium mt-0.5">дни серия</div>
+                            <div className="flex items-center gap-5 px-10 py-6 rounded-3xl bg-white/90 backdrop-blur-2xl border-2 border-purple-200/80 shadow-2xl shadow-purple-900/15 hover:shadow-purple-900/25 transition-all duration-700 hover:scale-110 hover:rotate-1 relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                                <div className="text-5xl animate-pulse group-hover:scale-125 transition-transform duration-700 relative z-10">🔥</div>
+                                <div className="relative z-10">
+                                    <div className="text-4xl font-black text-purple-900 leading-none tabular-nums group-hover:scale-110 transition-transform duration-700">{currentStreak}</div>
+                                    <div className="text-xs text-purple-700 font-bold mt-1.5 uppercase tracking-widest">дни серия</div>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
-            </header>
-
-            <main className="max-w-7xl mx-auto px-4 md:px-8 py-10 -mt-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-2 space-y-6">
                         {/* profile card */}
-                        <div className="relative overflow-hidden bg-gradient-to-br from-white via-white to-slate-50/50 rounded-3xl shadow-2xl border border-slate-200/60 hover:shadow-3xl transition-all duration-500">
-                            {/* Decorative background elements */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-100/30 to-purple-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-pink-100/30 to-rose-100/30 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-                            
-                            <div className="relative p-8 md:p-12">
-                                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8 lg:gap-12 mb-8">
-                                    {/* Avatar Section */}
-                                    <div className="relative group flex-shrink-0">
+                        <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 overflow-hidden relative group">
+                            {/* gradient overlays */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-white/50 via-transparent to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"></div>
+                            <div className="relative p-12">
+                                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-10">
+                                    {/* avatar section */}
+                                    <div className="relative group/avatar flex-shrink-0">
                                         <div className="relative">
+                                            {/* glow effect */}
+                                            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-400/30 to-purple-600/30 blur-2xl opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-700 -z-10"></div>
                                             {currentAvatarUrl ? (
                                                 <img 
                                                     src={currentAvatarUrl} 
                                                     alt={displayName}
-                                                    className="w-36 h-36 md:w-40 md:h-40 rounded-3xl object-cover shadow-2xl ring-4 ring-white/80 transition-transform duration-300 group-hover:scale-105"
+                                                    className="w-36 h-36 rounded-3xl object-cover shadow-2xl ring-4 ring-purple-200/60 transition-all duration-700 group-hover/avatar:scale-110 group-hover/avatar:ring-purple-400/80 group-hover/avatar:shadow-purple-900/40 group-hover/avatar:rotate-2"
                                                 />
                                             ) : (
-                                                <div 
-                                                    className="w-36 h-36 md:w-40 md:h-40 rounded-3xl flex items-center justify-center text-white text-6xl font-bold shadow-2xl ring-4 ring-white/80 transition-transform duration-300 group-hover:scale-105"
-                                                    style={{ 
-                                                        background: role === 'teacher' 
-                                                            ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
-                                                            : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
-                                                    }}
-                                                >
+                                                <div className="w-36 h-36 rounded-3xl flex items-center justify-center text-white text-6xl font-black shadow-2xl ring-4 ring-purple-200/60 transition-all duration-700 group-hover/avatar:scale-110 group-hover/avatar:ring-purple-400/80 group-hover/avatar:shadow-purple-900/40 group-hover/avatar:rotate-2 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900">
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            {/* Online status badge */}
-                                            <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-white bg-gradient-to-br from-emerald-400 to-emerald-600">
-                                                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                            </div>
+                                            {/* status indicator */}
+                                            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 border-4 border-white shadow-2xl ring-2 ring-emerald-200/60 animate-pulse"></div>
                                         </div>
-                                        {/* Upload overlay */}
-                                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/90 via-black/70 to-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer backdrop-blur-md">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <label className="cursor-pointer">
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={handleAvatarUpload}
-                                                        className="hidden"
-                                                        disabled={uploadingAvatar}
-                                                    />
-                                                    <div className="flex items-center gap-2 px-5 py-3 rounded-xl text-white text-sm font-bold bg-white/25 hover:bg-white/35 backdrop-blur-md transition-all duration-200 hover:scale-110 border-2 border-white/40 shadow-xl">
-                                                        {uploadingAvatar ? (
-                                                            <>
-                                                                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                </svg>
-                                                                Качване...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                </svg>
-                                                                {currentAvatarUrl ? 'Смени' : 'Добави'}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </label>
-                                                {currentAvatarUrl && (
-                                                    <button
-                                                        onClick={handleRemoveAvatar}
-                                                        className="px-5 py-2.5 rounded-xl text-white text-sm font-bold bg-red-500/90 hover:bg-red-600/90 backdrop-blur-md transition-all duration-200 hover:scale-110 border-2 border-red-400/50 shadow-lg"
-                                                        disabled={uploadingAvatar}
-                                                    >
-                                                        Премахни
-                                                    </button>
-                                                )}
-                                            </div>
+                                        {/* upload overlay */}
+                                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/90 via-black/70 to-black/50 opacity-0 group-hover/avatar:opacity-100 transition-all duration-500 flex flex-col items-center justify-center gap-4 cursor-pointer backdrop-blur-xl">
+                                            <label className="cursor-pointer transform hover:scale-110 transition-transform duration-300">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleAvatarUpload}
+                                                    className="hidden"
+                                                    disabled={uploadingAvatar}
+                                                />
+                                                <div className="px-6 py-3 rounded-2xl text-white text-sm font-bold bg-white/30 backdrop-blur-xl hover:bg-white/40 transition-all hover:scale-110 border-2 border-white/40 shadow-2xl">
+                                                    {uploadingAvatar ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                            Качване...
+                                                        </div>
+                                                    ) : currentAvatarUrl ? 'Смени' : 'Добави'}
+                                                </div>
+                                            </label>
+                                            {currentAvatarUrl && (
+                                                <button
+                                                    onClick={handleRemoveAvatar}
+                                                    className="px-6 py-3 rounded-2xl text-white text-sm font-bold bg-red-500/95 hover:bg-red-600 backdrop-blur-xl transition-all hover:scale-110 border-2 border-red-400/60 shadow-2xl"
+                                                    disabled={uploadingAvatar}
+                                                >
+                                                    Премахни
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Profile Info Section */}
+                                   {/* Profile Info Section */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-                                            <div className="space-y-3">
-                                                <div className="flex flex-wrap items-center gap-3">
-                                                    <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-clip-text text-transparent">
+                                        <div className="flex items-start justify-between gap-6 mb-10">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-4 mb-4 flex-wrap">
+                                                    <h2 className="text-4xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
                                                         {displayName}
                                                     </h2>
                                                     {roleLabel && (
-                                                        <span 
-                                                            className="px-5 py-2 text-sm font-bold rounded-full text-white shadow-lg transform hover:scale-105 transition-transform"
-                                                            style={{ 
-                                                                background: role === 'teacher' 
-                                                                    ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
-                                                                    : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
-                                                            }}
-                                                        >
-                                                            {roleLabel}
+                                                        <span className="px-4 py-1.5 text-xs font-black text-purple-900 bg-gradient-to-br from-purple-100 via-purple-50 to-purple-100 rounded-2xl uppercase tracking-widest border-2 border-purple-300/60 shadow-lg shadow-purple-900/10">
+                                                            {roleLabel.toUpperCase()}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-slate-600 font-medium flex items-center gap-2">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                <p className="text-lg font-semibold text-slate-700 flex items-center gap-3 group/email">
+                                                    <svg className="w-5 h-5 text-purple-600 group-hover/email:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                     </svg>
-                                                    Активен профил
+                                                    <span className="bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">{user.email}</span>
                                                 </p>
                                             </div>
                                             <button
@@ -829,267 +779,246 @@ export const Profile = () => {
                                                     setEditedCity(city || '');
                                                     setEditedQualifications(qualifications || '');
                                                 }}
-                                                className="px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200 hover:scale-105 border-2 flex items-center gap-2 shadow-lg hover:shadow-xl bg-gradient-to-r from-slate-50 to-white border-slate-300 text-slate-800 hover:from-slate-100 hover:to-slate-50 whitespace-nowrap"
+                                                className="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-purple-600 hover:from-purple-700 hover:via-purple-800 hover:to-purple-700 text-white rounded-2xl font-bold transition-all duration-500 flex items-center gap-3 border-2 border-purple-500/50 hover:border-purple-400/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/40 hover:scale-105 shadow-xl shadow-purple-900/30 group"
                                             >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                <svg className="w-5 h-5 group-hover:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
-                                                Редактирай профил
+                                                Редактирай
                                             </button>
                                         </div>
 
-                                        {/* Info Cards Grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 border-2 border-blue-200/50 hover:border-blue-300 transition-all duration-300 hover:shadow-lg">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Имейл</p>
-                                                        <p className="text-sm font-bold text-slate-800 truncate">{user.email}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
+                                        {/* profile details */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-10 border-t-2 border-gradient-to-r from-transparent via-purple-200/40 to-transparent">
                                             {city && (
-                                                <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-200/50 hover:border-emerald-300 transition-all duration-300 hover:shadow-lg">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            </svg>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Град</p>
-                                                            <p className="text-sm font-bold text-slate-800">
-                                                                {city}
-                                                                {role === 'student' && grade && <span className="text-emerald-600"> • {grade} клас</span>}
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 border-2 border-purple-200/40 hover:border-purple-300/60 transition-all duration-500 hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 group relative overflow-hidden">
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                                    <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Град</p>
+                                                    <p className="text-lg font-bold text-slate-900 relative z-10">
+                                                        {city}
+                                                        {role === 'student' && grade && <span className="text-slate-600 font-semibold"> • {grade} клас</span>}
+                                                    </p>
                                                 </div>
                                             )}
-
-                                            {role === 'teacher' && qualifications && (
-                                                <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 border-2 border-purple-200/50 hover:border-purple-300 transition-all duration-300 hover:shadow-lg sm:col-span-2">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                                            </svg>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Квалификации</p>
-                                                            <p className="text-sm font-bold text-slate-800">{qualifications}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            <div className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-200/50 hover:border-amber-300 transition-all duration-300 hover:shadow-lg sm:col-span-2">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Член от</p>
-                                                        <p className="text-sm font-bold text-slate-800">{memberSince}</p>
-                                                    </div>
-                                                </div>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 border-2 border-purple-200/40 hover:border-purple-300/60 transition-all duration-500 hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 group relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                                <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Член от</p>
+                                                <p className="text-lg font-bold text-slate-900 relative z-10">{memberSince}</p>
                                             </div>
+                                            {role === 'teacher' && qualifications && (
+                                                <div className="sm:col-span-2 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 border-2 border-purple-200/40 hover:border-purple-300/60 transition-all duration-500 hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 group relative overflow-hidden">
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                                    <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Квалификации</p>
+                                                    <p className="text-lg font-bold text-slate-900 relative z-10">{qualifications}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            {/* stats grid - only for students */}
+                            {/* stats section for students */}
                             {role === 'student' && (
-                                <>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
-                                        <div className="group text-center p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-100 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer">
-                                            <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">🔥</div>
-                                            <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">{currentStreak}</div>
-                                            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Текуща серия</div>
-                                        </div>
-                                        <div className="group text-center p-6 rounded-2xl bg-gradient-to-br from-pink-50 to-rose-50 border-2 border-pink-100 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer">
-                                            <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">🏆</div>
-                                            <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">{longestStreak}</div>
-                                            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Най-дълга серия</div>
-                                        </div>
-                                        <div className="group text-center p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer">
-                                            <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">⭐</div>
-                                            <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{earnedPoints}</div>
-                                            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Точки</div>
-                                        </div>
-                                        <div className="group text-center p-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer">
-                                            <div className="text-4xl mb-3 transform group-hover:scale-110 transition-transform duration-300">📝</div>
-                                            <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{totalEvents}</div>
-                                            <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Събития</div>
-                                        </div>
-                                    </div>
-
-                                    {/* monthly activity chart */}
-                                    {Object.keys(monthlyEvents).length > 0 && (
-                                        <div className="mt-8 pt-8 border-t-2 border-slate-200">
-                                            <h4 className="text-xl font-extrabold mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Месечна активност</h4>
-                                            <div className="space-y-4">
-                                                {last6Months.map((monthLabel, index) => {
-                                                    const today = new Date();
-                                                    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
-                                                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                                                    const count = monthlyEvents[monthKey] || 0;
-                                                    const percentage = maxMonthlyEvents > 0 ? (count / maxMonthlyEvents) * 100 : 0;
-                                                    
-                                                    return (
-                                                        <div key={monthKey} className="flex items-center gap-4">
-                                                            <div className="w-24 text-sm font-bold text-slate-700">
-                                                                {monthLabel}
-                                                            </div>
-                                                            <div className="flex-1 h-8 rounded-full overflow-hidden bg-slate-100 shadow-inner">
-                                                                <div 
-                                                                    className="h-full rounded-full transition-all duration-700 ease-out shadow-lg"
-                                                                    style={{ 
-                                                                        width: `${percentage}%`,
-                                                                        background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
-                                                                    }}
-                                                                ></div>
-                                                            </div>
-                                                            <div className="w-10 text-sm font-extrabold text-right text-slate-900">
-                                                                {count}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
+                                    {/* gradient overlays */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
+                                    <div className="absolute inset-0 bg-gradient-to-t from-white/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                                    <div className="relative">
+                                        <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-10 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Статистика</h3>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            <div className="bg-gradient-to-br from-white via-purple-50/40 to-white backdrop-blur-sm rounded-2xl p-7 border-2 border-purple-200/50 hover:border-purple-400/70 hover:shadow-2xl hover:shadow-purple-900/30 transition-all duration-700 hover:-translate-y-3 hover:scale-110 group/stat relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/50 opacity-0 group-hover/stat:opacity-100 transition-opacity duration-700"></div>
+                                                <div className="flex flex-col items-center text-center relative z-10">
+                                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 shadow-2xl shadow-purple-900/50 group-hover/stat:scale-125 group-hover/stat:rotate-6 transition-all duration-700">
+                                                        <span className="text-4xl group-hover/stat:scale-110 transition-transform duration-700">🔥</span>
+                                                    </div>
+                                                    <p className="text-4xl font-black text-slate-900 mb-2 group-hover/stat:scale-110 transition-transform duration-700">{currentStreak}</p>
+                                                    <p className="text-xs font-black text-purple-600 uppercase tracking-widest">Текуща серия</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/40 to-white backdrop-blur-sm rounded-2xl p-7 border-2 border-purple-200/50 hover:border-purple-400/70 hover:shadow-2xl hover:shadow-purple-900/30 transition-all duration-700 hover:-translate-y-3 hover:scale-110 group/stat relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/50 opacity-0 group-hover/stat:opacity-100 transition-opacity duration-700"></div>
+                                                <div className="flex flex-col items-center text-center relative z-10">
+                                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 shadow-2xl shadow-purple-900/50 group-hover/stat:scale-125 group-hover/stat:rotate-6 transition-all duration-700">
+                                                        <span className="text-4xl group-hover/stat:scale-110 transition-transform duration-700">🏆</span>
+                                                    </div>
+                                                    <p className="text-4xl font-black text-slate-900 mb-2 group-hover/stat:scale-110 transition-transform duration-700">{longestStreak}</p>
+                                                    <p className="text-xs font-black text-purple-600 uppercase tracking-widest">Най-дълга серия</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/40 to-white backdrop-blur-sm rounded-2xl p-7 border-2 border-purple-200/50 hover:border-purple-400/70 hover:shadow-2xl hover:shadow-purple-900/30 transition-all duration-700 hover:-translate-y-3 hover:scale-110 group/stat relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/50 opacity-0 group-hover/stat:opacity-100 transition-opacity duration-700"></div>
+                                                <div className="flex flex-col items-center text-center relative z-10">
+                                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 shadow-2xl shadow-purple-900/50 group-hover/stat:scale-125 group-hover/stat:rotate-6 transition-all duration-700">
+                                                        <span className="text-4xl group-hover/stat:scale-110 transition-transform duration-700">⭐</span>
+                                                    </div>
+                                                    <p className="text-4xl font-black text-slate-900 mb-2 group-hover/stat:scale-110 transition-transform duration-700">{earnedPoints}</p>
+                                                    <p className="text-xs font-black text-purple-600 uppercase tracking-widest">Точки</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/40 to-white backdrop-blur-sm rounded-2xl p-7 border-2 border-purple-200/50 hover:border-purple-400/70 hover:shadow-2xl hover:shadow-purple-900/30 transition-all duration-700 hover:-translate-y-3 hover:scale-110 group/stat relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/50 opacity-0 group-hover/stat:opacity-100 transition-opacity duration-700"></div>
+                                                <div className="flex flex-col items-center text-center relative z-10">
+                                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 shadow-2xl shadow-purple-900/50 group-hover/stat:scale-125 group-hover/stat:rotate-6 transition-all duration-700">
+                                                        <svg className="w-10 h-10 text-white group-hover/stat:scale-110 transition-transform duration-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <p className="text-4xl font-black text-slate-900 mb-2 group-hover/stat:scale-110 transition-transform duration-700">{totalEvents}</p>
+                                                    <p className="text-xs font-black text-purple-600 uppercase tracking-widest">Събития</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-                                </>
+                                    </div>
+                                </div>
                             )}
+
+                            {/* settings */}
+                            <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-white/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                                <div className="relative">
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-8 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Настройки</h3>
+                                    <div className="space-y-5">
+                                        <button
+                                            onClick={() => setShowChangePassword(true)}
+                                            className="w-full px-8 py-5 bg-gradient-to-br from-white via-slate-50 to-white hover:from-purple-50 hover:via-purple-100/50 hover:to-purple-50 text-slate-700 hover:text-purple-900 rounded-2xl font-bold transition-all duration-700 flex items-center justify-center gap-3 text-base border-2 border-slate-200/60 hover:border-purple-300/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/20 group/btn"
+                                        >
+                                            <svg className="w-6 h-6 group-hover/btn:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                            </svg>
+                                            Смени парола
+                                        </button>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="w-full px-8 py-5 bg-gradient-to-br from-white via-slate-50 to-white hover:from-slate-100 hover:via-slate-50 hover:to-slate-100 text-slate-700 rounded-2xl font-bold transition-all duration-700 flex items-center justify-center gap-3 text-base border-2 border-slate-200/60 hover:border-slate-300/60 hover:-translate-y-2 hover:shadow-2xl group/btn"
+                                        >
+                                            <svg className="w-6 h-6 group-hover/btn:-translate-x-1 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            Изход от профил
+                                        </button>
+                                    </div>
+                                    
+                                    {/* destructive actions */}
+                                    <div className="mt-10 pt-10 border-t-2 border-gradient-to-r from-transparent via-red-200/40 to-transparent">
+                                        <button
+                                            onClick={() => setShowDeleteAccount(true)}
+                                            className="w-full px-8 py-5 rounded-2xl font-black text-sm text-white transition-all duration-700 flex items-center justify-center gap-3 shadow-2xl hover:shadow-red-900/40 hover:scale-110 bg-gradient-to-r from-red-600 via-red-700 via-red-800 to-red-600 hover:from-red-700 hover:via-red-900 hover:to-red-700 group/btn relative overflow-hidden"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></div>
+                                            <svg className="w-6 h-6 group-hover/btn:rotate-12 transition-transform duration-500 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            <span className="relative z-10">Изтрий акаунт</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* right column */}
+                    <div className="space-y-6">
+                        {/* quick actions */}
+                        <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-white/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                            <div className="relative">
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-8 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Бързи действия</h3>
+                                <div className="space-y-5">
+                                    <button
+                                        onClick={() => navigate("/home")}
+                                        className="w-full px-8 py-5 rounded-2xl font-black transition-all duration-700 ease-out flex items-center justify-center gap-3 text-base shadow-2xl shadow-purple-900/40 hover:shadow-purple-900/50 hover:-translate-y-3 hover:scale-110 bg-gradient-to-r from-purple-900 via-purple-800 via-purple-700 to-purple-900 text-white group/btn relative overflow-hidden"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></div>
+                                        <svg className="w-6 h-6 group-hover/btn:rotate-180 transition-transform duration-700 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        <span className="relative z-10">Добави събитие</span>
+                                    </button>
+                                    {role === 'student' && (
+                                        <button
+                                            onClick={() => navigate("/home")}
+                                            className="w-full px-8 py-5 bg-gradient-to-br from-white via-slate-50 to-white hover:from-purple-50 hover:via-purple-100/50 hover:to-purple-50 text-slate-700 hover:text-purple-900 rounded-2xl font-bold transition-all duration-700 flex items-center justify-center gap-3 text-base border-2 border-slate-200/60 hover:border-purple-300/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/20 group/btn"
+                                        >
+                                            <svg className="w-6 h-6 group-hover/btn:scale-110 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                            Виж статистики
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* upcoming events */}
-                        <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/50 hover:shadow-3xl transition-all duration-300">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-2xl font-extrabold flex items-center gap-4 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                                    <div 
-                                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" 
-                                        style={{ 
-                                            background: role === 'teacher' 
-                                                ? 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)'
-                                                : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
-                                        }}
-                                    >
-                                        <svg 
-                                            className="w-6 h-6" 
-                                            style={{ color: role === 'teacher' ? '#ec4899' : '#3b82f6' }} 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                    <span>{role === 'teacher' ? 'Събития' : 'Предстоящи събития'}</span>
-                                    {role === 'teacher' && allEvents.length > 0 && (
-                                        <span className="px-3 py-1 text-xs font-bold rounded-full text-white shadow-md" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' }}>
-                                            {allEvents.length}
-                                        </span>
-                                    )}
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                    {role === 'teacher' && allEvents.length > 0 && (
+                        <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
+                            {/* gradient overlays */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-white/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                            <div className="relative">
+                                <div className="flex items-center justify-between mb-10">
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        {role === 'teacher' ? 'Събития' : 'Предстоящи събития'}
+                                    </h3>
+                                    <div className="flex items-center gap-3">
+                                        {role === 'teacher' && allEvents.length > 0 && (
+                                            <button
+                                                onClick={() => setShowAllEvents(!showAllEvents)}
+                                                className="text-sm font-bold text-slate-700 hover:text-purple-900 transition-all px-5 py-2.5 rounded-2xl hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 border-2 border-slate-200/60 hover:border-purple-300/60 hover:shadow-lg hover:-translate-y-0.5"
+                                            >
+                                                {showAllEvents ? 'Предстоящи' : 'Всички'}
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={() => setShowAllEvents(!showAllEvents)}
-                                            className="text-sm font-semibold transition-colors px-3 py-1.5 rounded-lg"
-                                            style={{ 
-                                                backgroundColor: showAllEvents ? '#ffe6f1' : 'transparent',
-                                                color: '#fb0473'
-                                            }}
+                                            onClick={() => navigate("/home")}
+                                            className="text-sm font-bold text-slate-700 hover:text-purple-900 transition-all flex items-center gap-2.5 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 px-5 py-2.5 rounded-2xl border-2 border-slate-200/60 hover:border-purple-300/60 hover:shadow-lg hover:-translate-y-0.5 group/btn"
                                         >
-                                            {showAllEvents ? 'Предстоящи' : 'Всички'}
+                                            {role === 'teacher' ? 'Добави' : 'Виж всички'}
+                                            <svg className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                            </svg>
                                         </button>
-                                    )}
-                                    <button
-                                        onClick={() => navigate("/home")}
-                                        className="text-sm font-semibold transition-colors flex items-center gap-1"
-                                        style={{ 
-                                            color: role === 'teacher' ? '#fb0473' : '#5094af'
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.color = role === 'teacher' ? '#c9035c' : '#40768c'}
-                                        onMouseLeave={(e) => e.currentTarget.style.color = role === 'teacher' ? '#fb0473' : '#5094af'}
-                                    >
-                                        {role === 'teacher' ? 'Добави' : 'Виж всички'}
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
+                                    </div>
                                 </div>
-                            </div>
 
                             {(role === 'teacher' && showAllEvents ? allEvents : upcomingEvents).length > 0 ? (
                                 <div className="space-y-3">
                                     {(role === 'teacher' && showAllEvents ? allEvents : upcomingEvents).map((event, index) => {
-                                        const [year, month, day] = event.date.split('-').map(Number);
-                                        const eventDate = new Date(year, month - 1, day);
-                                        const today = new Date();
-                                        today.setHours(0, 0, 0, 0);
-                                        const isPast = eventDate < today;
-                                        
                                         return (
                                             <div 
                                                 key={event.id || index} 
-                                                className="flex items-center gap-5 p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group backdrop-blur-sm"
-                                                style={{ 
-                                                    background: isPast 
-                                                        ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-                                                        : index % 2 === 0 
-                                                            ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
-                                                            : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                                                    borderColor: isPast ? '#bbf7d0' : (index % 2 === 0 ? '#86efac' : '#93c5fd'),
-                                                    opacity: isPast ? 0.8 : 1
-                                                }}
+                                                className="group/event bg-gradient-to-br from-white via-purple-50/50 to-white backdrop-blur-sm hover:from-purple-100/70 hover:via-purple-50/40 hover:to-white border-2 border-purple-200/50 hover:border-purple-400/70 rounded-2xl p-6 transition-all duration-700 cursor-pointer hover:shadow-2xl hover:shadow-purple-900/25 hover:-translate-y-2 hover:scale-[1.03] relative overflow-hidden"
                                             >
-                                                <div 
-                                                    className="flex-shrink-0 w-20 h-20 rounded-2xl flex flex-col items-center justify-center text-white shadow-xl ring-4 ring-white/50"
-                                                    style={{ 
-                                                        background: isPast 
-                                                            ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
-                                                            : index % 2 === 0 
-                                                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                                                                : role === 'teacher'
-                                                                    ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
-                                                                    : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
-                                                    }}
-                                                >
-                                                    <div className="text-xs font-bold uppercase tracking-wider">{formatDate(event.date).split(' ')[1]}</div>
-                                                    <div className="text-3xl font-extrabold leading-none">{formatDate(event.date).split(' ')[0]}</div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-base font-bold mb-1.5 text-slate-900">{event.event_text}</p>
-                                                    <p className="text-xs font-medium text-slate-600">{formatFullDate(event.date)}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/40 opacity-0 group-hover/event:opacity-100 transition-opacity duration-700"></div>
+                                                <div className="flex items-center gap-6 relative z-10">
+                                                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-black shadow-2xl bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 group-hover/event:scale-125 group-hover/event:rotate-3 transition-all duration-700">
+                                                        <span className="uppercase leading-tight text-[10px]">
+                                                            {formatDate(event.date).split(' ')[1]}
+                                                        </span>
+                                                        <span className="text-xl font-black leading-none mt-0.5">{formatDate(event.date).split(' ')[0]}</span>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 pr-6">
+                                                        <p className="text-xs font-black text-purple-600 mb-2 uppercase tracking-widest">
+                                                            {formatFullDate(event.date)}
+                                                        </p>
+                                                        <p className="text-lg font-bold text-slate-900 group-hover/event:text-purple-900 transition-colors duration-300 break-words leading-relaxed">
+                                                            {event.event_text}
+                                                        </p>
+                                                    </div>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleDeleteEvent(event.id);
                                                         }}
-                                                        className="opacity-0 group-hover:opacity-100 transition-all duration-300 p-2.5 rounded-xl hover:scale-110 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                                                        className="opacity-0 group-hover/event:opacity-100 transition-all duration-500 p-3 rounded-2xl hover:bg-red-50 text-red-600 hover:scale-125 hover:rotate-12 border-2 border-transparent hover:border-red-200/60 flex-shrink-0"
                                                         title="Изтрий събитие"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
                                                     </button>
-                                                    <svg className="w-6 h-6 flex-shrink-0 text-slate-400 group-hover:text-slate-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
                                                 </div>
                                             </div>
                                         );
@@ -1097,247 +1026,102 @@ export const Profile = () => {
                                 </div>
                             ) : (
                                 <div className="text-center py-12">
-                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#f2faeb' }}>
-                                        <svg className="w-8 h-8" style={{ color: '#80cc33' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    <div className="w-16 h-16 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-200/60">
+                                        <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
-                                    <p className="text-sm font-medium mb-2" style={{ color: '#40768c' }}>
+                                    <p className="text-sm font-normal text-slate-500 mb-4">
                                         {showAllEvents ? 'Няма събития' : 'Няма предстоящи събития'}
                                     </p>
                                     <button
                                         onClick={() => navigate("/home")}
-                                        className="mt-4 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-105"
-                                        style={{ backgroundColor: role === 'teacher' ? '#fb0473' : '#5094af' }}
+                                        className="px-6 py-3.5 rounded-xl font-semibold transition-all duration-300 ease-out flex items-center gap-2.5 text-base shadow-lg shadow-purple-900/30 hover:shadow-xl hover:shadow-purple-900/40 hover:-translate-y-1 hover:scale-[1.02] bg-gradient-to-r from-purple-900 to-purple-800 text-white mx-auto"
                                     >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
                                         Добави събитие
                                     </button>
                                 </div>
                             )}
+                            </div>
                         </div>
 
-                        {/* recent activity - only for students */}
+                        {/* recent activity for students */}
                         {role === 'student' && (
-                            <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
-                                <h3 className="text-xl font-bold mb-6 flex items-center gap-3" style={{ color: '#203b46' }}>
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
-                                        <svg className="w-5 h-5" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    Последна активност
-                                </h3>
+                            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-purple-900/5 border border-slate-200/60 p-8 hover:shadow-2xl hover:shadow-purple-900/10 transition-all duration-500 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/20 via-transparent to-purple-50/10 pointer-events-none"></div>
+                                <div className="relative">
+                                    <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-8">Последна активност</h3>
 
-                                {recentActivity.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {recentActivity.map((event, index) => (
-                                            <div 
-                                                key={index} 
-                                                className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all hover:scale-[1.02]"
-                                                style={{ 
-                                                    backgroundColor: '#f2faeb',
-                                                    borderColor: '#e6f5d6'
-                                                }}
-                                            >
-                                                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: '#80cc33' }}></div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold mb-1" style={{ color: '#203b46' }}>{event.event_text}</p>
-                                                    <p className="text-xs" style={{ color: '#40768c' }}>{formatDate(event.date)}</p>
+                                    {recentActivity.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {recentActivity.map((event, index) => (
+                                                <div 
+                                                    key={index} 
+                                                    className="group bg-gradient-to-br from-slate-50/60 to-white backdrop-blur-sm hover:from-slate-100/60 hover:to-slate-50/30 border border-slate-200/60 rounded-2xl p-5 transition-all duration-500 cursor-pointer hover:shadow-xl hover:border-slate-300/80 hover:-translate-y-1 hover:scale-[1.02]"
+                                                >
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-500 group-hover:scale-110 transition-transform duration-500">
+                                                            <span className="uppercase leading-tight text-[10px]">
+                                                                {formatDate(event.date).split(' ')[1]}
+                                                            </span>
+                                                            <span className="text-lg font-black leading-none mt-0.5">{formatDate(event.date).split(' ')[0]}</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 pr-6">
+                                                            <p className="text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                                                                {formatDate(event.date)}
+                                                            </p>
+                                                            <p className="text-base font-semibold text-slate-900 break-words leading-relaxed">
+                                                                {event.event_text}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#f2faeb' }}>
-                                                    <svg className="w-5 h-5" style={{ color: '#80cc33' }} fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12">
-                                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#f0f4f1' }}>
-                                            <svg className="w-8 h-8" style={{ color: '#6c9370' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
+                                            ))}
                                         </div>
-                                        <p className="text-sm font-medium" style={{ color: '#40768c' }}>Все още няма активност</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* right column */}
-                    <div className="space-y-8">
-                        {/* quick actions */}
-                        <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/50 hover:shadow-3xl transition-all duration-300">
-                            <h3 className="text-2xl font-extrabold mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Бързи действия</h3>
-                            <div className="space-y-4">
-                                <button
-                                    onClick={() => navigate("/home")}
-                                    className="w-full px-6 py-4 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 hover:shadow-2xl shadow-xl"
-                                    style={{ 
-                                        background: role === 'teacher' 
-                                            ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)'
-                                            : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'
-                                    }}
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                    Добави събитие
-                                </button>
-                                {role === 'student' && (
-                                    <>
-                                        <button
-                                            onClick={() => navigate("/home")}
-                                            className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-700 hover:from-emerald-100 hover:to-teal-100 shadow-md hover:shadow-lg"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                            </svg>
-                                            Виж статистики
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setEditMode(true);
-                                                setEditedFirstName(firstName || '');
-                                                setEditedLastName(lastName || '');
-                                                setEditedCity(city || '');
-                                            }}
-                                            className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200 text-slate-700 hover:from-slate-100 hover:to-slate-200 shadow-md hover:shadow-lg"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Редактирай профил
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* account info  */}
-                        <div className="bg-white rounded-2xl p-6 shadow-xl border" style={{ borderColor: '#dceaef' }}>
-                            <h3 className="text-2xl font-extrabold mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Информация за акаунта</h3>
-                            <div className="space-y-5">
-                                {(firstName || lastName) && (
-                                    <div className="p-4 rounded-xl" style={{ backgroundColor: '#ffe6f1' }}>
-                                        <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#c9035c' }}>ИМЕ</label>
-                                        <p className="text-sm font-semibold" style={{ color: '#203b46' }}>
-                                            {firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName}
-                                        </p>
-                                    </div>
-                                )}
-                                <div className="p-4 rounded-xl" style={{ backgroundColor: '#eef4f7' }}>
-                                    <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#40768c' }}>ИМЕЙЛ АДРЕС</label>
-                                    <p className="text-sm font-semibold" style={{ color: '#203b46' }}>{user.email}</p>
-                                </div>
-                                <div className="p-4 rounded-xl" style={{ backgroundColor: role === 'teacher' ? '#ffe6f1' : '#eef4f7' }}>
-                                    <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#40768c' }}>РОЛЯ</label>
-                                    {roleLabel ? (
-                                        <span 
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full text-white"
-                                            style={{ 
-                                                backgroundColor: role === 'teacher' ? '#fb0473' : '#5094af'
-                                            }}
-                                        >
-                                            {roleLabel}
-                                        </span>
                                     ) : (
-                                        <span className="text-sm" style={{ color: '#40768c' }}>Не е зададена</span>
+                                        <div className="text-center py-12">
+                                            <div className="w-16 h-16 bg-gradient-to-br from-slate-50/80 to-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200/60 shadow-lg">
+                                                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-sm font-normal text-slate-500">Все още няма активност</p>
+                                        </div>
                                     )}
                                 </div>
-                                {city && (
-                                    <div className="p-4 rounded-xl" style={{ backgroundColor: '#f0f4f1' }}>
-                                        <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#577559' }}>ГРАД</label>
-                                        <p className="text-sm font-semibold" style={{ color: '#203b46' }}>
-                                            {city}
-                                            {role === 'student' && grade && ` • ${grade} клас`}
-                                        </p>
-                                    </div>
-                                )}
-                                {role === 'teacher' && qualifications && (
-                                    <div className="p-4 rounded-xl" style={{ backgroundColor: '#f2faeb' }}>
-                                        <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#66a329' }}>КВАЛИФИКАЦИИ</label>
-                                        <p className="text-sm font-semibold" style={{ color: '#203b46' }}>{qualifications}</p>
-                                    </div>
-                                )}
-                                <div className="p-4 rounded-xl" style={{ backgroundColor: '#f2faeb' }}>
-                                    <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#66a329' }}>СТАТУС</label>
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full text-white" style={{ backgroundColor: '#80cc33' }}>
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
-                                        Активен
-                                    </span>
-                                </div>
-                                <div className="p-4 rounded-xl" style={{ backgroundColor: '#eef4f7' }}>
-                                    <label className="block text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: '#40768c' }}>РЕГИСТРИРАН</label>
-                                    <p className="text-sm font-semibold" style={{ color: '#203b46' }}>
-                                        {new Date(user.created_at).toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    </p>
-                                </div>
                             </div>
-                        </div>
-
-                        {/* settings */}
-                        <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/50 hover:shadow-3xl transition-all duration-300">
-                            <h3 className="text-2xl font-extrabold mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Настройки</h3>
-                            <div className="space-y-3">
-                                <button
-                                    onClick={() => setShowChangePassword(true)}
-                                    className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-indigo-100 shadow-md hover:shadow-lg"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                    </svg>
-                                    Смени парола
-                                </button>
-                                <button
-                                    onClick={handleSignOut}
-                                    className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-red-50 to-rose-50 border-red-200 text-red-700 hover:from-red-100 hover:to-rose-100 shadow-md hover:shadow-lg"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    Изход от профил
-                                </button>
-                                <button
-                                    onClick={() => setShowDeleteAccount(true)}
-                                    className="w-full px-6 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700 shadow-lg hover:shadow-xl"
-                                >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Изтрий акаунт
-                                </button>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </main>
 
             {/* change password modal */}
             {showChangePassword && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-2xl font-bold" style={{ color: '#203b46' }}>Смени парола</h3>
-                            <button
-                                onClick={() => {
-                                    setShowChangePassword(false);
-                                    setCurrentPassword('');
-                                    setNewPassword('');
-                                    setConfirmPassword('');
-                                    setPasswordError('');
-                                }}
-                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
-                            >
-                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
+                <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-500">
+                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-900/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 relative overflow-hidden">
+                        {/* Gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 via-transparent to-purple-50/20 pointer-events-none"></div>
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Смени парола</h3>
+                                <button
+                                    onClick={() => {
+                                        setShowChangePassword(false);
+                                        setCurrentPassword('');
+                                        setNewPassword('');
+                                        setConfirmPassword('');
+                                        setPasswordError('');
+                                    }}
+                                    className="p-2.5 rounded-2xl hover:bg-slate-100 transition-all duration-300 hover:scale-110 hover:rotate-90 border-2 border-transparent hover:border-slate-200/60"
+                                >
+                                    <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
 
                         <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }} className="space-y-5">
                             {passwordError && (
@@ -1347,13 +1131,12 @@ export const Profile = () => {
                             )}
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Текуща парола</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Текуща парола</label>
                                 <input
                                     type="password"
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                    style={{ borderColor: '#dceaef' }}
+                                    className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                     placeholder="Въведете текущата парола"
                                     required
                                     disabled={changingPassword}
@@ -1361,7 +1144,7 @@ export const Profile = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Нова парола</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Нова парола</label>
                                 <input
                                     type="password"
                                     value={newPassword}
@@ -1374,22 +1157,21 @@ export const Profile = () => {
                                             setPasswordError('');
                                         }
                                     }}
-                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                    style={{ borderColor: passwordError && newPassword ? '#f3d8d8' : '#dceaef' }}
+                                    className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${passwordError && newPassword ? 'border-red-200 focus:border-red-300' : 'border-slate-200 focus:border-purple-900'}`}
                                     placeholder="Минимум 8 символа, главна буква, малка буква, цифра, специален символ"
                                     required
                                     disabled={changingPassword}
                                     minLength={8}
                                 />
                                 {!passwordError && newPassword && (
-                                    <p className="mt-2 text-xs" style={{ color: '#80cc33' }}>
+                                    <p className="mt-2 text-xs text-emerald-600">
                                         ✓ Паролата отговаря на изискванията
                                     </p>
                                 )}
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Потвърди нова парола</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Потвърди нова парола</label>
                                 <input
                                     type="password"
                                     value={confirmPassword}
@@ -1407,15 +1189,14 @@ export const Profile = () => {
                                             setPasswordError(validationError);
                                         }
                                     }}
-                                    className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                    style={{ borderColor: passwordError && confirmPassword && confirmPassword !== newPassword ? '#f3d8d8' : '#dceaef' }}
+                                    className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${passwordError && confirmPassword && confirmPassword !== newPassword ? 'border-red-200 focus:border-red-300' : 'border-slate-200 focus:border-purple-900'}`}
                                     placeholder="Повтори новата парола"
                                     required
                                     disabled={changingPassword}
                                     minLength={8}
                                 />
                                 {confirmPassword && confirmPassword === newPassword && !passwordError && (
-                                    <p className="mt-2 text-xs" style={{ color: '#80cc33' }}>
+                                    <p className="mt-2 text-xs text-emerald-600">
                                         ✓ Паролите съвпадат
                                     </p>
                                 )}
@@ -1431,12 +1212,7 @@ export const Profile = () => {
                                         setConfirmPassword('');
                                         setPasswordError('');
                                     }}
-                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-105 border-2"
-                                    style={{ 
-                                        backgroundColor: '#eef4f7',
-                                        borderColor: '#dceaef',
-                                        color: '#40768c'
-                                    }}
+                                    className="flex-1 px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
                                     disabled={changingPassword}
                                 >
                                     Откажи
@@ -1444,15 +1220,13 @@ export const Profile = () => {
                                 <button
                                     type="submit"
                                     disabled={changingPassword}
-                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={{ 
-                                        background: 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
-                                    }}
+                                    className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {changingPassword ? 'Запазване...' : 'Смени парола'}
                                 </button>
                             </div>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}
@@ -1460,31 +1234,27 @@ export const Profile = () => {
 
             {/* delete account modal */}
             {showDeleteAccount && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 border-2 border-red-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
-                                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-500">
+                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-red-900/30 animate-in zoom-in-95 duration-500 border-2 border-red-200/60 relative overflow-hidden">
+                        {/* gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-red-50/30 via-transparent to-red-50/20 pointer-events-none"></div>
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-3xl font-black text-red-900 tracking-tight">Изтрий акаунт</h3>
+                                <button
+                                    onClick={() => {
+                                        setShowDeleteAccount(false);
+                                        setDeletePassword('');
+                                        setDeleteConfirmText('');
+                                    }}
+                                    className="p-2.5 rounded-2xl hover:bg-slate-100 transition-all duration-300 hover:scale-110 hover:rotate-90 border-2 border-transparent hover:border-slate-200/60"
+                                    disabled={deletingAccount}
+                                >
+                                    <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                </div>
-                                <h3 className="text-2xl font-extrabold text-red-600">Изтрий акаунт</h3>
+                                </button>
                             </div>
-                            <button
-                                onClick={() => {
-                                    setShowDeleteAccount(false);
-                                    setDeletePassword('');
-                                    setDeleteConfirmText('');
-                                }}
-                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
-                                disabled={deletingAccount}
-                            >
-                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
 
                         <div className="space-y-6">
                             <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-200">
@@ -1498,12 +1268,12 @@ export const Profile = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold mb-2 text-slate-700">Потвърди с парола</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Потвърди с парола</label>
                                 <input
                                     type="password"
                                     value={deletePassword}
                                     onChange={(e) => setDeletePassword(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border-2 border-red-200 focus:ring-4 focus:ring-red-300 focus:outline-none transition-all"
+                                    className="w-full px-5 py-4 border-2 border-red-200 focus:border-red-300 rounded-2xl text-base focus:ring-4 focus:ring-red-300/20 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                     placeholder="Въведете паролата си"
                                     required
                                     disabled={deletingAccount}
@@ -1511,14 +1281,14 @@ export const Profile = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold mb-2 text-slate-700">
-                                    Напишете <span className="font-extrabold text-red-600">ИЗТРИЙ</span> за потвърждение
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Напишете <span className="font-bold text-red-600">ИЗТРИЙ</span> за потвърждение
                                 </label>
                                 <input
                                     type="text"
                                     value={deleteConfirmText}
                                     onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border-2 border-red-200 focus:ring-4 focus:ring-red-300 focus:outline-none transition-all uppercase"
+                                    className="w-full px-5 py-4 border-2 border-red-200 focus:border-red-300 rounded-2xl text-base focus:ring-4 focus:ring-red-300/20 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 uppercase"
                                     placeholder="ИЗТРИЙ"
                                     required
                                     disabled={deletingAccount}
@@ -1533,7 +1303,7 @@ export const Profile = () => {
                                         setDeletePassword('');
                                         setDeleteConfirmText('');
                                     }}
-                                    className="flex-1 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 border-2 bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200 text-slate-700 hover:from-slate-100 hover:to-slate-200"
+                                    className="flex-1 px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
                                     disabled={deletingAccount}
                                 >
                                     Откажи
@@ -1542,10 +1312,7 @@ export const Profile = () => {
                                     type="button"
                                     onClick={handleDeleteAccount}
                                     disabled={deletingAccount || deleteConfirmText !== 'ИЗТРИЙ' || !deletePassword}
-                                    className="flex-1 px-5 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                                    style={{ 
-                                        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
-                                    }}
+                                    className="flex-1 px-6 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
                                 >
                                     {deletingAccount ? (
                                         <span className="flex items-center justify-center gap-2">
@@ -1561,77 +1328,77 @@ export const Profile = () => {
                                 </button>
                             </div>
                         </div>
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* edit profile */}
             {editMode && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" style={{ borderColor: '#dceaef' }}>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-2xl font-bold" style={{ color: '#203b46' }}>Редактирай профил</h3>
-                            <button
-                                onClick={() => {
-                                    setEditMode(false);
-                                }}
-                                className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
-                            >
-                                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
+                <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-500">
+                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-900/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 max-h-[90vh] overflow-y-auto relative">
+                        {/* gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 via-transparent to-purple-50/20 pointer-events-none"></div>
+                        <div className="relative">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Редактирай профил</h3>
+                                <button
+                                    onClick={() => {
+                                        setEditMode(false);
+                                    }}
+                                    className="p-2.5 rounded-2xl hover:bg-slate-100 transition-all duration-300 hover:scale-110 hover:rotate-90 border-2 border-transparent hover:border-slate-200/60"
+                                >
+                                    <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
 
                         <form onSubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }} className="space-y-5">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Име</label>
-                                            <input
-                                                type="text"
-                                                value={editedFirstName}
-                                                onChange={(e) => setEditedFirstName(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                                style={{ borderColor: '#dceaef' }}
-                                                placeholder="Име"
-                                                required
-                                            />
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Име</label>
+                                    <input
+                                        type="text"
+                                        value={editedFirstName}
+                                        onChange={(e) => setEditedFirstName(e.target.value)}
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                        placeholder="Име"
+                                        required
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Фамилия</label>
-                                            <input
-                                                type="text"
-                                                value={editedLastName}
-                                                onChange={(e) => setEditedLastName(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                                style={{ borderColor: '#dceaef' }}
-                                                placeholder="Фамилия"
-                                                required
-                                            />
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Фамилия</label>
+                                    <input
+                                        type="text"
+                                        value={editedLastName}
+                                        onChange={(e) => setEditedLastName(e.target.value)}
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                        placeholder="Фамилия"
+                                        required
+                                    />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Град</label>
-                                    <input
-                                        type="text"
-                                        value={editedCity}
-                                        onChange={(e) => setEditedCity(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                        style={{ borderColor: '#dceaef' }}
-                                        placeholder="Град"
-                                    />
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Град</label>
+                                <input
+                                    type="text"
+                                    value={editedCity}
+                                    onChange={(e) => setEditedCity(e.target.value)}
+                                    className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                    placeholder="Град"
+                                />
                             </div>
 
                             {role === 'teacher' && (
                                 <div>
-                                    <label className="block text-sm font-semibold mb-2" style={{ color: '#40768c' }}>Квалификации</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Квалификации</label>
                                     <input
                                         type="text"
                                         value={editedQualifications}
                                         onChange={(e) => setEditedQualifications(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl border-2 focus:ring-4 focus:outline-none transition-all focus:ring-blue-300"
-                                        style={{ borderColor: '#dceaef' }}
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                         placeholder="Математика, Физика..."
                                     />
                                 </div>
@@ -1643,29 +1410,20 @@ export const Profile = () => {
                                     onClick={() => {
                                         setEditMode(false);
                                     }}
-                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm transition-all hover:scale-105 border-2"
-                                    style={{ 
-                                        backgroundColor: '#eef4f7',
-                                        borderColor: '#dceaef',
-                                        color: '#40768c'
-                                    }}
+                                    className="flex-1 px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
                                 >
                                     Откажи
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loadingUpdate}
-                                    className="flex-1 px-5 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={{ 
-                                        background: role === 'teacher' 
-                                            ? 'linear-gradient(135deg, #fb0473 0%, #c9035c 100%)'
-                                            : 'linear-gradient(135deg, #5094af 0%, #40768c 100%)'
-                                    }}
+                                    className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loadingUpdate ? 'Запазване...' : 'Запази'}
                                 </button>
                             </div>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}

@@ -290,32 +290,34 @@ export const Home = () => {
     return (
 
             <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex overflow-hidden relative">
-                {/* Subtle animated background */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-100/20 via-transparent to-transparent pointer-events-none"></div>
+                {/* background*/}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
+                    <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl"></div>
+                </div>
                 {/* left sidebar nav*/}
-                <aside className="w-72 h-full bg-white/98 backdrop-blur-xl border-r border-slate-200/80 flex flex-col shadow-2xl shadow-slate-900/10 relative z-10">
+                <aside className="w-72 h-full bg-white/90 backdrop-blur-2xl border-r-2 border-purple-200/40 flex flex-col shadow-2xl shadow-purple-900/10 relative z-10">
                     {/* sidebar header */}
-                    <div className="flex-shrink-0 p-6 border-b border-slate-200/60 bg-gradient-to-br from-purple-900/5 via-purple-50/30 to-transparent">
+                    <div className="flex-shrink-0 p-6 border-b-2 border-purple-200/40 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30">
                         <div className="flex items-center gap-3.5">
                             <div className="relative">
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/30 bg-gradient-to-br from-purple-900 to-purple-800 ring-2 ring-purple-900/20 transition-all duration-300 group-hover:ring-purple-900/40 group-hover:shadow-xl group-hover:shadow-purple-900/40">
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-900/50 bg-gradient-to-br from-purple-900 via-purple-800 via-purple-700 to-purple-900 ring-4 ring-purple-200/60 transition-all duration-700 group-hover:ring-purple-400/80 group-hover:shadow-purple-900/40 group-hover:scale-110 group-hover:rotate-3">
                                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
                                 </div>
                                 {/* badge indicator */}
-                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-purple-900 to-purple-800 rounded-full border-2 border-white flex items-center justify-center shadow-md">
-                                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 border-3 border-white shadow-2xl ring-2 ring-emerald-200/50 animate-pulse"></div>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 mb-0.5">
-                                    <h1 className="text-base font-bold text-slate-900 tracking-tight">Учителски панел</h1>
-                                    <span className="px-1.5 py-0.5 text-[10px] font-bold text-purple-900 bg-purple-900/10 rounded-md uppercase tracking-wider">
+                                    <h1 className="text-base font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Учителски панел</h1>
+                                    <span className="px-3 py-1 text-xs font-black text-purple-900 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl uppercase tracking-wider border-2 border-purple-200/60 shadow-sm">
                                         TEACHER
                                     </span>
                                 </div>
-                                <p className="text-xs font-medium text-slate-500 truncate">Добре дошли обратно</p>
+                                <p className="text-xs font-semibold text-slate-600 truncate">Добре дошли обратно</p>
                             </div>
                         </div>
                     </div>
@@ -346,7 +348,7 @@ export const Home = () => {
                                                 rounded-xl transition-all duration-300 ease-out
                                                 text-left focus:outline-none 
                                                 focus-visible:ring-2 focus-visible:ring-purple-500/30 focus-visible:ring-offset-2
-                                                ${isActive ? 'text-purple-900 bg-gradient-to-r from-purple-50 to-purple-50/50 shadow-sm' : 'text-slate-600 hover:text-purple-900 hover:bg-slate-50/80'}
+                                                ${isActive ? 'text-purple-900 bg-gradient-to-r from-purple-50/80 to-purple-100/50 shadow-lg shadow-purple-900/10' : 'text-slate-600 hover:text-purple-900 hover:bg-white/60 backdrop-blur-sm'}
                                             `}
                                         >
                                             {/* active indicator - left border */}
@@ -412,10 +414,10 @@ export const Home = () => {
                             <div className="space-y-8">
                                 {/* welcome header */}
                                 <div className="mb-10">
-                                    <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">
+                                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
                                         Добре дошли обратно!
                                     </h2>
-                                    <p className="text-base font-normal text-slate-500">
+                                    <p className="text-base font-semibold text-slate-600">
                                         Преглед на днешната активност
                                     </p>
                                 </div>
@@ -423,39 +425,42 @@ export const Home = () => {
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
-                                    <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md bg-purple-900">
+                                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-2xl"></div>
+                                        <div className="relative flex items-center gap-5">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                                <p className="text-3xl font-semibold text-slate-900 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
+                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{Object.keys(events).length}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Upcoming events card */}
-                                    <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md bg-purple-900">
+                                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-2xl"></div>
+                                        <div className="relative flex items-center gap-5">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Предстоящи</p>
-                                                <p className="text-3xl font-semibold text-slate-900 tracking-tight">{getUpcomingEvents().length}</p>
+                                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Предстоящи</p>
+                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{getUpcomingEvents().length}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Quick Actions */}
-                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
-                                    <h3 className="text-lg font-semibold text-slate-900 mb-5 tracking-tight">Бързи действия</h3>
+                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                    <h3 className="text-xl font-bold text-slate-900 mb-5 tracking-tight relative bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Бързи действия</h3>
                                     <div className="flex flex-wrap gap-4">
                                         <button 
                                             onClick={() => {
@@ -486,9 +491,10 @@ export const Home = () => {
                                 </div>
 
                                 {/* recent events */}
-                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Последни събития</h3>
+                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="flex items-center justify-between mb-6 relative">
+                                        <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Последни събития</h3>
                                         <button 
                                             onClick={() => setActiveMenu('calendar')}
                                             className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
@@ -551,9 +557,9 @@ export const Home = () => {
                                     {/* two column layout */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                         {/* calendar */}
-                                        <div className="lg:col-span-2 bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
+                                        <div className="lg:col-span-2 bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-10 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
 
-                                    {/* calendar */}
                                     {/* month navigation */}
                                     <div className="flex items-center justify-center gap-8 mb-10">
                                         <button 
@@ -647,41 +653,42 @@ export const Home = () => {
 
                                         {/* upcoming events column */}
                                         <div className="lg:col-span-1">
-                                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
-                                                <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-6 shadow-md border-2 border-purple-200/40 sticky top-6 relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                                <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-6 relative bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Предстоящо</h3>
                                                 
-                                                <div className="space-y-3 overflow-hidden pr-1">
+                                                <div className="space-y-3 overflow-hidden pr-1 relative">
                                                     {getUpcomingEvents().length === 0 ? (
                                                         <div className="text-center py-8">
-                                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                                                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-3 border border-purple-200/40">
+                                                                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                 </svg>
                                                             </div>
-                                                            <p className="text-xs font-medium text-slate-500">Няма предстоящи събития</p>
+                                                            <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
                                                         getUpcomingEvents().map(({ date, dateStr, event }) => (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className="group bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-sm"
+                                                                className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-purple-900 rounded-lg flex flex-col items-center justify-center text-white">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
                                                                         <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-medium text-slate-500 mb-1 uppercase">
+                                                                        <p className="text-[10px] font-bold text-purple-700 mb-1 uppercase">
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
-                                                                        <p className="text-sm font-medium text-slate-800 line-clamp-2 leading-snug">
+                                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
                                                                             {event}
                                                                         </p>
                                                                     </div>
@@ -701,12 +708,13 @@ export const Home = () => {
                         {activeMenu === 'events' && (
                             <div className="space-y-8">
                                 <div className="mb-10">
-                                    <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">Събития</h2>
-                                    <p className="text-base font-normal text-slate-500">Прегледайте всички ваши събития</p>
+                                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Събития</h2>
+                                    <p className="text-base font-semibold text-slate-600">Прегледайте всички ваши събития</p>
                                 </div>
-                                <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Всички събития</h3>
+                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="flex items-center justify-between mb-6 relative">
+                                        <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Всички събития</h3>
                                     </div>
                                     <div className="space-y-3">
                                         {getAllEvents().length === 0 ? (
@@ -757,8 +765,8 @@ export const Home = () => {
                         {activeMenu === 'settings' && (
                             <div className="space-y-8">
                                 <div className="mb-10">
-                                    <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Настройки</h2>
-                                    <p className="text-lg text-slate-600 font-medium">Персонализирайте вашите настройки</p>
+                                    <h2 className="text-5xl font-bold text-slate-800 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Настройки</h2>
+                                    <p className="text-lg text-slate-600 font-bold">Персонализирайте вашите настройки</p>
                                 </div>
                                 <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-900/20 text-center">
                                     <div className="w-20 h-20 bg-purple-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
@@ -852,31 +860,34 @@ export const Home = () => {
 
     // Student Dashboard View
     return (
-        <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50 flex overflow-hidden">
+        <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/40 to-purple-100/20 flex overflow-hidden relative">
+            {/* background */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-gradient-to-br from-purple-300/25 via-purple-200/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-purple-200/20 via-purple-100/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            </div>
             {/* left sidebar nav */}
-            <aside className="w-72 h-full bg-white/95 backdrop-blur-sm border-r border-slate-200/60 flex flex-col shadow-lg">
+            <aside className="w-72 h-full bg-white/95 backdrop-blur-xl border-r-2 border-purple-200/50 flex flex-col shadow-2xl shadow-purple-900/10 relative z-10">
                 {/* sidebar header */}
-                <div className="flex-shrink-0 p-6 border-b border-slate-200/60 bg-gradient-to-br from-purple-900/5 to-purple-900/0">
+                <div className="flex-shrink-0 p-6 border-b-2 border-purple-200/40 bg-gradient-to-br from-purple-50/50 via-purple-100/30 to-transparent">
                     <div className="flex items-center gap-3.5">
                         <div className="relative">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md bg-purple-900 ring-2 ring-purple-900/20">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 ring-2 ring-purple-200/50">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                 </svg>
                             </div>
                             {/* badge indicator */}
-                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-900 rounded-full border-2 border-white flex items-center justify-center">
-                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                            </div>
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-purple-600 to-purple-900 rounded-full border-2 border-white flex items-center justify-center shadow-md"></div>
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
-                                <h1 className="text-base font-bold text-slate-900 tracking-tight">Ученически панел</h1>
-                                <span className="px-1.5 py-0.5 text-[10px] font-bold text-purple-900 bg-purple-900/10 rounded-md uppercase tracking-wider">
+                                <h1 className="text-base font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Ученически панел</h1>
+                                <span className="px-2 py-0.5 text-[10px] font-black text-purple-900 bg-gradient-to-br from-purple-100 to-purple-50 rounded-md uppercase tracking-wider border border-purple-200/60">
                                     STUDENT
                                 </span>
                             </div>
-                            <p className="text-xs font-medium text-slate-500 truncate">Подготовка за изпит</p>
+                            <p className="text-xs font-bold text-purple-700 truncate">Подготовка за изпит</p>
                         </div>
                     </div>
                 </div>
@@ -928,7 +939,7 @@ export const Home = () => {
                                         </span>
                                         {/* label */}
                                         <span className={`
-                                            flex-1 text-lg font-semibold tracking-tight 
+                                            flex-1 text-lg font-bold tracking-tight 
                                             transition-colors duration-150
                                             ${isActive ? 'text-purple-900' : 'text-slate-700 group-hover:text-purple-900'}
                                         `}>
@@ -948,33 +959,35 @@ export const Home = () => {
                 </nav>
 
                 {/* sidebar footer stats */}
-                <div className="flex-shrink-0 p-4 border-t border-slate-200/60">
-                    <div className="bg-white rounded-xl p-4 border border-slate-200/60 shadow-sm mb-3">
-                        <div className="flex items-center gap-2 mb-3">
+                <div className="flex-shrink-0 p-4 border-t-2 border-purple-200/40">
+                    <div className="bg-gradient-to-br from-white via-purple-50/40 to-white rounded-xl p-4 border-2 border-purple-200/40 shadow-md mb-3 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-2xl"></div>
+                        <div className="flex items-center gap-2 mb-3 relative">
                             <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Дни до изпита</p>
+                            <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">Дни до изпита</p>
                         </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">{daysUntilExam}</p>
-                            <p className="text-xs font-medium text-slate-600 mt-1">дни остават</p>
+                        <div className="text-center relative">
+                            <p className="text-4xl font-bold text-purple-900 tracking-tight tabular-nums bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 bg-clip-text text-transparent">{daysUntilExam}</p>
+                            <p className="text-xs font-bold text-purple-700 mt-1">дни остават</p>
                         </div>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-slate-200/60 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-gradient-to-br from-white via-purple-50/40 to-white rounded-xl p-4 border-2 border-purple-200/40 shadow-md relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-2xl"></div>
+                        <div className="flex items-center gap-2 mb-3 relative">
                             <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
-                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Бърза статистика</p>
+                            <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">Бърза статистика</p>
                         </div>
-                        <div className="space-y-2.5">
-                            <div className="flex items-center justify-between py-1.5 px-2 bg-purple-900/5 rounded-lg">
-                                <span className="text-xs font-medium text-slate-600">Серия</span>
+                        <div className="space-y-2.5 relative">
+                            <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
+                                <span className="text-xs font-bold text-purple-700">Серия</span>
                                 <span className="text-base font-bold text-purple-900 tabular-nums">{longestStreak} дни</span>
                             </div>
-                            <div className="flex items-center justify-between py-1.5 px-2 bg-purple-900/5 rounded-lg">
-                                <span className="text-xs font-medium text-slate-600">Събития</span>
+                            <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
+                                <span className="text-xs font-bold text-purple-700">Събития</span>
                                 <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
                             </div>
                         </div>
@@ -983,26 +996,28 @@ export const Home = () => {
             </aside>
 
             {/* main content area */}
-            <main className="flex-1 overflow-hidden">
+            <main className="flex-1 overflow-hidden relative z-10">
                 <div className="max-w-7xl mx-auto px-8 py-10">
                     {/* dashboard view */}
                     {activeMenu === 'dashboard' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
                             <div className="max-w-2xl w-full px-8">
                                 {/* countdown card */}
-                                <div className="bg-white rounded-3xl p-16 shadow-sm border border-slate-200/50 mb-12">
-                                    <div className="text-center">
-                                        <h1 className="text-2xl font-semibold text-slate-900 mb-2 tracking-tight">
+                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-100/15 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="text-center relative">
+                                        <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
                                             ДЗИ БЕЛ 2026
                                         </h1>
-                                        <p className="text-base font-normal text-slate-500 mb-12">
+                                        <p className="text-base font-bold text-purple-700 mb-12">
                                             20 май 2026
                                         </p>
                                         <div className="mb-12">
-                                            <div className="text-[10rem] md:text-[14rem] font-light text-slate-900 tabular-nums tracking-tighter leading-none mb-4">
+                                            <div className="text-[10rem] md:text-[14rem] font-bold text-purple-900 tabular-nums tracking-tighter leading-none mb-4 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 bg-clip-text text-transparent">
                                                 {daysUntilExam}
                                             </div>
-                                            <p className="text-xl font-normal text-slate-500">дни остават</p>
+                                            <p className="text-xl font-bold text-purple-700">дни остават</p>
                                         </div>
 
                                         {/* progress bar */}
@@ -1025,30 +1040,30 @@ export const Home = () => {
                                     </div>
 
                                     {/* stat sections at bottom - inside the card */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-slate-100">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t-2 border-purple-200/40 relative">
                                         {/* events section */}
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-lg bg-purple-900/10 flex items-center justify-center flex-shrink-0">
-                                                <svg className="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                                <p className="text-3xl font-bold text-slate-900">{Object.keys(events).length}</p>
+                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
+                                                <p className="text-3xl font-bold text-purple-900">{Object.keys(events).length}</p>
                                             </div>
                                         </div>
                                         
                                         {/* study streak section */}
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-lg bg-purple-900/10 flex items-center justify-center flex-shrink-0">
-                                                <svg className="w-5 h-5 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                             </div>
                                             <div className="flex-1">
-                                                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Най-дълга серия</p>
-                                                <p className="text-3xl font-bold text-slate-900">{longestStreak} <span className="text-lg font-normal text-slate-500">дни</span></p>
+                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Най-дълга серия</p>
+                                                <p className="text-3xl font-bold text-purple-900">{longestStreak} <span className="text-lg font-bold text-purple-700">дни</span></p>
                                             </div>
                                         </div>
                                     </div>
@@ -1064,18 +1079,19 @@ export const Home = () => {
                                 {/* two column layout */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     {/* calendar */}
-                                    <div className="lg:col-span-2 bg-white rounded-3xl p-10 shadow-sm border border-slate-200/50">
+                                    <div className="lg:col-span-2 bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-10 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
                                     {/* month nav */}
-                                    <div className="flex items-center justify-center gap-8 mb-10">
+                                    <div className="flex items-center justify-center gap-8 mb-10 relative">
                                         <button 
                                             onClick={goToPreviousMonth}
-                                            className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
+                                            className="p-2.5 hover:bg-purple-50 rounded-xl transition-all duration-200"
                                         >
                                             <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                             </svg>
                                         </button>
-                                        <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
+                                        <h3 className="text-2xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
                                             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                                         </h3>
                                         <button 
@@ -1158,41 +1174,42 @@ export const Home = () => {
 
                                         {/* upcoming events column */}
                                         <div className="lg:col-span-1">
-                                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 sticky top-6">
-                                                <h3 className="text-lg font-semibold text-slate-900 tracking-tight mb-6">Предстоящо</h3>
+                                            <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-6 shadow-md border-2 border-purple-200/40 sticky top-6 relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                                <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-6 relative bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Предстоящо</h3>
                                                 
-                                                <div className="space-y-3 overflow-hidden pr-1">
+                                                <div className="space-y-3 overflow-hidden pr-1 relative">
                                                     {getUpcomingEvents().length === 0 ? (
                                                         <div className="text-center py-8">
-                                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                                                <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-3 border border-purple-200/40">
+                                                                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                 </svg>
                                                             </div>
-                                                            <p className="text-xs font-medium text-slate-500">Няма предстоящи събития</p>
+                                                            <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
                                                         getUpcomingEvents().map(({ date, dateStr, event }) => (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className="group bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-sm"
+                                                                className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-purple-900 rounded-lg flex flex-col items-center justify-center text-white">
+                                                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
                                                                         <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-medium text-slate-500 mb-1 uppercase">
+                                                                        <p className="text-[10px] font-bold text-purple-700 mb-1 uppercase">
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
-                                                                        <p className="text-sm font-medium text-slate-800 line-clamp-2 leading-snug">
+                                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
                                                                             {event}
                                                                         </p>
                                                                     </div>
@@ -1215,12 +1232,13 @@ export const Home = () => {
                     {activeMenu === 'events' && (
                         <div className="space-y-8">
                             <div className="mb-10">
-                                <h2 className="text-3xl font-semibold text-slate-900 tracking-tight mb-2">Събития</h2>
-                                <p className="text-base font-normal text-slate-500">Прегледайте всички ваши събития</p>
+                                <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Събития</h2>
+                                <p className="text-base font-bold text-purple-700">Прегледайте всички ваши събития</p>
                             </div>
-                            <div className="bg-white rounded-2xl p-7 shadow-sm border border-slate-200/60">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-lg font-semibold text-slate-900 tracking-tight">Всички събития</h3>
+                            <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                <div className="flex items-center justify-between mb-6 relative">
+                                    <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Всички събития</h3>
                                 </div>
                                 <div className="space-y-3">
                                     {getAllEvents().length === 0 ? (
@@ -1271,8 +1289,8 @@ export const Home = () => {
                     {activeMenu === 'settings' && (
                         <div className="space-y-8">
                             <div className="mb-10">
-                                <h2 className="text-4xl font-bold text-slate-800 tracking-tight mb-3">Настройки</h2>
-                                <p className="text-lg text-slate-600 font-medium">Персонализирайте вашите настройки</p>
+                                <h2 className="text-5xl font-bold text-slate-800 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Настройки</h2>
+                                <p className="text-lg text-slate-600 font-bold">Персонализирайте вашите настройки</p>
                             </div>
                             <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-900/20 text-center">
                                 <div className="w-20 h-20 bg-purple-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">

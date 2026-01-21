@@ -18,7 +18,6 @@ export const getAccessToken = async (): Promise<string | null> => {
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error || !session) {
-        console.error('No session found:', error);
         return null;
     }
     
@@ -28,11 +27,8 @@ export const getAccessToken = async (): Promise<string | null> => {
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = expiresAt - now;
         
-        console.log(`Token expires in ${expiresIn}s`);
-        
+        // If expired or expiring in next 5 minutes, refresh it
         if (expiresIn <= 300) {
-            console.log('Refreshing token...');
-            
             // clear the old session 
             await supabase.auth.stopAutoRefresh();
             
@@ -43,8 +39,6 @@ export const getAccessToken = async (): Promise<string | null> => {
                 await supabase.auth.signOut();
                 return null;
             }
-            
-            console.log('Token refreshed successfully, new expiry:', data.session.expires_at);
             
             // restart auto-refresh
             supabase.auth.startAutoRefresh();
