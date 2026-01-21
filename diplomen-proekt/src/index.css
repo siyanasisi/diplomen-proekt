@@ -9,6 +9,7 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -17,4 +18,23 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+* {
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
+}
+
+*::-webkit-scrollbar {
+  display: none; 
+}
+
+nav[aria-label="Main navigation"] {
+  scrollbar-width: none; /* For Firefox */
+  -ms-overflow-style: none; /* For IE and Edge */
+}
+
+nav[aria-label="Main navigation"]::-webkit-scrollbar {
+  display: none;
 }

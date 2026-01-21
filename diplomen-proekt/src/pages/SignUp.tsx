@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase-client';
 
 
@@ -30,6 +31,9 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 );
 
 export default function SignUp() {
+  const navigate = useNavigate();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('student');
@@ -87,23 +91,117 @@ export default function SignUp() {
       return;
     }
 
+    // validate name fields
+    if (!firstName.trim()) {
+      setMessage('Моля, въведете име.');
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
+    if (!lastName.trim()) {
+      setMessage('Моля, въведете фамилия.');
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
     try {
       const additionalData = role === 'student' 
-        ? { role, grade, city }
-        : { role, city, qualifications };
+        ? { 
+            role, 
+            grade, 
+            city, 
+            first_name: firstName.trim(), 
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`
+          }
+        : { 
+            role, 
+            city, 
+            qualifications, 
+            first_name: firstName.trim(), 
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`
+          };
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
-        options: { data: additionalData },
+        options: { 
+          data: additionalData,
+          emailRedirectTo: window.location.origin + '/home'
+        },
       });
 
       if (error) {
-        setMessage(`Грешка: ${error.message}`);
+        // log error for debugging
+        console.error('SignUp error:', error);
+        console.error('Error message:', error.message);
+        console.error('Error status:', (error as any).status);
+        console.error('Error code:', (error as any).code);
+        
+        let errorMessage = error.message;
+        const errorLower = error.message.toLowerCase();
+        const errorStatus = (error as any).status;
+        const errorCode = (error as any).code;
+        
+        // check if user_already_exists error  verify if account is usable
+        if (
+          errorStatus === 422 || 
+          errorCode === 'user_already_registered' ||
+          errorCode === 'user_already_exists' ||
+          (errorLower.includes('user already registered') || errorLower.includes('user already exists'))
+        ) {
+          // try to check if the user can sign in
+          try {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+              email: email.trim(),
+              password: password,
+            });
+            
+            if (!signInError && signInData.user) {
+              setMessage('Успешно! Вие сте влезли в акаунта си.');
+              setMessageType('success');
+              setLoading(false);
+              
+              const checkSession = async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                  navigate('/home');
+                } else {
+                  setTimeout(checkSession, 100);
+                }
+              };
+              setTimeout(checkSession, 100);
+              return;
+            } else if (signInError) {
+              if (signInError.message.includes('Invalid login') || signInError.message.includes('password')) {
+                errorMessage = 'Този имейл адрес вече е регистриран, но паролата е неправилна. Моля опитайте да влезете или използвайте "Забравена парола".';
+              } else {
+                errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си.';
+              }
+            }
+          } catch (checkError) {
+            errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си или използвайте друг имейл.';
+          }
+        } else if (errorLower.includes('invalid email') || errorLower.includes('email format')) {
+          errorMessage = 'Невалиден имейл адрес. Моля проверете имейла си.';
+        } else if (errorLower.includes('password') && (errorLower.includes('weak') || errorLower.includes('short'))) {
+          errorMessage = 'Паролата не отговаря на изискванията. Моля проверете изискванията.';
+        } else if (errorLower.includes('rate limit') || errorLower.includes('too many')) {
+          errorMessage = 'Твърде много опити. Моля изчакайте малко и опитайте отново.';
+        } else {
+          errorMessage = error.message || 'Възникна грешка при регистрация. Моля опитайте отново.';
+        }
+        
+        setMessage(`Грешка: ${errorMessage}`);
         setMessageType('error');
       } else {
-        setMessage('Успешно! Проверете имейла си, за да потвърдите акаунта си.');
+        setMessage('Успешно! Вие сте регистриран и влезли.');
         setMessageType('success');
+        setFirstName('');
+        setLastName('');
         setEmail('');
         setPassword('');
         setEmailError('');
@@ -111,6 +209,18 @@ export default function SignUp() {
         setGrade('');
         setCity('');
         setQualifications('');
+        
+        // wait for session to be established then redirect
+        const checkSession = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            window.location.href = '/home';
+          } else {
+            // retry after a short delay
+            setTimeout(checkSession, 100);
+          }
+        };
+        setTimeout(checkSession, 100);
       }
     } catch (error) {
       setMessage('Нещо се обърка!');
@@ -160,6 +270,26 @@ export default function SignUp() {
           <div className="px-10 pt-12 pb-10">
             <form onSubmit={handleSignUp} className="space-y-8">
               
+              {/* name fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <InputField
+                  id="firstName"
+                  label="Име"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Иван"
+                />
+                <InputField
+                  id="lastName"
+                  label="Фамилия"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Иванов"
+                />
+              </div>
+
               {/* email field */}
               <InputField
                 id="email"
