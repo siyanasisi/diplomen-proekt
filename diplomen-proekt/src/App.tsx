@@ -4,6 +4,9 @@ import SignUp from './pages/SignUp'
 import Login from './pages/Login'
 import { LandingPage } from './pages/LandingPage'
 import { Profile } from './pages/Profile'
+import { StudyPlanPage } from './pages/StudyPlan'
+import { StudyPlanIntro } from './components/StudyPlanIntro'
+import { StudyPlanQuestionnaire } from './components/StudyPlanQuestionnaire'
 import { Navbar } from './components/Navbar'
 
 
@@ -21,6 +24,9 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="signup" element={<SignUp />} />
               <Route path="login" element={<Login />} />
+              <Route path="study-plan" element={<StudyPlanPage />} />
+              <Route path="study-plan/intro" element={<StudyPlanIntro />} />
+              <Route path="study-plan/questionnaire" element={<StudyPlanQuestionnaire />} />
             </Routes>
           </div>
         }

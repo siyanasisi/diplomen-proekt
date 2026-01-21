@@ -1,7 +1,8 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import type { StudyPlan as StudyPlanType } from "../lib/topics";
 
 export const Home = () => {
 
@@ -13,6 +14,8 @@ export const Home = () => {
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
     const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings'>('dashboard');
+    const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
+    const [studyPlan, setStudyPlan] = useState<StudyPlanType | null>(null);
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -26,8 +29,12 @@ export const Home = () => {
         if (user) {
             loadEvents();
             loadUserStats();
+            if (role === 'student') {
+                checkStudyPlan();
+                loadStudyPlan();
+            }
         }
-    }, [user]);
+    }, [user, role]);
 
     const loadEvents = async () => {
         if (!user) return;
@@ -98,6 +105,77 @@ export const Home = () => {
         }
     };
 
+    const checkStudyPlan = async () => {
+        if (!user) return;
+
+        try {
+            await ensureValidSession();
+
+            const { data, error } = await supabase
+                .from('study_plans')
+                .select('id')
+                .eq('user_id', user.id)
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.error('Error checking study plan:', error);
+                setHasStudyPlan(false);
+            } else {
+                setHasStudyPlan(!!data);
+            }
+        } catch (error) {
+            console.error('Failed to check study plan:', error);
+            setHasStudyPlan(false);
+        }
+    };
+
+    const loadStudyPlan = async () => {
+        if (!user) return;
+
+        try {
+            await ensureValidSession();
+
+            const { data, error } = await supabase
+                .from('study_plans')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.error('Error loading study plan:', error);
+                return;
+            }
+
+            if (data) {
+                // Transform data from Supabase format to our format
+                const transformedPlan: StudyPlanType = {
+                    id: data.id,
+                    user_id: data.user_id,
+                    preferences: {
+                        examDate: new Date(data.preferences.exam_date),
+                        studyDaysPerWeek: data.preferences.study_days_per_week,
+                        topicsPerDay: data.preferences.topics_per_day,
+                        belLevel: data.preferences.bel_level,
+                        literatureLevel: data.preferences.literature_level,
+                    },
+                    plan: data.plan,
+                    created_at: data.created_at,
+                    updated_at: data.updated_at,
+                };
+                console.log('Loaded study plan:', transformedPlan);
+                console.log('Plan days:', transformedPlan.plan.length);
+                setStudyPlan(transformedPlan);
+            } else {
+                console.log('No study plan found for user');
+            }
+        } catch (error) {
+            console.error('Failed to load study plan:', error);
+        }
+    };
+
     const dziBelExamDate = new Date(2026, 4, 20);
     const today = new Date();
     const daysUntilExam = Math.ceil((dziBelExamDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -130,7 +208,9 @@ export const Home = () => {
     const formatDateKey = (day: number) => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-        return `${year}-${month + 1}-${day}`;
+        const monthStr = String(month + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        return `${year}-${monthStr}-${dayStr}`;
     };
 
     const handleDayClick = (day: number) => {
@@ -228,24 +308,78 @@ export const Home = () => {
 
     const getUpcomingEvents = () => {
         const today = new Date();
-        return Object.entries(events)
+        today.setHours(0, 0, 0, 0);
+        
+        // Get regular events
+        const regularEvents = Object.entries(events)
             .map(([date, event]) => {
                 const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+                const eventDate = new Date(year, month - 1, day);
+                eventDate.setHours(0, 0, 0, 0);
+                return { date: eventDate, dateStr: date, event, type: 'event' as const };
             })
-            .filter(item => item.date >= today)
+            .filter(item => item.date >= today);
+
+        // get study plan topics as events
+        const studyPlanEvents: Array<{ date: Date; dateStr: string; event: string; type: 'study' }> = [];
+        if (studyPlan) {
+            studyPlan.plan.forEach(studyDay => {
+                if (studyDay.topics.length > 0 && !studyDay.completed && !studyDay.missed) {
+                    const [year, month, day] = studyDay.date.split('-').map(Number);
+                    const studyDate = new Date(year, month - 1, day);
+                    studyDate.setHours(0, 0, 0, 0);
+                    
+                    if (studyDate >= today) {
+                        const topicsText = studyDay.topics.map(t => `${t.subject}: ${t.name}`).join(', ');
+                        studyPlanEvents.push({
+                            date: studyDate,
+                            dateStr: studyDay.date,
+                            event: `📚 ${topicsText}`,
+                            type: 'study'
+                        });
+                    }
+                }
+            });
+        }
+
+        // combine and sort all events
+        const allEvents = [...regularEvents, ...studyPlanEvents]
             .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .slice(0, 5);
+            .slice(0, 10);
+
+        return allEvents;
     };
 
     const getAllEvents = () => {
-        return Object.entries(events)
+        const regularEvents = Object.entries(events)
             .map(([date, event]) => {
                 const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
-            })
+                return { date: new Date(year, month - 1, day), dateStr: date, event, type: 'event' as const };
+            });
+
+        const studyPlanEvents: Array<{ date: Date; dateStr: string; event: string; type: 'study' }> = [];
+        if (studyPlan) {
+            studyPlan.plan.forEach(studyDay => {
+                if (studyDay.topics.length > 0) {
+                    const [year, month, day] = studyDay.date.split('-').map(Number);
+                    const studyDate = new Date(year, month - 1, day);
+                    const topicsText = studyDay.topics.map(t => `${t.subject}: ${t.name}`).join(', ');
+                    const statusIcon = studyDay.completed ? '✓' : studyDay.missed ? '✗' : '📚';
+                    studyPlanEvents.push({
+                        date: studyDate,
+                        dateStr: studyDay.date,
+                        event: `${statusIcon} ${topicsText}`,
+                        type: 'study'
+                    });
+                }
+            });
+        }
+
+        const allEvents = [...regularEvents, ...studyPlanEvents]
             .sort((a, b) => b.date.getTime() - a.date.getTime())
             .slice(0, 10);
+
+        return allEvents;
     };
 
 
@@ -422,6 +556,35 @@ export const Home = () => {
                                     </p>
                                 </div>
 
+                                {/* study plan for students without one */}
+                                {role !== 'teacher' && role === 'student' && hasStudyPlan === false && (
+                                    <div className="bg-gradient-to-br from-rose-50 via-orange-50/50 to-rose-50 rounded-2xl p-8 shadow-lg border-2 border-rose-200/60 relative overflow-hidden mb-6">
+                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-rose-200/20 to-transparent rounded-full blur-3xl"></div>
+                                        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                                                    Създай своя персонален учебен план
+                                                </h3>
+                                                <p className="text-slate-600 mb-2">
+                                                    Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.
+                                                </p>
+                                                <p className="text-sm text-rose-800 font-medium">
+                                                    ⚠️ Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
+                                                </p>
+                                            </div>
+                                            <Link
+                                                to="/study-plan/intro"
+                                                className="px-6 py-3.5 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white text-base font-semibold rounded-xl shadow-lg shadow-rose-500/30 hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Направи ми план
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
@@ -514,10 +677,12 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().slice(0, 5).map(({ date, dateStr, event }) => (
+                                            getAllEvents().slice(0, 5).map(({ date, dateStr, event, type }) => {
+                                                const isStudyPlan = type === 'study';
+                                                return (
                                                 <div 
                                                     key={dateStr} 
-                                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
+                                                    className={`group ${isStudyPlan ? 'bg-blue-50 hover:bg-blue-100 border-blue-200/60 hover:border-blue-300/60' : 'bg-slate-50 hover:bg-slate-100 border-slate-200/60 hover:border-slate-300/60'} border rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm`}
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
@@ -525,7 +690,7 @@ export const Home = () => {
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
-                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
+                                                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm ${isStudyPlan ? 'bg-blue-900' : 'bg-purple-900'}`}>
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                             </span>
@@ -541,7 +706,8 @@ export const Home = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
@@ -550,7 +716,7 @@ export const Home = () => {
 
                         {/* calendar view */}
                         {activeMenu === 'calendar' && (
-                            <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-12">
+                            <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-12 overflow-y-auto">
                                 <div className="max-w-7xl w-full">
 
 
@@ -604,21 +770,53 @@ export const Home = () => {
                                             const hasEvent = events[dateKey];
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
+                                            // check if this day has study plan topics
+                                            const studyDay = studyPlan?.plan.find(d => d.date === dateKey);
+                                            const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+                                            
                                             return (
                                                 <button
                                                     key={day}
                                                     onClick={() => handleDayClick(day)}
-                                                    className={`relative aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                                                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 p-1 ${
                                                         isToday
                                                             ? 'bg-purple-900 text-white shadow-sm'
+                                                            : studyDay?.completed
+                                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                                            : studyDay?.missed
+                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                            : hasStudyTopics
+                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                                                             : 'text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
-                                                    {day}
+                                                    <span>{day}</span>
                                                     {hasEvent && !isToday && (
-                                                        <div className="absolute bottom-1.5">
+                                                        <div className="absolute bottom-1.5 right-1.5">
                                                             <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
                                                         </div>
+                                                    )}
+                                                    {hasStudyTopics && (
+                                                        <div className="absolute bottom-1 left-1 flex gap-0.5 items-center">
+                                                            {studyDay.topics.slice(0, 2).map((topic, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className={`w-1 h-1 rounded-full ${
+                                                                        topic.subject === 'БЕЛ' ? 'bg-purple-600' : 'bg-orange-600'
+                                                                    }`}
+                                                                    title={topic.name}
+                                                                />
+                                                            ))}
+                                                            {studyDay.topics.length > 2 && (
+                                                                <span className="text-[8px] leading-none">+{studyDay.topics.length - 2}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {studyDay?.completed && (
+                                                        <div className="absolute top-1 right-1 text-xs">✓</div>
+                                                    )}
+                                                    {studyDay?.missed && (
+                                                        <div className="absolute top-1 right-1 text-xs">✗</div>
                                                     )}
                                                 </button>
                                             );
@@ -627,7 +825,7 @@ export const Home = () => {
 
                                     {/* legend and add button */}
                                     <div className="flex items-center justify-between mt-10 pt-8 border-t border-slate-100">
-                                        <div className="flex items-center gap-8 text-xs">
+                                        <div className="flex items-center gap-8 text-xs flex-wrap">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 bg-purple-900 rounded-full"></div>
                                                 <span className="text-slate-600 font-normal">Днес</span>
@@ -638,6 +836,18 @@ export const Home = () => {
                                                 </div>
                                                 <span className="text-slate-600 font-normal">Събития</span>
                                             </div>
+                                            {studyPlan && (role as string) === 'student' && (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-blue-50 border border-blue-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Учебни теми</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-emerald-50 border border-emerald-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Завършено</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                         <button 
                                             onClick={() => handleDayClick(new Date().getDate())}
@@ -668,24 +878,26 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ date, dateStr, event, type }) => {
+                                                            const isStudyPlan = type === 'study';
+                                                            return (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
+                                                                className={`group ${isStudyPlan ? 'bg-gradient-to-br from-blue-50/50 to-white hover:from-blue-100/60 hover:to-white border-2 border-blue-200/40 hover:border-blue-300/60' : 'bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 hover:border-purple-300/60'} rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md`}
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
+                                                                    <div className={`flex-shrink-0 w-10 h-10 ${isStudyPlan ? 'bg-gradient-to-br from-blue-900 to-blue-800' : 'bg-gradient-to-br from-purple-900 to-purple-800'} rounded-lg flex flex-col items-center justify-center text-white shadow-md`}>
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
                                                                         <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-bold text-purple-700 mb-1 uppercase">
+                                                                        <p className={`text-[10px] font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1 uppercase`}>
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
                                                                         <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
@@ -694,7 +906,8 @@ export const Home = () => {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
@@ -1125,21 +1338,52 @@ export const Home = () => {
                                             const hasEvent = events[dateKey];
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
+                                            const studyDay = studyPlan?.plan.find(d => d.date === dateKey);
+                                            const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+                                            
                                             return (
                                                 <button
                                                     key={day}
                                                     onClick={() => handleDayClick(day)}
-                                                    className={`relative aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                                                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 p-1 ${
                                                         isToday
                                                             ? 'bg-purple-900 text-white shadow-sm'
+                                                            : studyDay?.completed
+                                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                                            : studyDay?.missed
+                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                            : hasStudyTopics
+                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                                                             : 'text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
-                                                    {day}
+                                                    <span>{day}</span>
                                                     {hasEvent && !isToday && (
-                                                        <div className="absolute bottom-1.5">
+                                                        <div className="absolute bottom-1.5 right-1.5">
                                                             <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
                                                         </div>
+                                                    )}
+                                                    {hasStudyTopics && (
+                                                        <div className="absolute bottom-1 left-1 flex gap-0.5 items-center">
+                                                            {studyDay.topics.slice(0, 2).map((topic, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className={`w-1 h-1 rounded-full ${
+                                                                        topic.subject === 'БЕЛ' ? 'bg-purple-600' : 'bg-orange-600'
+                                                                    }`}
+                                                                    title={topic.name}
+                                                                />
+                                                            ))}
+                                                            {studyDay.topics.length > 2 && (
+                                                                <span className="text-[8px] leading-none">+{studyDay.topics.length - 2}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {studyDay?.completed && (
+                                                        <div className="absolute top-1 right-1 text-xs">✓</div>
+                                                    )}
+                                                    {studyDay?.missed && (
+                                                        <div className="absolute top-1 right-1 text-xs">✗</div>
                                                     )}
                                                 </button>
                                             );
@@ -1148,7 +1392,7 @@ export const Home = () => {
 
                                     {/* legend and add button */}
                                     <div className="flex items-center justify-between mt-10 pt-8 border-t border-slate-100">
-                                        <div className="flex items-center gap-8 text-xs">
+                                        <div className="flex items-center gap-8 text-xs flex-wrap">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 bg-purple-900 rounded-full"></div>
                                                 <span className="text-slate-600 font-normal">Днес</span>
@@ -1159,6 +1403,18 @@ export const Home = () => {
                                                 </div>
                                                 <span className="text-slate-600 font-normal">Събития</span>
                                             </div>
+                                            {studyPlan && (role as string) === 'student' && (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-blue-50 border border-blue-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Учебни теми</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-emerald-50 border border-emerald-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Завършено</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                         <button 
                                             onClick={() => handleDayClick(new Date().getDate())}
@@ -1189,24 +1445,26 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ date, dateStr, event, type }) => {
+                                                            const isStudyPlan = type === 'study';
+                                                            return (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
+                                                                className={`group ${isStudyPlan ? 'bg-gradient-to-br from-blue-50/50 to-white hover:from-blue-100/60 hover:to-white border-2 border-blue-200/40 hover:border-blue-300/60' : 'bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 hover:border-purple-300/60'} rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md`}
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
+                                                                    <div className={`flex-shrink-0 w-10 h-10 ${isStudyPlan ? 'bg-gradient-to-br from-blue-900 to-blue-800' : 'bg-gradient-to-br from-purple-900 to-purple-800'} rounded-lg flex flex-col items-center justify-center text-white shadow-md`}>
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
                                                                         <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-bold text-purple-700 mb-1 uppercase">
+                                                                        <p className={`text-[10px] font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1 uppercase`}>
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
                                                                         <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
@@ -1215,7 +1473,8 @@ export const Home = () => {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
