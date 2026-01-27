@@ -103,18 +103,21 @@ export const StudyPlanQuestionnaire = () => {
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center p-4 overflow-y-auto py-8">
-      <div className="max-w-2xl w-full my-8">
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 p-8 md:p-12">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50/20 flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto py-12 sm:py-16 lg:py-20">
+      <div className="max-w-3xl w-full">
+        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl shadow-slate-900/5 border border-slate-200/80 p-8 sm:p-10 md:p-14 lg:p-16 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+          
           {/* progress bar */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-semibold text-slate-700">Стъпка {currentStep} от 4</span>
-              <span className="text-sm text-slate-500">{Math.round((currentStep / 4) * 100)}%</span>
+          <div className="mb-10 sm:mb-12 md:mb-14">
+            <div className="flex justify-between items-center mb-3 sm:mb-4">
+              <span className="text-sm sm:text-base font-bold text-slate-700">Стъпка {currentStep} от 4</span>
+              <span className="text-sm sm:text-base font-semibold text-slate-500">{Math.round((currentStep / 4) * 100)}%</span>
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-2">
+            <div className="w-full bg-slate-200/60 rounded-full h-3 sm:h-3.5 shadow-inner">
               <div
-                className="bg-gradient-to-r from-rose-500 to-orange-500 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 h-3 sm:h-3.5 rounded-full transition-all duration-500 shadow-lg shadow-pink-500/30"
                 style={{ width: `${(currentStep / 4) * 100}%` }}
               ></div>
             </div>
@@ -122,23 +125,25 @@ export const StudyPlanQuestionnaire = () => {
 
           {/* question 1 */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Кога е твоята матура?</h2>
-              <p className="text-slate-600">Избери датата, когато ще извършиш изпита.</p>
+            <div className="space-y-8 sm:space-y-10">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Кога е твоята матура?</h2>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Избери датата, когато ще извършиш изпита.</p>
+              </div>
               
-              <div className="space-y-4">
+              <div className="space-y-6 sm:space-y-8">
                 <input
                   type="date"
                   value={examDate}
                   min={today}
                   onChange={(e) => handleExamDateChange(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:border-rose-500 focus:outline-none text-lg"
+                  className="w-full px-5 sm:px-6 py-4 sm:py-5 border-2 border-slate-300 rounded-2xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 focus:outline-none text-base sm:text-lg font-medium transition-all duration-200 hover:border-slate-400"
                 />
                 
                 {daysUntilExam > 0 && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                    <p className="text-blue-800 font-semibold">
-                      Остават <span className="text-2xl">{daysUntilExam}</span> дни до изпита
+                  <div className="p-6 sm:p-7 bg-gradient-to-br from-blue-50 via-blue-50/80 to-blue-50/60 border border-blue-200/60 rounded-2xl shadow-sm">
+                    <p className="text-blue-900 font-bold text-lg sm:text-xl">
+                      Остават <span className="text-3xl sm:text-4xl text-blue-700">{daysUntilExam}</span> дни до изпита
                     </p>
                   </div>
                 )}
@@ -148,19 +153,21 @@ export const StudyPlanQuestionnaire = () => {
 
           {/* question 2 */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Колко дни в седмицата можеш да учиш?</h2>
-              <p className="text-slate-600">Избери колко дни на седмица можеш да посветиш на учене.</p>
+            <div className="space-y-8 sm:space-y-10">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Колко дни в седмицата можеш да учиш?</h2>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Избери колко дни на седмица можеш да посветиш на учене.</p>
+              </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {[2, 3, 4, 5].map((days) => (
                   <button
                     key={days}
                     onClick={() => setStudyDaysPerWeek(days)}
-                    className={`px-6 py-4 rounded-xl border-2 transition-all duration-200 font-semibold ${
+                    className={`px-5 sm:px-6 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-base sm:text-lg ${
                       studyDaysPerWeek === days
-                        ? 'border-rose-500 bg-rose-50 text-rose-700 scale-105'
-                        : 'border-slate-300 hover:border-slate-400 text-slate-700'
+                        ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                        : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
                     {days} дни
@@ -168,10 +175,10 @@ export const StudyPlanQuestionnaire = () => {
                 ))}
                 <button
                   onClick={() => setStudyDaysPerWeek(7)}
-                  className={`px-6 py-4 rounded-xl border-2 transition-all duration-200 font-semibold ${
+                  className={`px-5 sm:px-6 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-base sm:text-lg ${
                     studyDaysPerWeek === 7
-                      ? 'border-rose-500 bg-rose-50 text-rose-700 scale-105'
-                      : 'border-slate-300 hover:border-slate-400 text-slate-700'
+                      ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                      : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
                   Всеки ден
@@ -182,21 +189,23 @@ export const StudyPlanQuestionnaire = () => {
 
           {/* question 3 */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">По колко теми на ден искаш да учиш?</h2>
-              <p className="text-slate-600">Избери натоварването, с което се чувстваш комфортно.</p>
+            <div className="space-y-8 sm:space-y-10">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">По колко теми на ден искаш да учиш?</h2>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Избери натоварването, с което се чувстваш комфортно.</p>
+              </div>
               
-              <div className="space-y-6">
-                <div className="px-4">
+              <div className="space-y-8 sm:space-y-10">
+                <div className="px-2 sm:px-4">
                   <input
                     type="range"
                     min="1"
                     max="4"
                     value={topicsPerDay}
                     onChange={(e) => setTopicsPerDay(parseInt(e.target.value))}
-                    className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                    className="w-full h-4 sm:h-5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
                   />
-                  <div className="flex justify-between mt-2 text-sm text-slate-600">
+                  <div className="flex justify-between mt-3 sm:mt-4 text-sm sm:text-base text-slate-600 font-medium">
                     <span>1</span>
                     <span>2</span>
                     <span>3</span>
@@ -204,8 +213,8 @@ export const StudyPlanQuestionnaire = () => {
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-100 rounded-xl">
-                  <p className="text-slate-700 font-semibold text-center text-lg">
+                <div className="p-6 sm:p-7 bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200/60 rounded-2xl shadow-sm">
+                  <p className="text-slate-800 font-bold text-center text-xl sm:text-2xl">
                     {topicsPerDay === 1 && "1 тема на ден"}
                     {topicsPerDay === 2 && "2 теми на ден"}
                     {topicsPerDay === 3 && "3 теми на ден"}
@@ -214,8 +223,8 @@ export const StudyPlanQuestionnaire = () => {
                 </div>
 
                 {topicsPerDay >= 3 && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <p className="text-yellow-800 text-sm">
+                  <div className="p-5 sm:p-6 bg-gradient-to-br from-yellow-50 via-yellow-50/80 to-yellow-50/60 border border-yellow-200/60 rounded-2xl shadow-sm">
+                    <p className="text-yellow-900 text-sm sm:text-base font-medium leading-relaxed">
                       ⚠️ Избраното натоварване е високо и може да бъде трудно за поддържане.
                     </p>
                   </div>
@@ -226,23 +235,25 @@ export const StudyPlanQuestionnaire = () => {
 
           {/* question 4 */}
           {currentStep === 4 && (
-            <div className="space-y-8">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Какво е твоето ниво?</h2>
-              <p className="text-slate-600">Оцени своето текущо ниво по всеки предмет.</p>
+            <div className="space-y-10 sm:space-y-12">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Какво е твоето ниво?</h2>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Оцени своето текущо ниво по всеки предмет.</p>
+              </div>
               
-              <div className="space-y-6">
+              <div className="space-y-8 sm:space-y-10">
                 {/* Български език */}
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900 mb-4">Български език</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-5 sm:space-y-6">
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Български език</h3>
+                  <div className="grid grid-cols-3 gap-4 sm:gap-5">
                     {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
                       <button
                         key={level}
                         onClick={() => setBelLevel(level)}
-                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 font-semibold ${
+                        className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
                           belLevel === level
-                            ? 'border-rose-500 bg-rose-50 text-rose-700 scale-105'
-                            : 'border-slate-300 hover:border-slate-400 text-slate-700'
+                            ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
                         }`}
                       >
                         {level === 'beginner' && 'Начинаещ'}
@@ -254,17 +265,17 @@ export const StudyPlanQuestionnaire = () => {
                 </div>
 
                 {/* Литература */}
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900 mb-4">Литература</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-5 sm:space-y-6">
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Литература</h3>
+                  <div className="grid grid-cols-3 gap-4 sm:gap-5">
                     {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
                       <button
                         key={level}
                         onClick={() => setLiteratureLevel(level)}
-                        className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 font-semibold ${
+                        className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
                           literatureLevel === level
-                            ? 'border-rose-500 bg-rose-50 text-rose-700 scale-105'
-                            : 'border-slate-300 hover:border-slate-400 text-slate-700'
+                            ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
                         }`}
                       >
                         {level === 'beginner' && 'Начинаещ'}
@@ -279,11 +290,11 @@ export const StudyPlanQuestionnaire = () => {
           )}
 
           {/* nav buttons */}
-          <div className="flex justify-between mt-8 pt-6 border-t border-slate-200">
+          <div className="flex justify-between items-center mt-12 sm:mt-14 md:mt-16 pt-8 sm:pt-10 border-t border-slate-200/80 gap-4 sm:gap-6">
             <button
               onClick={handleBack}
               disabled={currentStep === 1}
-              className="px-6 py-3 rounded-xl border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 sm:px-8 py-3 sm:py-4 rounded-2xl border-2 border-slate-300 text-slate-700 font-bold text-base sm:text-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
               Назад
             </button>
@@ -291,7 +302,7 @@ export const StudyPlanQuestionnaire = () => {
             {currentStep < 4 ? (
               <button
                 onClick={handleNext}
-                className="px-8 py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-semibold rounded-xl shadow-md shadow-rose-500/30 hover:shadow-lg transition-all duration-200 hover:scale-105"
+                className="px-8 sm:px-10 py-3 sm:py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 hover:from-pink-400 hover:via-pink-300 hover:to-purple-400 text-white font-bold text-base sm:text-lg rounded-2xl shadow-lg shadow-pink-500/30 hover:shadow-xl hover:shadow-pink-500/40 transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 Напред
               </button>
@@ -299,7 +310,7 @@ export const StudyPlanQuestionnaire = () => {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-md shadow-emerald-500/30 hover:shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 sm:px-10 py-3 sm:py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 hover:from-pink-400 hover:via-pink-300 hover:to-purple-400 text-white font-bold text-base sm:text-lg rounded-2xl shadow-lg shadow-pink-500/30 hover:shadow-xl hover:shadow-pink-500/40 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 {isSubmitting ? 'Създаване...' : 'Създай план'}
               </button>

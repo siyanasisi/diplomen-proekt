@@ -148,10 +148,12 @@ export const Navbar = () => {
                         {!loading && user && role === 'student' && hasStudyPlan === false && (
                             <Link
                                 to="/study-plan/intro"
-                                className="relative px-7 py-3.5 rounded-2xl font-black text-base transition-all duration-300 ease-out shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70 hover:-translate-y-1 hover:scale-105 active:scale-100 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 hover:from-purple-500 hover:via-purple-400 hover:to-pink-400 text-white ring-2 ring-purple-300/50 hover:ring-purple-300/80 overflow-hidden group"
+                                className="relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 active:scale-95"
                             >
-                                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-                                <span className="relative z-10">Направи ми план</span>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Направи ми план</span>
                             </Link>
                         )}
                         {!loading && !user && (
@@ -321,14 +323,13 @@ export const Navbar = () => {
                                     {role === 'student' && hasStudyPlan === false && (
                                         <Link
                                             to="/study-plan/intro"
-                                            className="relative flex items-center gap-3 px-5 py-4 rounded-2xl font-black text-sm transition-all duration-300 ease-out shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70 hover:-translate-y-1 hover:scale-105 active:scale-95 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 hover:from-purple-500 hover:via-purple-400 hover:to-pink-400 text-white ring-2 ring-purple-300/50 hover:ring-purple-300/80 overflow-hidden group"
+                                            className="flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 active:scale-95"
                                             onClick={() => setMenuOpen(false)}
                                         >
-                                            <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-                                            <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
-                                            <span className="relative z-10">Направи ми план</span>
+                                            <span>Направи ми план</span>
                                         </Link>
                                     )}
                                 </div>

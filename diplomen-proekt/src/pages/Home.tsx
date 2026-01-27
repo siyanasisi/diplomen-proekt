@@ -1460,10 +1460,10 @@ export const Home = () => {
                                             <div className="mt-8 sm:mt-0">
                                                 <Link
                                                     to="/study-plan/intro"
-                                                    className="relative px-10 py-5 sm:px-12 sm:py-6 rounded-3xl font-black text-sm sm:text-base lg:text-lg transition-all duration-500 ease-out flex items-center gap-4 shadow-lg shadow-purple-300/30 hover:shadow-purple-300/40 hover:-translate-y-2 hover:scale-105 active:scale-100 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap ring-2 ring-purple-200/50 hover:ring-purple-300/70 overflow-hidden group flex-shrink-0"
+                                                    className="relative px-8 py-5 sm:px-10 sm:py-6 rounded-2xl font-bold text-base sm:text-lg transition-all duration-500 ease-out flex items-center justify-center gap-3 shadow-lg shadow-purple-300/40 hover:shadow-xl hover:shadow-purple-400/50 hover:scale-[1.03] hover:-translate-y-1 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap overflow-hidden group/btn flex-shrink-0"
                                                 >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-                                                    <svg className="w-7 h-7 sm:w-8 sm:h-8 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></div>
+                                                    <svg className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
                                                     <span className="relative z-10">Направи ми план</span>
