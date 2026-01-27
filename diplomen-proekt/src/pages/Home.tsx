@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate, Link } from "react-router-dom";
 import type { StudyPlan as StudyPlanType } from "../lib/topics";
+import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
 
 export const Home = () => {
 
@@ -12,6 +13,7 @@ export const Home = () => {
     const [events, setEvents] = useState<{ [key: string]: string }>({});
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
+    const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
     const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings'>('dashboard');
     const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
@@ -32,7 +34,7 @@ export const Home = () => {
             if (role === 'student') {
                 checkStudyPlan();
                 loadStudyPlan();
-            }
+        }
         }
     }, [user, role]);
 
@@ -94,8 +96,10 @@ export const Home = () => {
                 }
                 console.error('Error loading stats:', error);
             } else if (data) {
+                setCurrentStreak(data.current_streak || 0);
                 setLongestStreak(data.longest_streak || 0);
             } else {
+                setCurrentStreak(0);
                 setLongestStreak(0);
             }
         } catch (error) {
@@ -150,7 +154,6 @@ export const Home = () => {
             }
 
             if (data) {
-                // Transform data from Supabase format to our format
                 const transformedPlan: StudyPlanType = {
                     id: data.id,
                     user_id: data.user_id,
@@ -165,20 +168,71 @@ export const Home = () => {
                     created_at: data.created_at,
                     updated_at: data.updated_at,
                 };
-                console.log('Loaded study plan:', transformedPlan);
-                console.log('Plan days:', transformedPlan.plan.length);
                 setStudyPlan(transformedPlan);
-            } else {
-                console.log('No study plan found for user');
             }
         } catch (error) {
             console.error('Failed to load study plan:', error);
         }
     };
 
-    const dziBelExamDate = new Date(2026, 4, 20);
     const today = new Date();
-    const daysUntilExam = Math.ceil((dziBelExamDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    const getTodayDateKey = () => {
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const getTodayStudyTasks = () => {
+        if (!studyPlan) return null;
+        const todayKey = getTodayDateKey();
+        return studyPlan.plan.find(day => day.date === todayKey);
+    };
+
+    const getUpcomingStudyTopics = () => {
+        if (!studyPlan) return [];
+        const todayKey = getTodayDateKey();
+        const todayDate = new Date(todayKey);
+        const upcoming: Array<{ date: string; studyDay: StudyPlanType['plan'][0] }> = [];
+        
+        for (let i = 1; i <= 5; i++) {
+            const nextDate = new Date(todayDate);
+            nextDate.setDate(todayDate.getDate() + i);
+            const year = nextDate.getFullYear();
+            const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextDate.getDate()).padStart(2, '0');
+            const dateKey = `${year}-${month}-${day}`;
+            
+            const studyDay = studyPlan.plan.find(d => d.date === dateKey);
+            if (studyDay && studyDay.topics.length > 0 && !studyDay.completed && !studyDay.missed) {
+                upcoming.push({ date: dateKey, studyDay });
+                if (upcoming.length >= 5) break;
+            }
+        }
+        return upcoming;
+    };
+
+    const getStudyPlanProgress = () => {
+        if (!studyPlan) return null;
+        const totalDays = studyPlan.plan.length;
+        const completedDays = studyPlan.plan.filter(d => d.completed).length;
+        const missedDays = studyPlan.plan.filter(d => d.missed).length;
+        const totalTopics = studyPlan.plan.reduce((sum, day) => sum + day.topics.length, 0);
+        const completedTopics = studyPlan.plan
+            .filter(d => d.completed)
+            .reduce((sum, day) => sum + day.topics.length, 0);
+        
+        return {
+            totalDays,
+            completedDays,
+            missedDays,
+            totalTopics,
+            completedTopics,
+            completionPercentage: totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0,
+            topicsCompletionPercentage: totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
+        };
+    };
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -304,13 +358,79 @@ export const Home = () => {
         }
     };
 
+    const handleMarkStudyDayCompleted = async (date: string) => {
+        if (!user || !studyPlan) return;
+
+        try {
+            await ensureValidSession();
+
+            const updatedPlan = {
+                ...studyPlan,
+                plan: studyPlan.plan.map(d =>
+                    d.date === date ? { ...d, completed: !d.completed, missed: false } : d
+                ),
+            };
+
+            const { error } = await supabase
+                .from('study_plans')
+                .update({
+                    plan: updatedPlan.plan,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id)
+                .eq('id', studyPlan.id);
+
+            if (error) {
+                console.error('Error updating study plan:', error);
+                alert('Възникна грешка при актуализирането на плана.');
+            } else {
+                setStudyPlan(updatedPlan);
+            }
+        } catch (error) {
+            console.error('Failed to mark day as completed:', error);
+            alert('Възникна грешка. Моля, опитайте отново.');
+        }
+    };
+
+    const handleMarkStudyDayMissed = async (date: string) => {
+        if (!user || !studyPlan) return;
+
+        if (!confirm('Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени.')) {
+            return;
+        }
+
+        try {
+            await ensureValidSession();
+
+            const updatedPlan = rescheduleMissedDay(studyPlan, date);
+
+            const { error } = await supabase
+                .from('study_plans')
+                .update({
+                    plan: updatedPlan.plan,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id)
+                .eq('id', studyPlan.id);
+
+            if (error) {
+                console.error('Error updating study plan:', error);
+                alert('Възникна грешка при актуализирането на плана.');
+            } else {
+                setStudyPlan(updatedPlan);
+            }
+        } catch (error) {
+            console.error('Failed to mark day as missed:', error);
+            alert('Възникна грешка. Моля, опитайте отново.');
+        }
+    };
+
 
 
     const getUpcomingEvents = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        // Get regular events
         const regularEvents = Object.entries(events)
             .map(([date, event]) => {
                 const [year, month, day] = date.split('-').map(Number);
@@ -423,7 +543,7 @@ export const Home = () => {
     if (role === 'teacher') {
     return (
 
-            <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex overflow-hidden relative">
+            <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex overflow-hidden overflow-x-hidden relative">
                 {/* background*/}
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
@@ -530,10 +650,10 @@ export const Home = () => {
                                 </svg>
                                 <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Бърза статистика</p>
                             </div>
-                            <div className="space-y-2.5">
-                                <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl border border-purple-100/50">
-                                    <span className="text-xs font-medium text-slate-600">Общо събития</span>
-                                    <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                            <div className="space-y-2.5 relative">
+                                <div className="flex items-center justify-between py-2.5 px-3.5 bg-white/60 backdrop-blur-sm rounded-xl border border-purple-200/60 shadow-sm hover:shadow-md transition-all duration-200">
+                                    <span className="text-xs font-bold text-purple-700">Общо събития</span>
+                                    <span className="text-base font-black text-purple-900 tabular-nums">{Object.keys(events).length}</span>
                                 </div>
                             </div>
                         </div>
@@ -558,28 +678,42 @@ export const Home = () => {
 
                                 {/* study plan for students without one */}
                                 {role !== 'teacher' && role === 'student' && hasStudyPlan === false && (
-                                    <div className="bg-gradient-to-br from-rose-50 via-orange-50/50 to-rose-50 rounded-2xl p-8 shadow-lg border-2 border-rose-200/60 relative overflow-hidden mb-6">
-                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-rose-200/20 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="bg-gradient-to-br from-purple-50/80 via-pink-50/50 to-purple-50/80 rounded-2xl p-6 sm:p-8 shadow-xl border-2 border-purple-200/60 relative overflow-hidden mb-6">
+                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-300/30 via-pink-300/20 to-transparent rounded-full blur-3xl"></div>
+                                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
                                         <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                             <div className="flex-1">
-                                                <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                                                    Създай своя персонален учебен план
-                                                </h3>
-                                                <p className="text-slate-600 mb-2">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 ring-2 ring-purple-300/50">
+                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </div>
+                                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-purple-900 via-purple-700 to-pink-600 bg-clip-text text-transparent">
+                                                        Създай своя персонален учебен план
+                                                    </h3>
+                                                </div>
+                                                <p className="text-sm sm:text-base text-slate-600 mb-3 leading-relaxed">
                                                     Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.
                                                 </p>
-                                                <p className="text-sm text-rose-800 font-medium">
-                                                    ⚠️ Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
-                                                </p>
+                                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100/80 border border-purple-200/60 rounded-xl">
+                                                    <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <p className="text-xs text-purple-800 font-semibold">
+                                                        Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
+                                                    </p>
+                                                </div>
                                             </div>
                                             <Link
                                                 to="/study-plan/intro"
-                                                className="px-6 py-3.5 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white text-base font-semibold rounded-xl shadow-lg shadow-rose-500/30 hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+                                                className="relative px-6 py-3.5 sm:px-8 sm:py-4 md:px-10 md:py-4.5 rounded-2xl font-black text-sm sm:text-base md:text-lg transition-all duration-300 ease-out flex items-center gap-2.5 sm:gap-3 shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70 hover:-translate-y-1 hover:scale-105 active:scale-100 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 hover:from-purple-500 hover:via-purple-400 hover:to-pink-400 text-white whitespace-nowrap ring-2 sm:ring-4 ring-purple-300/50 hover:ring-purple-300/80 overflow-hidden group flex-shrink-0"
                                             >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
+                                                <svg className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
-                                                Направи ми план
+                                                <span className="relative z-10">Направи ми план</span>
                                             </Link>
                                         </div>
                                     </div>
@@ -716,9 +850,45 @@ export const Home = () => {
 
                         {/* calendar view */}
                         {activeMenu === 'calendar' && (
-                            <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-12 overflow-y-auto">
-                                <div className="max-w-7xl w-full">
-
+                            <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-12 overflow-y-auto overflow-x-hidden w-full">
+                                <div className="max-w-7xl w-full overflow-x-hidden">
+                                    {/* Study Plan Stats - Only for students with study plan */}
+                                    {(role as string) === 'student' && studyPlan && (
+                                        <div className="mb-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
+                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Дни до изпита</div>
+                                                    <div className="text-2xl font-bold text-slate-900">
+                                                        {Math.ceil((studyPlan.preferences.examDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
+                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Учебни дни</div>
+                                                    <div className="text-2xl font-bold text-slate-900">
+                                                        {studyPlan.plan.filter(d => !d.completed && !d.missed).length}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
+                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Завършени</div>
+                                                    <div className="text-2xl font-bold text-emerald-600">
+                                                        {studyPlan.plan.filter(d => d.completed).length}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
+                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Теми на ден</div>
+                                                    <div className="text-2xl font-bold text-slate-900">
+                                                        {studyPlan.preferences.topicsPerDay}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Reminder note */}
+                                            <div className="mt-4 p-4 bg-purple-50/50 border border-purple-200/40 rounded-xl">
+                                                <p className="text-sm text-purple-800">
+                                                    <strong>Напомняне:</strong> Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* two column layout */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -802,7 +972,7 @@ export const Home = () => {
                                                                 <span
                                                                     key={idx}
                                                                     className={`w-1 h-1 rounded-full ${
-                                                                        topic.subject === 'БЕЛ' ? 'bg-purple-600' : 'bg-orange-600'
+                                                                        topic.subject === 'Български език' ? 'bg-purple-600' : 'bg-amber-500'
                                                                     }`}
                                                                     title={topic.name}
                                                                 />
@@ -1073,7 +1243,7 @@ export const Home = () => {
 
     // Student Dashboard View
     return (
-        <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/40 to-purple-100/20 flex overflow-hidden relative">
+        <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/40 to-purple-100/20 flex overflow-hidden overflow-x-hidden relative">
             {/* background */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-gradient-to-br from-purple-300/25 via-purple-200/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
@@ -1172,22 +1342,10 @@ export const Home = () => {
                 </nav>
 
                 {/* sidebar footer stats */}
-                <div className="flex-shrink-0 p-4 border-t-2 border-purple-200/40">
-                    <div className="bg-gradient-to-br from-white via-purple-50/40 to-white rounded-xl p-4 border-2 border-purple-200/40 shadow-md mb-3 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-2xl"></div>
-                        <div className="flex items-center gap-2 mb-3 relative">
-                            <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">Дни до изпита</p>
-                        </div>
-                        <div className="text-center relative">
-                            <p className="text-4xl font-bold text-purple-900 tracking-tight tabular-nums bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 bg-clip-text text-transparent">{daysUntilExam}</p>
-                            <p className="text-xs font-bold text-purple-700 mt-1">дни остават</p>
-                        </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-white via-purple-50/40 to-white rounded-xl p-4 border-2 border-purple-200/40 shadow-md relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-2xl"></div>
+                <div className="flex-shrink-0 p-4 border-t border-purple-200/50">
+                    <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-4 border border-purple-200/60 shadow-lg shadow-purple-100/10 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 to-transparent rounded-2xl -z-10"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-2xl -z-10"></div>
                         <div className="flex items-center gap-2 mb-3 relative">
                             <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -1195,13 +1353,13 @@ export const Home = () => {
                             <p className="text-xs font-bold text-purple-900 uppercase tracking-wider">Бърза статистика</p>
                         </div>
                         <div className="space-y-2.5 relative">
-                            <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
+                            <div className="flex items-center justify-between py-2.5 px-3.5 bg-white/60 backdrop-blur-sm rounded-xl border border-purple-200/60 shadow-sm hover:shadow-md transition-all duration-200">
                                 <span className="text-xs font-bold text-purple-700">Серия</span>
-                                <span className="text-base font-bold text-purple-900 tabular-nums">{longestStreak} дни</span>
+                                <span className="text-base font-black text-purple-900 tabular-nums">{longestStreak} дни</span>
                             </div>
-                            <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
+                            <div className="flex items-center justify-between py-2.5 px-3.5 bg-white/60 backdrop-blur-sm rounded-xl border border-purple-200/60 shadow-sm hover:shadow-md transition-all duration-200">
                                 <span className="text-xs font-bold text-purple-700">Събития</span>
-                                <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                <span className="text-base font-black text-purple-900 tabular-nums">{Object.keys(events).length}</span>
                             </div>
                         </div>
                     </div>
@@ -1209,77 +1367,444 @@ export const Home = () => {
             </aside>
 
             {/* main content area */}
-            <main className="flex-1 overflow-hidden relative z-10">
-                <div className="max-w-7xl mx-auto px-8 py-10">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden relative z-10">
+                <div className="max-w-[1600px] mx-auto px-10 sm:px-12 lg:px-16 py-12 w-full">
                     {/* dashboard view */}
                     {activeMenu === 'dashboard' && (
-                        <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
-                            <div className="max-w-2xl w-full px-8">
-                                {/* countdown card */}
-                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
-                                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-100/15 to-transparent rounded-full blur-3xl"></div>
-                                    <div className="text-center relative">
-                                        <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
-                                            ДЗИ БЕЛ 2026
-                                        </h1>
-                                        <p className="text-base font-bold text-purple-700 mb-12">
-                                            20 май 2026
-                                        </p>
-                                        <div className="mb-12">
-                                            <div className="text-[10rem] md:text-[14rem] font-bold text-purple-900 tabular-nums tracking-tighter leading-none mb-4 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 bg-clip-text text-transparent">
-                                                {daysUntilExam}
-                                            </div>
-                                            <p className="text-xl font-bold text-purple-700">дни остават</p>
-                                        </div>
-
-                                        {/* progress bar */}
-                                        <div className="max-w-lg mx-auto">
-                                            <div className="flex items-center gap-4 mb-2">
-                                                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full rounded-full transition-all duration-700 bg-purple-900"
-                                                        style={{ 
-                                                            width: `${Math.min(100, Math.max(0, ((365 - daysUntilExam) / 365) * 100))}%`
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-sm font-medium text-slate-600 tabular-nums whitespace-nowrap">
-                                                    {Math.min(100, Math.max(0, Math.round(((365 - daysUntilExam) / 365) * 100)))}%
+                        <div className="py-8 sm:py-12 md:py-16 w-full overflow-x-hidden">
+                            {/* welcome header */}
+                            <div className="mb-16 sm:mb-20 animate-in slide-in-from-top duration-700 delay-100 w-full">
+                                <div className="flex items-center gap-8 mb-8 w-full min-w-0">
+                                    <div className="flex items-center gap-8 sm:gap-10 flex-1 min-w-0">
+                                        <div className="relative">
+                                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-br from-purple-100/90 via-violet-50/80 to-purple-50/70 backdrop-blur-sm flex items-center justify-center shadow-xl shadow-purple-200/30 ring-1 ring-purple-200/40">
+                                                <span className="text-3xl sm:text-4xl">
+                                                    {(() => {
+                                                        const hour = new Date().getHours();
+                                                        if (hour < 12) return '🌅';
+                                                        if (hour < 18) return '☀️';
+                                                        return '🌙';
+                                                    })()}
                                                 </span>
                                             </div>
-                                            <p className="text-xs font-normal text-slate-400 mt-2">Готовност</p>
+                                            <div className="absolute -inset-1 bg-gradient-to-br from-purple-200/20 to-violet-100/10 rounded-3xl blur-xl -z-10"></div>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-purple-800 to-slate-900 bg-clip-text text-transparent">
+                                                {(() => {
+                                                    const hour = new Date().getHours();
+                                                    const name = user?.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : '';
+                                                    if (hour < 12) return `Добро утро${name ? `, ${name}` : ''}!`;
+                                                    if (hour < 18) return `Добър ден${name ? `, ${name}` : ''}!`;
+                                                    return `Добър вечер${name ? `, ${name}` : ''}!`;
+                                                })()}
+                                            </h2>
+                                            <p className="text-base sm:text-lg font-semibold text-slate-500 leading-relaxed">
+                                                Преглед на днешната активност и напредък
+                                            </p>
+                                            </div>
+                                        </div>
+
+                                    {/* streak display */}
+                                    {role === 'student' && (
+                                        <div className="relative inline-flex items-center gap-4 px-7 py-5 bg-white/80 backdrop-blur-md rounded-3xl border border-purple-200/50 shadow-lg shadow-purple-200/20 flex-shrink-0 hover:shadow-xl hover:shadow-purple-300/30 transition-all duration-300 hover:scale-105 ml-auto mr-8 lg:mr-12">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-violet-50/30 rounded-3xl blur-sm -z-10"></div>
+                                            <div className="text-4xl animate-pulse drop-shadow-lg">🔥</div>
+                                            <div className="flex flex-col">
+                                                <span className="text-3xl font-black text-purple-900 tabular-nums">{currentStreak}</span>
+                                                <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">ДНИ СЕРИИ</span>
+                                            </div>
+                                        </div>
+                                    )}
                                         </div>
                                     </div>
 
-                                    {/* stat sections at bottom - inside the card */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t-2 border-purple-200/40 relative">
-                                        {/* events section */}
-                                        <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
-                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
-                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <div className="h-6 sm:h-8 md:h-10"></div>
+
+                            {/* main grid layout */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 xl:gap-20 w-full overflow-x-hidden">
+                                {/* left column */}
+                                <div className="lg:col-span-2 space-y-16 sm:space-y-18 lg:space-y-20 w-full min-w-0 overflow-x-hidden">
+                                {/* study plan for students without one */}
+                                {role === 'student' && hasStudyPlan === false && (
+                                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-left duration-700 delay-200 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 group border border-purple-200/60">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
+                                        <div className="absolute top-0 right-0 w-56 h-56 bg-gradient-to-br from-purple-100/20 via-violet-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
+                                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-purple-50/15 to-transparent rounded-full blur-3xl -z-10"></div>
+                                        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-14">
+                                            <div className="flex-1 space-y-10">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="relative">
+                                                        <div className="w-16 h-16 rounded-3xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-500 via-purple-400 to-violet-500 ring-2 ring-purple-200/50 group-hover:ring-purple-300/60 transition-all duration-500">
+                                                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                                <p className="text-3xl font-bold text-purple-900">{Object.keys(events).length}</p>
                                             </div>
+                                                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-800 tracking-tight">
+                                                        Създай своя персонален учебен план
+                                                    </h3>
                                         </div>
-                                        
-                                        {/* study streak section */}
-                                        <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
-                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
-                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
+                                                <p className="text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed">
+                                                    Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.
+                                                </p>
+                                                <div className="inline-flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-purple-50/80 to-violet-50/60 rounded-2xl border border-purple-100/60 shadow-sm">
+                                                    <svg className="w-5 h-5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <p className="text-xs sm:text-sm text-purple-700 font-semibold leading-relaxed">
+                                                        Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
+                                                    </p>
+                                    </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Най-дълга серия</p>
-                                                <p className="text-3xl font-bold text-purple-900">{longestStreak} <span className="text-lg font-bold text-purple-700">дни</span></p>
+                                            <div className="mt-8 sm:mt-0">
+                                                <Link
+                                                    to="/study-plan/intro"
+                                                    className="relative px-10 py-5 sm:px-12 sm:py-6 rounded-3xl font-black text-sm sm:text-base lg:text-lg transition-all duration-500 ease-out flex items-center gap-4 shadow-lg shadow-purple-300/30 hover:shadow-purple-300/40 hover:-translate-y-2 hover:scale-105 active:scale-100 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap ring-2 ring-purple-200/50 hover:ring-purple-300/70 overflow-hidden group flex-shrink-0"
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                                    <svg className="w-7 h-7 sm:w-8 sm:h-8 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span className="relative z-10">Направи ми план</span>
+                                                </Link>
                                             </div>
                                         </div>
                                     </div>
+                                )}
+
+                                {/* todays study tasks widget */}
+                                {role === 'student' && studyPlan && getTodayStudyTasks() && getTodayStudyTasks()!.topics.length > 0 && (
+                                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-bottom duration-700 delay-300 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 group border border-purple-100/60">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 via-violet-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
+                                        <div className="absolute bottom-0 left-0 w-56 h-56 bg-gradient-to-tr from-purple-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
+                                        <div className="relative space-y-12">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-7">
+                                                    <div className="relative">
+                                                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-500 via-purple-400 to-violet-500 transition-all duration-500 group-hover:scale-105 ring-2 ring-purple-200/40">
+                                                            <svg className="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            </div>
+                                                    <div>
+                                                        <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-800 tracking-tight mb-5">
+                                                            Днешни учебни задачи
+                                                        </h3>
+                                                        <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-semibold leading-relaxed">
+                                                            {new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {getTodayStudyTasks()?.completed ? (
+                                                    <span className="px-7 py-3.5 bg-gradient-to-r from-emerald-50 to-emerald-50/80 text-emerald-700 rounded-2xl font-black text-sm shadow-sm ring-1 ring-emerald-200/50">
+                                                        ✓ Завършено
+                                                    </span>
+                                                ) : getTodayStudyTasks()?.missed ? (
+                                                    <span className="px-7 py-3.5 bg-gradient-to-r from-red-50 to-red-50/80 text-red-700 rounded-2xl font-black text-sm shadow-sm ring-1 ring-red-200/50">
+                                                        ✗ Пропуснато
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-7 py-3.5 bg-gradient-to-r from-purple-50 to-violet-50/80 text-purple-700 rounded-2xl font-black text-sm shadow-sm ring-1 ring-purple-200/50">
+                                                        ⏳ В процес
+                                                    </span>
+                                                )}
+                                        </div>
+                                        
+                                            <div className="space-y-12">
+                                                {getTodayStudyTasks()!.topics.map((topic, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`px-10 py-8 lg:px-12 lg:py-10 rounded-3xl transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl cursor-pointer relative overflow-visible group/topic backdrop-blur-sm ${
+                                                            topic.subject === 'Български език'
+                                                                ? 'bg-white/60 hover:bg-white/80 border border-purple-200/60 hover:border-purple-300/80 shadow-lg shadow-purple-200/10 hover:shadow-purple-300/20'
+                                                                : 'bg-white/60 hover:bg-white/80 border border-amber-200/60 hover:border-amber-300/80 shadow-lg shadow-amber-200/10 hover:shadow-amber-300/20'
+                                                        }`}
+                                                        style={{ animationDelay: `${idx * 100}ms` }}
+                                                    >
+                                                        <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${
+                                                            topic.subject === 'Български език'
+                                                                ? 'from-purple-50/30 to-transparent'
+                                                                : 'from-amber-50/30 to-transparent'
+                                                        } -z-10`}></div>
+                                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent translate-x-[-100%] group-hover/topic:translate-x-[100%] transition-transform duration-1000 rounded-3xl"></div>
+                                                        <div className="relative flex items-start justify-between gap-6 w-full">
+                                                            <div className="flex-1 min-w-0 space-y-4 w-full">
+                                                                <span className={`inline-block text-xs font-black px-5 py-3 rounded-2xl shadow-sm whitespace-nowrap ${
+                                                                    topic.subject === 'Български език'
+                                                                        ? 'bg-gradient-to-r from-purple-100 to-purple-200/80 text-purple-700 ring-1 ring-purple-200/50'
+                                                                        : 'bg-gradient-to-r from-amber-100 to-amber-200/80 text-amber-700 ring-1 ring-amber-200/50'
+                                                                }`}>
+                                                                    {topic.subject}
+                                                                </span>
+                                                                <p className="text-base sm:text-lg lg:text-xl font-black text-slate-900 leading-relaxed break-words overflow-wrap-anywhere w-full">
+                                                                    {topic.name}
+                                                                </p>
+                                                            </div>
+                                                            {getTodayStudyTasks()?.completed && (
+                                                                <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-lg">
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                                            )}
+                                            </div>
+                                        </div>
+                                                ))}
+                                    </div>
+
+                                            {!getTodayStudyTasks()?.completed && !getTodayStudyTasks()?.missed && (
+                                                <div className="pt-16 animate-in fade-in duration-500 delay-500">
+                                                    <button
+                                                        onClick={() => {
+                                                            setActiveMenu('calendar');
+                                                        }}
+                                                        className="relative w-full px-12 py-7 sm:px-14 sm:py-8 rounded-3xl font-black text-base sm:text-lg lg:text-xl transition-all duration-500 ease-out shadow-lg shadow-purple-300/30 hover:shadow-purple-300/40 hover:-translate-y-2 hover:scale-[1.03] active:scale-100 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap ring-2 ring-purple-200/50 hover:ring-purple-300/70 overflow-hidden group/btn flex items-center justify-center gap-5"
+                                                    >
+                                                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-1000"></div>
+                                                        <svg className="w-7 h-7 sm:w-8 sm:h-8 relative z-10 group-hover/btn:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                        </svg>
+                                                        <span className="relative z-10">Започни учене сега</span>
+                                                        <svg className="w-6 h-6 sm:w-7 sm:h-7 relative z-10 group-hover/btn:translate-x-2 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            )}
+                                            </div>
+                                        </div>
+                                )}
+
+                                {role === 'student' && studyPlan && getTodayStudyTasks() && getTodayStudyTasks()!.topics.length > 0 && getUpcomingStudyTopics().length > 0 && (
+                                    <div className="h-12 sm:h-16 md:h-20"></div>
+                                )}
+
+                                {/* upcoming study topics */}
+                                {role === 'student' && studyPlan && getUpcomingStudyTopics().length > 0 && (
+                                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-400 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 border border-purple-200/60 hover:border-purple-300/80 group">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/25 via-violet-100/15 to-transparent rounded-full blur-3xl animate-pulse -z-10"></div>
+                                        <div className="relative space-y-14">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-7">
+                                                    <div className="relative">
+                                                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center flex-shrink-0 shadow-xl bg-gradient-to-br from-purple-500 via-purple-400 to-violet-500 ring-2 ring-purple-200/50 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                                                            <svg className="w-10 h-10 sm:w-12 sm:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                                        Предстоящи теми
+                                                    </h3>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setActiveMenu('calendar');
+                                                    }}
+                                                    className="text-sm font-bold text-purple-600 hover:text-purple-700 transition-all duration-300 hover:scale-110 flex items-center gap-2 group/link"
+                                                >
+                                                    <span>Виж всички</span>
+                                                    <svg className="w-4 h-4 group-hover/link:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </button>
+                                    </div>
+
+                                            <div className="space-y-10">
+                                                {getUpcomingStudyTopics().slice(0, 3).map(({ date, studyDay }) => {
+                                                    const [year, month, day] = date.split('-').map(Number);
+                                                    const studyDate = new Date(year, month - 1, day);
+                                                    const tomorrow = new Date(today);
+                                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                                    tomorrow.setHours(0, 0, 0, 0);
+                                                    studyDate.setHours(0, 0, 0, 0);
+                                                    const isTomorrow = studyDate.getTime() === tomorrow.getTime();
+                                                    
+                                                    return (
+                                                        <button
+                                                            key={date}
+                                                            onClick={() => {
+                                                                setActiveMenu('calendar');
+                                                            }}
+                                                            className="block w-full text-left p-12 lg:p-14 rounded-3xl bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-200/30 group/item relative overflow-visible border border-purple-200/60 hover:border-purple-300/80 shadow-lg shadow-purple-100/10 overflow-wrap-anywhere"
+                                                        >
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 to-transparent rounded-3xl -z-10"></div>
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent translate-x-[-100%] group-hover/item:translate-x-[100%] transition-transform duration-1000 rounded-3xl"></div>
+                                                            <div className="relative flex items-start justify-between gap-8 mb-10">
+                                                                <div>
+                                                                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">
+                                                                        {isTomorrow ? 'Утре' : (() => {
+                                                                            const dayNames = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
+                                                                            const monthNames = ['яну', 'фев', 'мар', 'апр', 'май', 'юни', 'юли', 'авг', 'сеп', 'окт', 'ное', 'дек'];
+                                                                            const weekday = dayNames[studyDate.getDay()];
+                                                                            const day = studyDate.getDate();
+                                                                            const month = monthNames[studyDate.getMonth()];
+                                                                            return `${weekday}, ${day} ${month}`;
+                                                                        })()}
+                                                                    </p>
+                                                                    <p className="text-sm font-semibold text-slate-600">
+                                                                        {studyDay.topics.length} {studyDay.topics.length === 1 ? 'тема' : 'теми'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex gap-1.5 items-center">
+                                                                    {studyDay.topics.slice(0, 3).map((topic, idx) => (
+                                                                        <span
+                                                                            key={idx}
+                                                                            className={`w-2.5 h-2.5 rounded-full shadow-sm ${
+                                                                                topic.subject === 'Български език' ? 'bg-purple-600' : 'bg-amber-500'
+                                                                            }`}
+                                                                            title={topic.name}
+                                                                        />
+                                                                    ))}
+                                                                    {studyDay.topics.length > 3 && (
+                                                                        <span className="text-xs text-slate-500 ml-1 font-medium">+{studyDay.topics.length - 3}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-6">
+                                                                {studyDay.topics.slice(0, 2).map((topic, idx) => (
+                                                                    <div key={idx} className="flex items-start gap-6 w-full">
+                                                                        <span className={`w-3.5 h-3.5 rounded-full flex-shrink-0 mt-1.5 shadow-sm ${
+                                                                            topic.subject === 'Български език' ? 'bg-purple-500' : 'bg-amber-500'
+                                                                        }`}></span>
+                                                                        <p className="text-base lg:text-lg font-semibold text-slate-800 leading-relaxed break-words flex-1 min-w-0 overflow-wrap-anywhere">
+                                                                            <span className={`font-bold ${
+                                                                                topic.subject === 'Български език' ? 'text-purple-600' : 'text-amber-600'
+                                                                            }`}>
+                                                                                {topic.subject}:
+                                                                            </span> {topic.name}
+                                                                        </p>
+                                                                    </div>
+                                                                ))}
+                                                                {studyDay.topics.length > 2 && (
+                                                                    <p className="text-sm text-slate-500 pl-10 leading-relaxed font-medium">
+                                                                        +{studyDay.topics.length - 2} още {studyDay.topics.length - 2 === 1 ? 'тема' : 'теми'}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+
+                                {/* right sidebar */}
+                                <div className="lg:col-span-1 space-y-20 lg:space-y-24 w-full min-w-0 overflow-x-hidden">
+                                    {/* study progress card */}
+                                    {studyPlan && getStudyPlanProgress() && (
+                                        <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-12 lg:p-14 shadow-2xl shadow-emerald-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-300 hover:shadow-3xl hover:shadow-emerald-300/30 transition-all duration-500 border border-emerald-200/60 hover:border-emerald-300/80 group">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/40 via-emerald-50/20 to-transparent rounded-3xl -z-10"></div>
+                                            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200/30 via-emerald-100/20 to-transparent rounded-full blur-3xl animate-pulse -z-10"></div>
+                                            <div className="relative space-y-16">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg ring-2 ring-emerald-200/50 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                                    <h3 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-emerald-900 via-emerald-700 to-emerald-900 bg-clip-text text-transparent">
+                                                        Напредък в ученето
+                                                    </h3>
+                                                </div>
+                                                <div>
+                                                    <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-10 lg:p-12 border border-emerald-200/60 shadow-lg shadow-emerald-100/10 hover:shadow-xl hover:shadow-emerald-200/20 transition-all duration-300">
+                                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/40 to-transparent rounded-3xl -z-10"></div>
+                                                        <div className="relative flex items-center justify-between mb-10">
+                                                            <span className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Общ напредък</span>
+                                                            <span className="text-3xl lg:text-4xl font-black text-emerald-900 tabular-nums">{getStudyPlanProgress()!.completionPercentage}%</span>
+                                                        </div>
+                                                        <div className="w-full h-5 bg-emerald-100/50 rounded-full overflow-hidden shadow-inner border border-emerald-200/30">
+                                                            <div 
+                                                                className="h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 shadow-lg relative overflow-hidden"
+                                                                style={{ width: `${getStudyPlanProgress()!.completionPercentage}%` }}
+                                                            >
+                                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                                                            </div>
+                                            </div>
+                                        </div>
+                                    
+                                                    <div className="h-6 sm:h-8 md:h-10"></div>
+
+                                                    <div className="grid grid-cols-2 gap-8">
+                                                        <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 lg:p-10 border border-blue-200/60 shadow-lg shadow-blue-100/10 hover:shadow-xl hover:shadow-blue-200/20 hover:scale-[1.02] transition-all duration-300 group/stat relative overflow-visible">
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/40 to-transparent rounded-3xl -z-10"></div>
+                                                            <div style={{ transform: 'translateX(1rem)' }}>
+                                                                <p className="text-xs font-bold text-blue-700 mb-8 uppercase tracking-wider leading-tight">Завършени теми</p>
+                                                                <p className="text-3xl lg:text-4xl font-black text-blue-900 mb-6 tabular-nums group-hover/stat:scale-110 transition-transform duration-300 leading-none">{getStudyPlanProgress()!.completedTopics}</p>
+                                                                <p className="text-sm text-blue-600/80 font-medium leading-relaxed">от {getStudyPlanProgress()!.totalTopics}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 lg:p-10 border border-purple-200/60 shadow-lg shadow-purple-100/10 hover:shadow-xl hover:shadow-purple-200/20 hover:scale-[1.02] transition-all duration-300 group/stat relative overflow-visible">
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 to-transparent rounded-3xl -z-10"></div>
+                                                            <div style={{ transform: 'translateX(1rem)' }}>
+                                                                <p className="text-xs font-bold text-purple-700 mb-8 uppercase tracking-wider leading-tight">Дни</p>
+                                                                <p className="text-3xl lg:text-4xl font-black text-purple-900 mb-6 tabular-nums group-hover/stat:scale-110 transition-transform duration-300 leading-none">{getStudyPlanProgress()!.completedDays}</p>
+                                                                <p className="text-sm text-purple-600/80 font-medium leading-relaxed">от {getStudyPlanProgress()!.totalDays}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="h-6 sm:h-8 md:h-10"></div>
+
+                                                    {/* streak card */}
+                                                    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 lg:p-10 border border-orange-200/60 shadow-lg shadow-orange-100/10 hover:shadow-xl hover:shadow-orange-200/20 hover:scale-[1.02] transition-all duration-300 group/stat relative overflow-visible">
+                                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-50/40 to-transparent rounded-3xl -z-10"></div>
+                                                        <div style={{ transform: 'translateX(1rem)' }}>
+                                                            <p className="text-xs font-bold text-orange-700 mb-8 uppercase tracking-wider leading-tight">Серия</p>
+                                                            <p className="text-3xl lg:text-4xl font-black text-orange-900 mb-6 tabular-nums group-hover/stat:scale-110 transition-transform duration-300 leading-none">{longestStreak}</p>
+                                                            <p className="text-sm text-orange-600/80 font-medium leading-relaxed">{longestStreak === 1 ? 'ден' : 'дни'} подред</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {studyPlan && getStudyPlanProgress() && (
+                                        <div className="h-6 sm:h-8 md:h-10"></div>
+                                    )}
+
+                                    {/* quick actions */}
+                                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-12 lg:p-14 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-400 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 border border-purple-200/60 hover:border-purple-300/80 group">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
+                                        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-200/20 via-violet-100/15 to-transparent rounded-full blur-3xl animate-pulse -z-10"></div>
+                                        <div className="relative space-y-16">
+                                            <div className="flex items-center gap-6">
+                                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-purple-400 to-violet-500 flex items-center justify-center shadow-lg ring-2 ring-purple-200/50 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                </svg>
+                                            </div>
+                                                <h3 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                                    Бързи действия
+                                                </h3>
+                                            </div>
+                                            <div className="pt-8">
+                                                <button 
+                                                    onClick={() => {
+                                                        setActiveMenu('calendar');
+                                                        handleDayClick(new Date().getDate());
+                                                    }}
+                                                    className="w-full px-8 py-5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white rounded-2xl font-bold transition-all duration-500 flex items-center justify-center gap-3 text-base shadow-lg shadow-purple-300/40 hover:shadow-xl hover:shadow-purple-400/50 hover:scale-[1.03] hover:-translate-y-1 relative overflow-hidden group/btn"
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></div>
+                                                    <svg className="w-6 h-6 relative z-10 group-hover/btn:rotate-90 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    <span className="relative z-10">Добави събитие</span>
+                                                </button>
+                                        </div>
+                                    </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -1369,7 +1894,7 @@ export const Home = () => {
                                                                 <span
                                                                     key={idx}
                                                                     className={`w-1 h-1 rounded-full ${
-                                                                        topic.subject === 'БЕЛ' ? 'bg-purple-600' : 'bg-orange-600'
+                                                                        topic.subject === 'Български език' ? 'bg-purple-600' : 'bg-amber-500'
                                                                     }`}
                                                                     title={topic.name}
                                                                 />
@@ -1567,75 +2092,158 @@ export const Home = () => {
             </main>
 
             {/* event modal */}
-            {selectedDay && (
+            {selectedDay && (() => {
+                const studyDay = studyPlan?.plan.find(d => d.date === selectedDay);
+                const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+                const hasEvent = events[selectedDay];
 
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20">
+                return (
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300 overflow-y-auto">
+                        <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20 my-8">
                         <div className="mb-6">
-
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                    {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                        {hasEvent ? 'Редактирай събитие' : hasStudyTopics ? 'Учебни теми' : 'Ново събитие'}
                                 </h3>
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
                                         setEventText("");
                                     }}
-
                                     className="p-2 hover:bg-slate-50 rounded-xl transition-all duration-300 hover:scale-110"
                                 >
-
                                     <svg className="w-5 h-5 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-
                             <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-900/10 px-4 py-2.5 rounded-xl border border-purple-900/20">
                                 <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-
                                 <span className="font-semibold text-slate-700">{selectedDay}</span>
                             </div>
                         </div>
+
+                            {/* study plan topics */}
+                            {hasStudyTopics && studyDay && (
+                                <div className="mb-6 space-y-4">
+                                    <div className="space-y-3">
+                                        {studyDay.topics.map((topic, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`p-4 rounded-xl border-2 ${
+                                                    topic.subject === 'Български език'
+                                                        ? 'border-purple-200 bg-purple-50'
+                                                        : 'border-amber-200 bg-amber-50'
+                                                }`}
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                            topic.subject === 'Български език'
+                                                                ? 'bg-purple-200 text-purple-700'
+                                                                : 'bg-amber-200 text-amber-700'
+                                                        }`}>
+                                                            {topic.subject}
+                                                        </span>
+                                                        <h4 className="mt-2 font-semibold text-slate-900">{topic.name}</h4>
+                                                        <p className="text-sm text-slate-600 mt-1">
+                                                            Включва учене и преговор
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* study plan actions */}
+                                    {role === 'student' && (
+                                        <div className="flex gap-3 pt-2 border-t border-slate-200">
+                                            {!studyDay.missed && (
+                                                <button
+                                                    onClick={() => {
+                                                        handleMarkStudyDayMissed(selectedDay);
+                                                        setSelectedDay(null);
+                                                    }}
+                                                    className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-colors text-sm"
+                                                >
+                                                    Маркирай като пропуснат
+                                                </button>
+                                            )}
+                                            {!studyDay.missed && (
+                                                <button
+                                                    onClick={() => {
+                                                        handleMarkStudyDayCompleted(selectedDay);
+                                                        setSelectedDay(null);
+                                                    }}
+                                                    className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-colors text-sm ${
+                                                        studyDay.completed
+                                                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                                            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                                                    }`}
+                                                >
+                                                    {studyDay.completed ? 'Маркирай като незавършен' : 'Завърши деня'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* regular event */}
+                            {hasEvent && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Събитие</label>
                         <textarea
                             value={eventText}
                             onChange={(e) => setEventText(e.target.value)}
                             placeholder="Напр: Учене за матура, Преговор на материал, Решаване на тест..."
+                                        className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
+                                        autoFocus={!hasStudyTopics}
+                                    />
+                                </div>
+                            )}
 
-                            className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
-                            autoFocus
-                        />
+                            {/* add event */}
+                            {!hasEvent && (
+                                <div className="mb-6">
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Добави събитие</label>
+                                    <textarea
+                                        value={eventText}
+                                        onChange={(e) => setEventText(e.target.value)}
+                                        placeholder="Напр: Учене за матура, Преговор на материал, Решаване на тест..."
+                                        className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
+                                        autoFocus={!hasStudyTopics}
+                                    />
+                                </div>
+                            )}
+
                         <div className="flex items-center justify-between gap-3">
-                            {events[selectedDay] && (
+                                {hasEvent && (
                                 <button
                                     onClick={handleDeleteEvent}
-
                                     className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
-                                    Изтрий
+                                        Изтрий събитие
                                 </button>
                             )}
-
                             <div className="flex gap-3 ml-auto">
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
                                         setEventText("");
                                     }}
-
                                     className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
                                 >
-                                    Откажи
+                                        Затвори
                                 </button>
+                                    {hasEvent && (
                                 <button
                                     onClick={handleSaveEvent}
-
                                     className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1643,11 +2251,24 @@ export const Home = () => {
                                     </svg>
                                     Запази
                                 </button>
+                                    )}
+                                    {!hasEvent && eventText.trim() && (
+                                        <button
+                                            onClick={handleSaveEvent}
+                                            className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            Запази
+                                        </button>
+                                    )}
                             </div>
                         </div>
                     </div>
                     </div>
-                )}
+                );
+            })()}
         </div>
     );
 

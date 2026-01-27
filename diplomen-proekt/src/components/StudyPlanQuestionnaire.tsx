@@ -69,7 +69,7 @@ export const StudyPlanQuestionnaire = () => {
 
       const plan = generateStudyPlan(preferences, user.id);
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('study_plans')
         .insert({
           user_id: user.id,

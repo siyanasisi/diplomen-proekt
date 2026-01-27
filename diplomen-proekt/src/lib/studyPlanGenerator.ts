@@ -19,10 +19,8 @@ export function generateStudyPlan(
     throw new Error('Датата на изпита трябва да бъде в бъдещето');
   }
 
+
   const filteredTopics = filterTopicsByLevel(ALL_TOPICS, belLevel, literatureLevel);
-
-
-  const sortedTopics = [...filteredTopics].sort((a, b) => b.priority - a.priority);
 
   // generate study days
   const studyDays = generateStudyDays(
@@ -30,7 +28,7 @@ export function generateStudyPlan(
     exam,
     studyDaysPerWeek,
     topicsPerDay,
-    sortedTopics
+    filteredTopics
   );
 
   return {
@@ -42,8 +40,7 @@ export function generateStudyPlan(
 
 
  // filters topics based on knowledge levels
- // weak level - more topics, strong level -fewer topics
- 
+
 function filterTopicsByLevel(
   topics: Topic[],
   belLevel: KnowledgeLevel,
@@ -79,32 +76,57 @@ function generateStudyDays(
 ): StudyDay[] {
   const studyDays: StudyDay[] = [];
   const currentDate = new Date(startDate);
-  let topicIndex = 0;
 
-  // define study days of week
+  const belTopics = topics.filter(t => t.subject === 'Български език');
+  const litTopics = topics.filter(t => t.subject === 'Литература');
+  
+  let belIndex = 0;
+  let litIndex = 0;
+
   const studyDaysOfWeek: number[] = [];
   if (studyDaysPerWeek === 7) {
-    // every day
     for (let i = 0; i < 7; i++) studyDaysOfWeek.push(i);
   } else {
     // distribute study days evenly across the week
-    const step = 7 / studyDaysPerWeek;
+    // Use better distribution algorithm
+    const spacing = Math.floor(7 / studyDaysPerWeek);
+    const remainder = 7 % studyDaysPerWeek;
+    let currentDay = 0;
+    
     for (let i = 0; i < studyDaysPerWeek; i++) {
-      studyDaysOfWeek.push(Math.floor(i * step));
+      studyDaysOfWeek.push(currentDay);
+      currentDay += spacing;
+      if (i < remainder) currentDay += 1;
+      if (currentDay >= 7) currentDay -= 7;
     }
+    
+    // Sort to ensure proper order
+    studyDaysOfWeek.sort((a, b) => a - b);
   }
 
-  while (currentDate <= endDate && topicIndex < topics.length) {
+  while (currentDate <= endDate && (belIndex < belTopics.length || litIndex < litTopics.length)) {
     const dayOfWeek = currentDate.getDay();
     
     // check if this day is a study day
     if (studyDaysOfWeek.includes(dayOfWeek)) {
       const dayTopics: Topic[] = [];
       
-      // assign topics for this day
-      for (let i = 0; i < topicsPerDay && topicIndex < topics.length; i++) {
-        dayTopics.push(topics[topicIndex]);
-        topicIndex++;
+      // assign topics for this day 
+      for (let i = 0; i < topicsPerDay && (belIndex < belTopics.length || litIndex < litTopics.length); i++) {
+        const preferBel = i % 2 === 0 || litIndex >= litTopics.length;
+        
+        if (preferBel && belIndex < belTopics.length) {
+          dayTopics.push(belTopics[belIndex]);
+          belIndex++;
+        } else if (litIndex < litTopics.length) {
+          dayTopics.push(litTopics[litIndex]);
+          litIndex++;
+        } else if (belIndex < belTopics.length) {
+          dayTopics.push(belTopics[belIndex]);
+          belIndex++;
+        } else {
+          break; 
+        }
       }
 
       if (dayTopics.length > 0) {
