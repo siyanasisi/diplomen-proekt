@@ -36,6 +36,24 @@ export const Navbar = () => {
                 </svg>
             )
         },
+        { 
+            to: "/find-teacher", 
+            label: "Намери учител", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM17 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            )
+        },
+        { 
+            to: "/chat", 
+            label: "Съобщения", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-9 8h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12l3-3z" />
+                </svg>
+            )
+        },
     ];
 
     const isActive = (path: string) => location.pathname === path;

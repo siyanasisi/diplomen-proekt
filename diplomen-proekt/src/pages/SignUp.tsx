@@ -198,6 +198,40 @@ export default function SignUp() {
         setMessage(`Грешка: ${errorMessage}`);
         setMessageType('error');
       } else {
+
+        if (role === 'teacher') {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            
+            if (currentUser) {
+              // create teacher profile entry
+              const { error: profileError } = await supabase
+                .from('teacher_profiles')
+                .insert({
+                  user_id: currentUser.id,
+                  full_name: `${firstName.trim()} ${lastName.trim()}`,
+                  subject: qualifications || 'Не е посочен', // use qualifications as subject for now
+                  description: 'Учител в системата Матура+. Моля, попълнете профила си за да се покажете в списъка с учители.',
+                  rating: 0,
+                  city: city || null,
+                  is_online: false,
+                  email: email.trim(),
+                  education: null,
+                  qualifications: qualifications || null,
+                  available_schedule: null
+                });
+
+              if (profileError) {
+                console.error('Error creating teacher profile:', profileError);
+              }
+            }
+          } catch (profileCreationError) {
+            console.error('Error creating teacher profile:', profileCreationError);
+          }
+        }
+
         setMessage('Успешно! Вие сте регистриран и влезли.');
         setMessageType('success');
         setFirstName('');
