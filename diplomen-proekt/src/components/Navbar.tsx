@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { supabase, ensureValidSession } from "../supabase-client";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
     const location = useLocation();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -45,15 +47,6 @@ export const Navbar = () => {
                 </svg>
             )
         },
-        { 
-            to: "/chat", 
-            label: "Съобщения", 
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-9 8h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12l3-3z" />
-                </svg>
-            )
-        },
     ];
 
     const isActive = (path: string) => location.pathname === path;
@@ -63,6 +56,74 @@ export const Navbar = () => {
     const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
     const avatarUrl = userMetadata?.avatar_url || null;
+
+    // load unread messages count
+    const loadUnreadMessagesCount = async () => {
+        if (!user || !role) return;
+        
+        try {
+            await ensureValidSession();
+            
+            const { data, error } = await supabase
+                .from("messages")
+                .select("*");
+
+            if (error) {
+                console.error("Error loading unread messages (navbar):", error);
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                setUnreadMessagesCount(0);
+                return;
+            }
+
+            const unreadCount = data.filter((msg: any) => {
+                if (!msg.read_at) {
+                    if (role === "student") {
+                        return msg.student_id === user.id && msg.is_from_student === false;
+                    } else {
+                        return msg.teacher_id === user.id && msg.is_from_student === true;
+                    }
+                }
+                return false;
+            }).length;
+
+            setUnreadMessagesCount(unreadCount);
+        } catch (error) {
+            console.error("Failed to load unread messages count (navbar):", error);
+        }
+    };
+
+    // initial load + reload when user and role changes
+    useEffect(() => {
+        if (user && role) {
+            loadUnreadMessagesCount();
+        }
+    }, [user, role]);
+
+    useEffect(() => {
+        if (!user || !role) return;
+
+        const channel = supabase
+            .channel(`navbar-unread-messages-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'messages',
+                },
+                () => {
+                    loadUnreadMessagesCount();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user, role]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -148,7 +209,21 @@ export const Navbar = () => {
                             </>
                         )}
                         {!loading && user && (
-                            <div className="relative" ref={dropdownRef}>
+                            <>
+                                <Link
+                                    to="/chat"
+                                    className="relative p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
+                                >
+                                    <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                    {unreadMessagesCount > 0 && (
+                                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/40">
+                                            {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                                        </span>
+                                    )}
+                                </Link>
+                                <div className="relative" ref={dropdownRef}>
                                 <button
                                     onClick={() => setDropdownOpen(!dropdownOpen)}
                                     className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
@@ -237,7 +312,8 @@ export const Navbar = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                                </div>
+                            </>
                         )}
                     </div>
 
