@@ -422,7 +422,7 @@ export const TeacherProfile = () => {
                             </div>
                         ) : (
                             chatMessages.map((msg) => {
-                                const isStudent = msg.is_from_student !== false;e
+                                const isStudent = msg.is_from_student !== false;
                                 const msgDate = new Date(msg.created_at);
                                 return (
                                     <div

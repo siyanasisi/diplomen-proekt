@@ -144,9 +144,9 @@ export const FindTeacher = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/20 to-slate-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-purple-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <div className="w-14 h-14 border-2 border-violet-500/30 border-t-violet-600 rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-lg font-semibold text-slate-700">Зареждане...</p>
                 </div>
             </div>
@@ -154,11 +154,11 @@ export const FindTeacher = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/20 to-slate-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
                 {/* header */}
                 <div className="mb-10">
-                    <h1 className="text-4xl font-bold text-slate-900 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                    <h1 className="text-4xl font-bold text-slate-900 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-violet-700 to-slate-900 bg-clip-text text-transparent">
                         Намери учител
                     </h1>
                     <p className="text-lg font-semibold text-slate-600">
@@ -167,7 +167,7 @@ export const FindTeacher = () => {
                 </div>
 
                 {/* filters and search */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-purple-200/40 mb-8">
+                <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-lg shadow-slate-900/5 border border-slate-200/80 mb-8">
                     {/* search */}
                     <div className="mb-6">
                         <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -179,7 +179,7 @@ export const FindTeacher = () => {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Търсете по име или предмет..."
-                                className="w-full px-4 py-3 pl-12 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all text-slate-700 font-medium"
+                                className="w-full px-4 py-3 pl-12 border-2 border-slate-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all text-slate-700 font-medium placeholder:text-slate-400"
                             />
                             <svg
                                 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"
@@ -202,7 +202,7 @@ export const FindTeacher = () => {
                             <select
                                 value={selectedSubject}
                                 onChange={(e) => setSelectedSubject(e.target.value)}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all text-slate-700 font-medium bg-white"
+                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all text-slate-700 font-medium bg-white"
                             >
                                 <option value="">Всички предмети</option>
                                 {subjects.map((subject) => (
@@ -221,7 +221,7 @@ export const FindTeacher = () => {
                             <select
                                 value={selectedCity}
                                 onChange={(e) => setSelectedCity(e.target.value)}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all text-slate-700 font-medium bg-white"
+                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all text-slate-700 font-medium bg-white"
                             >
                                 <option value="">Всички локации</option>
                                 <option value="Онлайн">Онлайн</option>
@@ -241,7 +241,7 @@ export const FindTeacher = () => {
                             <select
                                 value={selectedRating}
                                 onChange={(e) => setSelectedRating(Number(e.target.value))}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all text-slate-700 font-medium bg-white"
+                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all text-slate-700 font-medium bg-white"
                             >
                                 <option value="0">Всички рейтинги</option>
                                 <option value="4">4+ звезди</option>
@@ -257,7 +257,7 @@ export const FindTeacher = () => {
                                     type="checkbox"
                                     checked={isOnlineOnly}
                                     onChange={(e) => setIsOnlineOnly(e.target.checked)}
-                                    className="w-5 h-5 text-purple-900 border-2 border-slate-300 rounded focus:ring-purple-900 focus:ring-2"
+                                    className="w-5 h-5 text-violet-600 border-2 border-slate-300 rounded focus:ring-violet-500 focus:ring-2"
                                 />
                                 <span className="text-sm font-semibold text-slate-700">
                                     Само онлайн
@@ -276,7 +276,7 @@ export const FindTeacher = () => {
                                 setSelectedRating(0);
                                 setIsOnlineOnly(false);
                             }}
-                            className="mt-4 px-4 py-2 text-sm font-semibold text-purple-900 hover:bg-purple-50 rounded-xl transition-colors"
+                            className="mt-4 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 rounded-xl transition-colors"
                         >
                             Изчисти филтрите
                         </button>
@@ -286,7 +286,7 @@ export const FindTeacher = () => {
                 {/* results count and refresh */}
                 <div className="mb-6 flex items-center justify-between">
                     <p className="text-sm font-semibold text-slate-600">
-                        Намерени: <span className="text-purple-900 font-bold">{filteredTeachers.length}</span> учители
+                        Намерени: <span className="text-violet-700 font-bold">{filteredTeachers.length}</span> учители
                         {teachers.length > 0 && filteredTeachers.length !== teachers.length && (
                             <span className="text-slate-500 ml-2">
                                 (от общо {teachers.length})
@@ -299,7 +299,7 @@ export const FindTeacher = () => {
                             loadTeachers();
                         }}
                         disabled={loading}
-                        className="px-4 py-2 text-sm font-semibold text-purple-900 hover:bg-purple-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <svg 
                             className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} 
@@ -315,14 +315,14 @@ export const FindTeacher = () => {
 
                 {/* teachers grid */}
                 {loading ? (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-12 shadow-lg border border-purple-200/40 text-center">
-                        <div className="w-16 h-16 border-4 border-purple-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-12 shadow-lg shadow-slate-900/5 border border-slate-200/80 text-center">
+                        <div className="w-14 h-14 border-2 border-violet-500/30 border-t-violet-600 rounded-full animate-spin mx-auto mb-4"></div>
                         <p className="text-lg font-semibold text-slate-700">Зареждане на учители...</p>
                     </div>
                 ) : filteredTeachers.length === 0 && teachers.length === 0 ? (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-12 shadow-lg border border-purple-200/40 text-center">
-                        <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-12 shadow-lg shadow-slate-900/5 border border-slate-200/80 text-center">
+                        <div className="chat-empty-icon-wrap w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
                         </div>
@@ -331,9 +331,9 @@ export const FindTeacher = () => {
                         <p className="text-sm text-slate-500">Учителите трябва да създадат профил, за да се покажат тук.</p>
                     </div>
                 ) : filteredTeachers.length === 0 ? (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-12 shadow-lg border border-purple-200/40 text-center">
-                        <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-12 shadow-lg shadow-slate-900/5 border border-slate-200/80 text-center">
+                        <div className="chat-empty-icon-wrap w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
@@ -347,7 +347,7 @@ export const FindTeacher = () => {
                                 setSelectedRating(0);
                                 setIsOnlineOnly(false);
                             }}
-                            className="px-4 py-2 bg-purple-900 text-white font-semibold rounded-xl hover:bg-purple-800 transition-colors"
+                            className="px-4 py-2.5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 shadow-md shadow-violet-500/25 transition-colors"
                         >
                             Изчисти филтрите
                         </button>
@@ -357,7 +357,7 @@ export const FindTeacher = () => {
                         {filteredTeachers.map((teacher) => (
                             <div
                                 key={teacher.id}
-                                className="bg-white/90 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-purple-200/40 hover:shadow-xl hover:border-purple-300/60 transition-all duration-300"
+                                className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-lg shadow-slate-900/5 border border-slate-200/80 hover:shadow-xl hover:border-violet-200/60 hover:scale-[1.01] transition-all duration-300"
                             >
                                 {/* profile picture and name */}
                                 <div className="flex items-start gap-4 mb-4">
@@ -366,10 +366,10 @@ export const FindTeacher = () => {
                                             <img
                                                 src={teacher.profile_picture}
                                                 alt={teacher.full_name}
-                                                className="w-16 h-16 rounded-xl object-cover border-2 border-purple-200/40"
+                                                className="w-16 h-16 rounded-xl object-cover border-2 border-slate-200/80"
                                             />
                                         ) : (
-                                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center text-white text-xl font-bold border-2 border-purple-200/40">
+                                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-violet-600 to-violet-700 flex items-center justify-center text-white text-xl font-bold shadow-md shadow-violet-500/20">
                                                 {teacher.full_name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
@@ -378,7 +378,7 @@ export const FindTeacher = () => {
                                         <h3 className="text-lg font-bold text-slate-900 mb-1 truncate">
                                             {teacher.full_name}
                                         </h3>
-                                        <p className="text-sm font-semibold text-purple-700 mb-2">
+                                        <p className="text-sm font-semibold text-violet-700 mb-2">
                                             {teacher.subject}
                                         </p>
                                         <div className="flex items-center gap-1">
@@ -418,7 +418,7 @@ export const FindTeacher = () => {
                                             navigate(`/teacher/${teacher.id}`);
                                         }
                                     }}
-                                    className="w-full px-4 py-3 bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105"
+                                    className="w-full px-4 py-3 bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white font-semibold rounded-xl transition-all duration-300 shadow-md shadow-violet-500/25 hover:shadow-lg hover:shadow-violet-500/30 hover:scale-[1.02] active:scale-100"
                                 >
                                     Виж профил
                                 </button>

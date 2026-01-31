@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
+import { AvatarImage } from "../components/AvatarImage";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Message {
@@ -14,21 +15,34 @@ interface Message {
     read_by_student_at: string | null;
     read_by_teacher_at: string | null;
     is_from_student: boolean;
+    attachment_url?: string | null;
 }
 
 interface Conversation {
     otherUserId: string;
     otherUserName: string;
     otherUserEmail?: string;
+    otherUserAvatarUrl?: string;
     lastMessage: string;
     lastTime: string;
     unreadCount: number;
 }
 
+function getDisplayName(conv: Conversation): string {
+    if ((["Ученик", "Учител"] as string[]).includes(conv.otherUserName) && conv.otherUserEmail) {
+        const prefix = conv.otherUserEmail.split("@")[0];
+        return prefix || conv.otherUserName;
+    }
+    return conv.otherUserName;
+}
+
 export const Chat = () => {
-    const { user, role } = useAuth();
+    const { user, role, currentUserProfile } = useAuth();
+    const currentUserAvatarUrl = currentUserProfile?.avatar_url ?? (user?.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ?? null;
+
     const navigate = useNavigate();
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const channelRef = useRef<RealtimeChannel | null>(null);
     const conversationsChannelRef = useRef<RealtimeChannel | null>(null);
     const isNearBottomRef = useRef(true);
@@ -42,6 +56,14 @@ export const Chat = () => {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [newMessage, setNewMessage] = useState("");
     const [sending, setSending] = useState(false);
+    const [showScrollFAB, setShowScrollFAB] = useState(false);
+    const [conversationSearch, setConversationSearch] = useState("");
+    const [chatHeaderMoreOpen, setChatHeaderMoreOpen] = useState(false);
+    const chatHeaderMoreRef = useRef<HTMLDivElement>(null);
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+    const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!user) {
@@ -96,7 +118,7 @@ export const Chat = () => {
         }
     }, []);
 
-    // track scroll position with throttle
+    // track scroll position with throttle; show/hide scroll-to-bottom FAB
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
@@ -105,7 +127,9 @@ export const Chat = () => {
         const handleScroll = () => {
             if (!ticking) {
                 requestAnimationFrame(() => {
-                    isNearBottomRef.current = checkIfNearBottom();
+                    const near = checkIfNearBottom();
+                    isNearBottomRef.current = near;
+                    setShowScrollFAB(!near);
                     ticking = false;
                 });
                 ticking = true;
@@ -179,24 +203,24 @@ export const Chat = () => {
                 Array.from(groups.keys())
             ));
 
-            // batch load all user names
-            const userNamesMap = new Map<string, { name: string; email?: string }>();
+            // batch load user names and avatars
+            const userNamesMap = new Map<string, { name: string; email?: string; avatarUrl?: string }>();
             
             if (allOtherUserIds.length > 0) {
                 try {
                     if (role === "student") {
-                        // get teacher name
                         const { data: teacherData } = await supabase
                             .from('teacher_profiles')
-                            .select('user_id, full_name, email')
+                            .select('user_id, full_name, email, profile_picture')
                             .in('user_id', allOtherUserIds);
                         
                         if (teacherData) {
-                            teacherData.forEach(teacher => {
+                            teacherData.forEach((teacher: { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }) => {
                                 if (teacher.user_id) {
                                     userNamesMap.set(teacher.user_id, {
                                         name: teacher.full_name || "Учител",
-                                        email: teacher.email
+                                        email: teacher.email ?? undefined,
+                                        avatarUrl: teacher.profile_picture ?? undefined
                                     });
                                 }
                             });
@@ -205,22 +229,50 @@ export const Chat = () => {
                     
                     const missingIds = allOtherUserIds.filter(id => !userNamesMap.has(id));
                     if (missingIds.length > 0) {
-                        const { data: profileData } = await supabase
+                        let profileData: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }[] | null = null;
+                        const { data: withAvatar, error: errAvatar } = await supabase
                             .from('profiles')
-                            .select('id, first_name, last_name, email')
+                            .select('id, first_name, last_name, email, avatar_url')
                             .in('id', missingIds);
-                        
-                        if (profileData) {
-                            profileData.forEach(profile => {
+                        if (!errAvatar && withAvatar?.length) {
+                            profileData = withAvatar;
+                        } else {
+                            const { data: noAvatar } = await supabase
+                                .from('profiles')
+                                .select('id, first_name, last_name, email')
+                                .in('id', missingIds);
+                            if (noAvatar?.length) profileData = noAvatar;
+                        }
+                        if (profileData?.length) {
+                            profileData.forEach((profile) => {
                                 if (profile.id) {
-                                    const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-                                    const name = fullName || profile.email?.split('@')[0] || (role === "student" ? "Учител" : "Ученик");
-                                    userNamesMap.set(profile.id, {
-                                        name,
-                                        email: profile.email
-                                    });
+                                    const fromParts = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+                                    const name = fromParts || (profile.email?.split('@')[0] || null) || (role === "student" ? "Учител" : "Ученик");
+                                    const avatarUrl = 'avatar_url' in profile ? (profile.avatar_url ?? undefined) : undefined;
+                                    userNamesMap.set(profile.id, { name, email: profile.email || undefined, avatarUrl });
                                 }
                             });
+                        }
+                        const stillMissing = missingIds.filter(id => !userNamesMap.has(id));
+                        for (const uid of stillMissing) {
+                            const { data: single } = await supabase
+                                .from('profiles')
+                                .select('id, first_name, last_name, email, avatar_url')
+                                .eq('id', uid)
+                                .maybeSingle();
+                            if (!single?.id) continue;
+                            const { data: singleFallback } = await supabase
+                                .from('profiles')
+                                .select('id, first_name, last_name, email')
+                                .eq('id', uid)
+                                .maybeSingle();
+                            const row = single ?? singleFallback;
+                            if (row?.id) {
+                                const fromParts = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+                                const name = fromParts || (row.email?.split('@')[0] || null) || (role === "student" ? "Учител" : "Ученик");
+                                const avatarUrl = single && 'avatar_url' in single ? (single.avatar_url ?? undefined) : undefined;
+                                userNamesMap.set(row.id, { name, email: row.email || undefined, avatarUrl });
+                            }
                         }
                     }
                 } catch (err) {
@@ -231,32 +283,26 @@ export const Chat = () => {
             // build conversations
             const convs: Conversation[] = [];
             for (const [otherUserId, msgs] of groups.entries()) {
-                // sort messages by time
                 msgs.sort((a, b) => 
                     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
-                
                 const lastMsg = msgs[msgs.length - 1];
-                
                 const unreadCount = msgs.filter(m => {
-                    if (role === "student") {
-                        return m.is_from_student === false && !m.read_by_student_at;
-                    } else {
-
-                        return m.is_from_student === true && !m.read_by_teacher_at;
-                    }
+                    if (role === "student") return m.is_from_student === false && !m.read_by_student_at;
+                    return m.is_from_student === true && !m.read_by_teacher_at;
                 }).length;
 
-                // get user name from map
                 const userInfo = userNamesMap.get(otherUserId) || {
                     name: role === "student" ? "Учител" : "Ученик",
-                    email: undefined
+                    email: undefined,
+                    avatarUrl: undefined
                 };
 
                 convs.push({
                     otherUserId,
                     otherUserName: userInfo.name,
                     otherUserEmail: userInfo.email,
+                    otherUserAvatarUrl: userInfo.avatarUrl,
                     lastMessage: lastMsg.message || "",
                     lastTime: lastMsg.created_at,
                     unreadCount,
@@ -281,6 +327,43 @@ export const Chat = () => {
             setLoadingConversations(false);
         }
     }, [user, role, selectedConv]);
+
+    // when a conversation is selected try to load profile again
+    useEffect(() => {
+        if (!selectedConv || !role) return;
+        const isFallback = selectedConv.otherUserName === "Ученик" || selectedConv.otherUserName === "Учител";
+        if (!isFallback && selectedConv.otherUserAvatarUrl) return;
+
+        type ProfileRow = { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null };
+        let cancelled = false;
+        (async () => {
+            let data: ProfileRow | null = null;
+            const res = await supabase.from("profiles").select("id, first_name, last_name, email, avatar_url").eq("id", selectedConv.otherUserId).maybeSingle();
+            if (res.data) data = res.data as ProfileRow;
+            if (!data) {
+                const res2 = await supabase.from("profiles").select("id, first_name, last_name, email").eq("id", selectedConv.otherUserId).maybeSingle();
+                if (res2.data) data = res2.data as ProfileRow;
+            }
+            if (cancelled || !data?.id) return;
+            const fromParts = `${data.first_name || ""} ${data.last_name || ""}`.trim();
+            const name = fromParts || (data.email?.split("@")[0] ?? null) || (role === "student" ? "Учител" : "Ученик");
+            const avatarUrl = "avatar_url" in data ? (data.avatar_url ?? undefined) : undefined;
+            const email = data.email ?? undefined;
+            setConversations((prev) =>
+                prev.map((c) =>
+                    c.otherUserId === selectedConv.otherUserId
+                        ? { ...c, otherUserName: name, otherUserEmail: email ?? c.otherUserEmail, otherUserAvatarUrl: avatarUrl ?? c.otherUserAvatarUrl }
+                        : c
+                )
+            );
+            setSelectedConv((prev) =>
+                prev?.otherUserId === selectedConv.otherUserId
+                    ? { ...prev, otherUserName: name, otherUserEmail: email ?? prev.otherUserEmail, otherUserAvatarUrl: avatarUrl ?? prev.otherUserAvatarUrl }
+                    : prev
+            );
+        })();
+        return () => { cancelled = true; };
+    }, [selectedConv?.otherUserId, role]);
 
     // debounced version for real-time updates
     const debouncedLoadConversations = useCallback(() => {
@@ -388,49 +471,9 @@ export const Chat = () => {
                         : c
                 ));
             }
-            
 
-            const ourSentMessages = msgs.filter(m => 
-                role === "student" ? m.is_from_student : !m.is_from_student
-            );
-            
-            const ourSentUnreadIds = ourSentMessages
-                .filter(m => {
-                    if (role === "student") {
-                        return !m.read_by_teacher_at;
-                    } else {
-                        return !m.read_by_student_at;
-                    }
-                })
-                .map(m => m.id);
-            
-            if (ourSentUnreadIds.length > 0) {
-                const updateSentData = role === "student"
-                    ? { read_by_teacher_at: readAt, read_at: readAt }
-                    : { read_by_student_at: readAt, read_at: readAt };
-                
-                const { error: sentUpdateError } = await supabase
-                    .from("messages")
-                    .update(updateSentData)
-                    .in("id", ourSentUnreadIds);
-                
-                if (sentUpdateError) {
-                    console.error("Error updating sent messages read status:", sentUpdateError);
-                } else {
-                    // update locally
-                    setMessages(prev => prev.map(m => {
-                        if (ourSentUnreadIds.includes(m.id)) {
-                            if (role === "student") {
-                                return { ...m, read_by_teacher_at: readAt, read_at: readAt };
-                            } else {
-                                return { ...m, read_by_student_at: readAt, read_at: readAt };
-                            }
-                        }
-                        return m;
-                    }));
-                }
-            }
-            
+            // mark as read only the received messages
+
             setTimeout(async () => {
                 const { data: refreshedMsgs, error: refreshError } = await supabase
                     .from("messages")
@@ -577,53 +620,16 @@ export const Chat = () => {
                             .eq("id", newMsg.id);
                         
                         // update message locally to show read status
-                        setMessages(prev => {
-                            const updated = prev.map(m => {
-                                if (m.id === newMsg.id) {
-                                    if (role === "student") {
-                                        return { ...m, read_by_student_at: readAt, read_at: readAt };
-                                    } else {
-                                        return { ...m, read_by_teacher_at: readAt, read_at: readAt };
-                                    }
-                                }
-                                return m;
-                            });
-                            
-                            const ourSentUnread = updated.filter((m: Message) => {
-                                const isOurSent = role === "student" ? m.is_from_student : !m.is_from_student;
-                                if (!isOurSent) return false;
+                        setMessages(prev => prev.map(m => {
+                            if (m.id === newMsg.id) {
                                 if (role === "student") {
-                                    return !m.read_by_teacher_at;
+                                    return { ...m, read_by_student_at: readAt, read_at: readAt };
                                 } else {
-                                    return !m.read_by_student_at;
+                                    return { ...m, read_by_teacher_at: readAt, read_at: readAt };
                                 }
-                            });
-                            
-                            if (ourSentUnread.length > 0) {
-                                const updateSentData = role === "student"
-                                    ? { read_by_teacher_at: readAt, read_at: readAt }
-                                    : { read_by_student_at: readAt, read_at: readAt };
-                                
-                                supabase
-                                    .from("messages")
-                                    .update(updateSentData)
-                                    .in("id", ourSentUnread.map((m: Message) => m.id))
-                                    .then(() => {
-                                        setMessages(prevMsgs => prevMsgs.map((m: Message) => {
-                                            if (ourSentUnread.some((msg: Message) => msg.id === m.id)) {
-                                                if (role === "student") {
-                                                    return { ...m, read_by_teacher_at: readAt, read_at: readAt };
-                                                } else {
-                                                    return { ...m, read_by_student_at: readAt, read_at: readAt };
-                                                }
-                                            }
-                                            return m;
-                                        }));
-                                    });
                             }
-                            
-                            return updated;
-                        });
+                            return m;
+                        }));
                         
                         // update conversations unread count locally
                         setConversations(prev => prev.map(conv => 
@@ -703,17 +709,35 @@ export const Chat = () => {
 
     // send message
     const handleSend = useCallback(async () => {
-        if (!user || !role || !selectedConv || !newMessage.trim() || sending) return;
+        if (!user || !role || !selectedConv || (!newMessage.trim() && !attachmentFile) || sending) return;
         
         setSending(true);
         try {
             await ensureValidSession();
 
+            let attachmentUrl: string | null = null;
+            if (attachmentFile) {
+                const safeName = attachmentFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+                const storagePath = `${user.id}/${Date.now()}_${safeName}`;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from("chat-attachments")
+                    .upload(storagePath, attachmentFile, { upsert: false });
+                if (uploadError) {
+                    console.error("Error uploading attachment:", uploadError);
+                    alert(`Грешка при качване на файла: ${uploadError.message}`);
+                    setSending(false);
+                    return;
+                }
+                const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadData.path);
+                attachmentUrl = urlData.publicUrl;
+            }
+
             const payload = {
                 student_id: role === "student" ? user.id : selectedConv.otherUserId,
                 teacher_id: role === "student" ? selectedConv.otherUserId : user.id,
-                message: newMessage.trim(),
+                message: newMessage.trim() || "",
                 is_from_student: role === "student",
+                ...(attachmentUrl && { attachment_url: attachmentUrl }),
             };
 
             const { data, error } = await supabase
@@ -732,6 +756,7 @@ export const Chat = () => {
 
             if (data) {
                 setNewMessage("");
+                setAttachmentFile(null);
                 setMessages(prev => {
                     // avoid duplicate messages
                     if (prev.some(m => m.id === data.id)) return prev;
@@ -766,6 +791,37 @@ export const Chat = () => {
         }
     }, [handleSend]);
 
+    const handleAttachmentClick = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
+    const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        setAttachmentFile(file ?? null);
+        e.target.value = "";
+    }, []);
+
+    const handleEmojiSelect = useCallback((emoji: string) => {
+        const input = inputRef.current;
+        if (input) {
+            const start = input.selectionStart ?? newMessage.length;
+            const end = input.selectionEnd ?? newMessage.length;
+            const before = newMessage.slice(0, start);
+            const after = newMessage.slice(end);
+            setNewMessage(before + emoji + after);
+            requestAnimationFrame(() => {
+                input.focus();
+                const newPos = start + emoji.length;
+                input.setSelectionRange(newPos, newPos);
+            });
+        } else {
+            setNewMessage((prev) => prev + emoji);
+        }
+        setEmojiPickerOpen(false);
+    }, [newMessage]);
+
+    const EMOJI_LIST = ["😀", "😊", "😂", "👍", "❤️", "😍", "🙏", "😅", "😢", "😡", "👎", "✨", "🔥", "🎉", "💯", "👋", "😎", "🥳", "🤔", "💪"];
+
     const formatTime = useCallback((iso: string) => {
         const d = new Date(iso);
         const now = new Date();
@@ -786,6 +842,18 @@ export const Chat = () => {
         });
     }, []);
 
+    // filter conversations by search (name or last message)
+    const filteredConversations = useMemo(() => {
+        if (!conversationSearch.trim()) return conversations;
+        const q = conversationSearch.trim().toLowerCase();
+        return conversations.filter(
+            (c) =>
+                c.otherUserName.toLowerCase().includes(q) ||
+                (c.otherUserEmail && c.otherUserEmail.toLowerCase().includes(q)) ||
+                (c.lastMessage && c.lastMessage.toLowerCase().includes(q))
+        );
+    }, [conversations, conversationSearch]);
+
     const formatDateShort = useCallback((iso: string) => {
         const d = new Date(iso);
         const now = new Date();
@@ -802,13 +870,23 @@ export const Chat = () => {
         });
     }, []);
 
+    const formatFullDate = useCallback((iso: string) => {
+        return new Date(iso).toLocaleString("bg-BG", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }, []);
+
 
     if (!user || !role) {
         return (
-            <div className="h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center">
+            <div className="h-screen flex items-center justify-center bg-[#f8fafc]">
                 <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-purple-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-lg font-semibold text-slate-700">Зареждане...</p>
+                    <div className="w-10 h-10 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-sm font-medium text-slate-500">Зареждане...</p>
                 </div>
             </div>
         );
@@ -816,31 +894,34 @@ export const Chat = () => {
 
     const isStudent = useMemo(() => role === "student", [role]);
 
-    // message status
     const MessageStatus = ({ message }: { message: Message }) => {
         const isMine = isStudent ? message.is_from_student : !message.is_from_student;
-        
-        if (!isMine) return null; 
-        
-
+        if (!isMine) return null;
         const readStatus = isStudent ? message.read_by_teacher_at : message.read_by_student_at;
-        const shouldShowRead = !!(readStatus && typeof readStatus === 'string' && readStatus.length > 0);
-        
+        const seen = !!(readStatus && typeof readStatus === "string" && readStatus.length > 0);
+        const label = seen ? "Прочетено" : "Изпратено";
         return (
-            <span className="ml-1.5 inline-flex items-center" key={`status-${message.id}-${readStatus || 'unread'}`}>
-                {shouldShowRead ? (
-                    <span className="inline-flex items-center -space-x-0.5">
-                        <svg className="w-4 h-4 text-purple-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <span
+                className="ml-1 inline-flex items-center gap-0.5 shrink-0 opacity-90"
+                key={`status-${message.id}-${seen ? "read" : "sent"}`}
+                title={label}
+                aria-label={label}
+            >
+                {seen ? (
+                    <span className="inline-flex items-center gap-0.5 text-inherit" aria-hidden>
+                        <svg className="shrink-0 w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
-                        <svg className="w-4 h-4 text-purple-200" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="shrink-0 w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                     </span>
                 ) : (
-                    <svg className="w-3.5 h-3.5 text-purple-200/70" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <span className="text-inherit" aria-hidden>
+                        <svg className="shrink-0 w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                    </span>
                 )}
             </span>
         );
@@ -881,241 +962,543 @@ export const Chat = () => {
         return dateKey;
     }, []);
 
+    // group consecutive messages from same sender 
+    const GROUP_MAX_MINUTES = 5;
+    const groupMessagesBySender = useCallback((msgs: Message[], student: boolean) => {
+        if (msgs.length === 0) return [];
+        const result: { isMine: boolean; messages: Message[] }[] = [];
+        let current: { isMine: boolean; messages: Message[] } = {
+            isMine: student ? msgs[0].is_from_student : !msgs[0].is_from_student,
+            messages: [msgs[0]],
+        };
+        for (let i = 1; i < msgs.length; i++) {
+            const msg = msgs[i];
+            const isMine = student ? msg.is_from_student : !msg.is_from_student;
+            const prevTime = new Date(msgs[i - 1].created_at).getTime();
+            const currTime = new Date(msg.created_at).getTime();
+            const sameSender = isMine === current.isMine;
+            const withinMinutes = (currTime - prevTime) / (60 * 1000) <= GROUP_MAX_MINUTES;
+            if (sameSender && withinMinutes) {
+                current.messages.push(msg);
+            } else {
+                result.push(current);
+                current = { isMine, messages: [msg] };
+            }
+        }
+        result.push(current);
+        return result;
+    }, []);
+
+    // focus input when opening a chat
+    useEffect(() => {
+        if (selectedConv && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [selectedConv?.otherUserId]);
+
+    const handleScrollToBottomClick = useCallback(() => {
+        scrollToBottom(true);
+        setShowScrollFAB(false);
+    }, [scrollToBottom]);
+
+    // close chat header "more" dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (chatHeaderMoreRef.current && !chatHeaderMoreRef.current.contains(e.target as Node)) {
+                setChatHeaderMoreOpen(false);
+            }
+        };
+        if (chatHeaderMoreOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [chatHeaderMoreOpen]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+                setEmojiPickerOpen(false);
+            }
+        };
+        if (emojiPickerOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [emojiPickerOpen]);
+
+    useEffect(() => {
+        setAttachmentFile(null);
+        setEmojiPickerOpen(false);
+    }, [selectedConv?.otherUserId]);
+
     return (
-        <div 
-            className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-indigo-50/20"
-            style={{ 
-                position: 'relative',
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                height: '100vh'
-            }}
-        >
-            <div className="flex items-center justify-center min-h-screen px-4 py-8">
-                <div className="max-w-5xl w-full h-[90vh] flex shadow-2xl rounded-3xl overflow-hidden bg-white">
-                {/* left sidebar */}
-                <div className="w-80 bg-white/98 backdrop-blur-xl rounded-l-3xl shadow-xl border-r border-purple-200/60 flex flex-col overflow-hidden">
-                    <div className="px-5 py-4 border-b border-purple-100/60 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-700 text-white shadow-lg">
-                        <h2 className="text-lg font-bold mb-1">
+        <div className="flex-1 min-h-0 w-full flex flex-col md:flex-row overflow-hidden chat-page h-full">
+            {/* left sidebar - conversations list */}
+            <aside className={`w-full md:w-[420px] lg:w-[480px] h-full min-h-0 flex flex-col chat-sidebar-panel transition-all duration-300 ease-out shrink-0 ${selectedConv ? "hidden md:flex" : "flex"}`}>
+                <div className="chat-sidebar-top shrink-0 flex flex-col z-10">
+                    <div className="px-5 pt-5 pb-4">
+                        <h1 className="text-[20px] font-semibold text-slate-900 tracking-tight">
                             Съобщения
-                        </h2>
-                        <p className="text-xs text-purple-100/90">
+                        </h1>
+                        <p className="text-[14px] text-slate-500 mt-1.5">
                             {conversations.length === 0
                                 ? "Все още нямате чатове"
-                                : `${conversations.length} ${conversations.length === 1 ? 'чат' : 'чата'}`}
+                                : `${conversations.length} ${conversations.length === 1 ? "чат" : "чата"}`}
                         </p>
                     </div>
-                    <div className="flex-1 overflow-y-auto">
-                        {loadingConversations ? (
-                            <div className="h-full flex items-center justify-center">
-                                <div className="flex flex-col items-center gap-1">
-                                    <div className="w-4 h-4 border-2 border-purple-900 border-t-transparent rounded-full animate-spin" />
-                                    <p className="text-[10px] text-slate-600 font-semibold">Зареждане...</p>
-                                </div>
-                            </div>
-                        ) : conversations.length === 0 ? (
-                            <div className="h-full flex items-center justify-center px-2 text-center">
-                                <div>
-                                    <div className="w-8 h-8 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-2">
-                                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-xs text-slate-500 font-semibold mb-1">Няма чатове</p>
-                                    <p className="text-[10px] text-slate-400">
-                                        {isStudent 
-                                            ? "Започнете разговор от профил на учител." 
-                                            : "Учениците ще могат да ви пишат от вашия профил."}
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            conversations.map((conv) => {
-                                const isActive = selectedConv?.otherUserId === conv.otherUserId;
-                                return (
-                                    <button
-                                        key={conv.otherUserId}
-                                        onClick={() => setSelectedConv(conv)}
-                                        className={`w-full px-4 py-3 flex items-center gap-3 border-b border-purple-50/50 text-left transition-all duration-200 hover:bg-purple-50/40 ${
-                                            isActive 
-                                                ? "bg-gradient-to-r from-purple-50 to-purple-100/50 border-l-4 border-l-purple-600 shadow-sm" 
-                                                : "bg-transparent"
-                                        }`}
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg ring-2 ring-purple-200/50">
-                                            {conv.otherUserName.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <p className={`text-sm font-bold truncate ${
-                                                    isActive ? "text-purple-900" : "text-slate-900"
-                                                }`}>
-                                                    {conv.otherUserName}
-                                                </p>
-                                                <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
-                                                    {formatDateShort(conv.lastTime)}
-                                                </span>
-                                            </div>
-                                            <p className={`text-xs truncate ${
-                                                isActive ? "text-slate-600" : "text-slate-500"
-                                            }`}>
-                                                {conv.lastMessage || "Няма съобщения"}
-                                            </p>
-                                        </div>
-                                        {conv.unreadCount > 0 && (
-                                            <div className="ml-1 flex-shrink-0">
-                                                <span className="px-2 py-1 rounded-full bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs font-bold shadow-md min-w-[20px] text-center">
-                                                    {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
-
-                {/* right chat area */}
-                <div className="flex-1 bg-white/95 backdrop-blur-xl rounded-r-3xl shadow-2xl border-l border-purple-200/50 flex flex-col overflow-hidden">
-                    {selectedConv ? (
-                        <>
-                            <div className="px-5 py-4 border-b border-purple-100/50 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700 text-white shadow-lg">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-base font-bold ring-2 ring-white/30 shadow-lg">
-                                        {selectedConv.otherUserName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h2 className="text-base font-bold text-white">
-                                            {selectedConv.otherUserName}
-                                        </h2>
-                                        {selectedConv.otherUserEmail && (
-                                            <p className="text-xs text-purple-100/90 mt-0.5">{selectedConv.otherUserEmail}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div 
-                                ref={messagesContainerRef}
-                                className="flex-1 p-4 overflow-y-auto space-y-3 bg-gradient-to-b from-purple-50/30 via-white to-purple-50/20"
-                                style={{ 
-                                    maxHeight: '100%',
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden'
-                                }}
-                            >
-                                {loadingMessages ? (
-                                    <div className="h-full flex items-center justify-center">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="w-6 h-6 border-3 border-purple-600 border-t-transparent rounded-full animate-spin" />
-                                            <p className="text-sm text-slate-600 font-semibold">Зареждане на съобщения...</p>
-                                        </div>
-                                    </div>
-                                ) : messages.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center text-center px-4">
-                                        <div>
-                                            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-                                                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                </svg>
-                                            </div>
-                                            <p className="text-base text-slate-700 font-bold mb-1">Няма съобщения</p>
-                                            <p className="text-sm text-slate-400">Напишете първото си съобщение</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
-                                            <div key={dateKey}>
-                                                <div className="flex items-center justify-center my-4">
-                                                    <div className="px-3 py-1 bg-purple-100/50 rounded-full">
-                                                        <span className="text-xs font-semibold text-purple-700">
-                                                            {formatDateLabel(dateKey)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                {dateMessages.map((msg) => {
-                                                    const isMine = isStudent ? msg.is_from_student : !msg.is_from_student;
-                                                    const readKey = isStudent ? msg.read_by_teacher_at : msg.read_by_student_at;
-                                                    return (
-                                                        <div 
-                                                            key={`${msg.id}-${readKey || 'unread'}`} 
-                                                            className={`flex ${isMine ? "justify-end" : "justify-start"} mb-2 transition-all duration-300`}
-                                                        >
-                                                            <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-lg text-sm transition-all hover:shadow-xl ${
-                                                                isMine
-                                                                    ? "bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-700 text-white rounded-br-sm"
-                                                                    : "bg-white text-slate-800 border border-purple-100 rounded-bl-sm"
-                                                            }`}>
-                                                                <p className="whitespace-pre-wrap break-words leading-relaxed">
-                                                                    {msg.message}
-                                                                </p>
-                                                                <div className={`mt-1.5 flex items-center justify-end gap-1.5 ${
-                                                                    isMine ? "text-purple-100/90" : "text-slate-400"
-                                                                }`}>
-                                                                    <span className="text-xs">
-                                                                        {formatTime(msg.created_at)}
-                                                                    </span>
-                                                                    <MessageStatus message={msg} />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ))}
-                                    </>
-                                )}
-                            </div>
-
-                            <div className="px-5 py-4 border-t border-purple-100/50 bg-gradient-to-r from-white via-purple-50/40 to-white flex items-center gap-3 shadow-lg">
-                                <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    placeholder="Напишете съобщение..."
-                                    disabled={sending}
-                                    className="flex-1 px-4 py-3 border-2 border-purple-200 rounded-2xl focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 outline-none text-sm text-slate-800 placeholder-slate-400 disabled:bg-slate-50 disabled:text-slate-400 transition-all shadow-sm hover:shadow-md"
-                                />
+                    {conversations.length > 0 && (
+                        <div className="px-4 pb-5 pt-0">
+                            <div className="chat-sidebar-search-wrap relative">
+                            <span className="chat-sidebar-search-icon" aria-hidden>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input
+                                type="search"
+                                value={conversationSearch}
+                                onChange={(e) => setConversationSearch(e.target.value)}
+                                placeholder="Търси разговори..."
+                                className="chat-sidebar-search w-full pl-10 pr-9 py-3 rounded-2xl text-slate-900 text-[14px] placeholder:text-slate-400 focus:outline-none"
+                                aria-label="Търси разговори"
+                            />
+                            {conversationSearch ? (
                                 <button
-                                    onClick={handleSend}
-                                    disabled={!newMessage.trim() || sending}
-                                    className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700 text-white text-sm font-bold shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg flex items-center gap-2"
+                                    type="button"
+                                    onClick={() => setConversationSearch("")}
+                                    className="chat-sidebar-search-clear absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                    aria-label="Изчисти търсенето"
                                 >
-                                    {sending ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            <span>Изпращане...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>Изпрати</span>
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                            </svg>
-                                        </>
-                                    )}
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="h-full flex items-center justify-center text-center px-2">
-                            <div>
-                                <div className="w-8 h-8 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-2">
-                                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                </div>
-                                <p className="text-xs text-slate-500 font-semibold">Изберете чат</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">За да видите съобщения</p>
+                            ) : null}
                             </div>
                         </div>
                     )}
                 </div>
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-sidebar-scroll">
+                    {loadingConversations ? (
+                        <div className="py-2 px-3">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="flex items-center gap-4 px-4 py-4 rounded-xl">
+                                    <div className="chat-skeleton-avatar w-14 h-14 rounded-full shrink-0" />
+                                    <div className="flex-1 min-w-0 space-y-2">
+                                        <div className="chat-skeleton-line h-3.5 w-2/3 rounded-md" />
+                                        <div className="chat-skeleton-line h-3 w-1/2 rounded-md" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : conversations.length === 0 ? (
+                        <div className="h-full flex items-center justify-center px-6 text-center min-h-[200px]">
+                            <div className="max-w-[200px]">
+                                <div className="chat-empty-icon-wrap w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                    </svg>
+                                </div>
+                                <p className="text-[14px] font-medium text-slate-700 mb-1">Няма чатове</p>
+                                <p className="text-[13px] text-slate-500 leading-relaxed">
+                                    {isStudent ? "Започнете разговор от профил на учител." : "Учениците ще могат да ви пишат от вашия профил."}
+                                </p>
+                            </div>
+                        </div>
+                    ) : filteredConversations.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                            <p className="text-[13px] text-slate-500">Няма намерени разговори</p>
+                            <button
+                                type="button"
+                                onClick={() => setConversationSearch("")}
+                                className="mt-2 text-[13px] font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                            >
+                                Изчисти търсенето
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="py-2 px-3 mt-4">
+                            {filteredConversations.map((conv) => {
+                                const isActive = selectedConv?.otherUserId === conv.otherUserId;
+                                const hasUnread = conv.unreadCount > 0;
+                                return (
+                                    <button
+                                        key={conv.otherUserId}
+                                        onClick={() => setSelectedConv(conv)}
+                                        className={`w-full px-4 py-3.5 flex items-center gap-4 text-left chat-conv-item rounded-2xl mx-1 ${isActive ? "chat-conv-item-active" : ""}`}
+                                    >
+                                        <div className="relative flex-shrink-0">
+                                            <AvatarImage
+                                                url={conv.otherUserAvatarUrl}
+                                                fallback={
+                                                    <div className="chat-avatar w-12 h-12 rounded-full flex items-center justify-center text-white text-[15px] font-semibold">
+                                                        {getDisplayName(conv).charAt(0).toUpperCase()}
+                                                    </div>
+                                                }
+                                                imgClassName="chat-avatar w-12 h-12 rounded-full object-cover"
+                                            />
+                                            {hasUnread && conv.unreadCount === 1 && (
+                                                <span className="chat-unread-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full" title="1 непрочетено" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0 pr-2">
+                                            <div className="flex items-center justify-between gap-3 min-w-0">
+                                                <span className={`text-[15px] truncate font-semibold ${hasUnread ? "text-slate-900" : "text-slate-800"}`}>
+                                                    {getDisplayName(conv)}
+                                                </span>
+                                                <span className="text-[12px] font-medium text-slate-500 whitespace-nowrap shrink-0 min-w-[2.5rem] text-right" title={conv.lastTime}>
+                                                    {formatDateShort(conv.lastTime)}
+                                                </span>
+                                            </div>
+                                            <p className={`text-[13px] truncate mt-1 leading-snug ${hasUnread ? "text-slate-600 font-medium" : "text-slate-500"}`}>
+                                                {conv.lastMessage || "Няма съобщения"}
+                                            </p>
+                                        </div>
+                                        {hasUnread && conv.unreadCount > 1 && (
+                                            <span className="chat-unread-badge shrink-0 min-w-[22px] h-6 px-2 rounded-full text-[12px] font-semibold flex items-center justify-center">
+                                                {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-            </div>
+            </aside>
+
+            {/* right chat area */}
+            <main className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden chat-main-panel transition-all duration-300 ${!selectedConv ? "hidden md:flex" : "flex"}`}>
+                {selectedConv ? (
+                    <div className="chat-right-grid h-full min-h-0 flex flex-col bg-white">
+                        {/* chat header */}
+                        <header className="chat-header-bar flex-none px-4 py-3 flex items-center gap-3 min-h-[56px] border-b border-slate-200/80">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedConv(null)}
+                                className="md:hidden p-2 -ml-1 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                aria-label="Назад към списъка"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                            <div className="relative flex-shrink-0">
+                                <AvatarImage
+                                    url={selectedConv.otherUserAvatarUrl}
+                                    fallback={
+                                        <div className="chat-header-avatar w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-semibold bg-slate-400">
+                                            {getDisplayName(selectedConv).charAt(0).toUpperCase()}
+                                        </div>
+                                    }
+                                    imgClassName="chat-header-avatar w-9 h-9 rounded-full object-cover"
+                                />
+                                <span className="chat-header-status-dot absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-white" title="Онлайн" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-[15px] font-semibold text-slate-900 truncate">
+                                    {getDisplayName(selectedConv)}
+                                </h2>
+                                <p className="text-[12px] text-slate-500 truncate mt-0.5">
+                                    Онлайн
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => {/* TODO: open info / profile */}}
+                                    className="chat-header-btn p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    aria-label="Информация"
+                                    title="Информация"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+                                <div className="relative" ref={chatHeaderMoreRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setChatHeaderMoreOpen((v) => !v)}
+                                        className="chat-header-btn p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                        aria-label="Още"
+                                        aria-expanded={chatHeaderMoreOpen}
+                                    >
+                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+                                        </svg>
+                                    </button>
+                                    {chatHeaderMoreOpen && (
+                                        <div className="chat-header-more-dropdown absolute right-0 top-full mt-1 py-1 min-w-[140px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setChatHeaderMoreOpen(false); /* TODO: mute */ }}
+                                                className="w-full px-3 py-2 text-left text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                            >
+                                                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                                                Заглуши
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setChatHeaderMoreOpen(false); /* TODO: archive */ }}
+                                                className="w-full px-3 py-2 text-left text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                            >
+                                                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                                Архивирай
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* messages area */}
+                        <div
+                            ref={messagesContainerRef}
+                            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll px-4 py-4 relative basis-0"
+                        >
+                            <div className="chat-message-column w-full min-h-full max-w-3xl ml-auto pr-0">
+                            {loadingMessages ? (
+                                <div className="space-y-3 py-2">
+                                    {[1, 2, 3, 4].map((i) => (
+                                        <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                                            <div className="max-w-[75%] rounded-2xl px-4 py-3 space-y-2">
+                                                <div className="chat-skeleton-line h-3.5 w-full rounded-lg" />
+                                                <div className="chat-skeleton-line h-3.5 w-4/5 rounded-lg" />
+                                                <div className="chat-skeleton-line h-3 w-12 rounded-lg ml-auto" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : messages.length === 0 ? (
+                                <div className="h-full min-h-[240px] flex items-center justify-center text-center px-4">
+                                    <div className="max-w-[240px]">
+                                        <div className="chat-empty-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                            <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-base font-semibold text-slate-800 mb-1">Няма съобщения</p>
+                                        <p className="text-[13px] text-slate-500 leading-relaxed">Напишете първото си съобщение.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="w-full space-y-0 pb-2">
+                                    {Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
+                                        <div key={dateKey} className="chat-date-group">
+                                            <div className="chat-date-separator flex items-center gap-3 my-4">
+                                                <span className="chat-date-line flex-1 h-px" aria-hidden />
+                                                <span className="chat-date-pill shrink-0 px-3 py-1.5 text-[12px] font-medium text-slate-500">
+                                                    {formatDateLabel(dateKey)}
+                                                </span>
+                                                <span className="chat-date-line flex-1 h-px" aria-hidden />
+                                            </div>
+                                            {groupMessagesBySender(dateMessages, isStudent).map((group, gIdx) => (
+                                                <div
+                                                    key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
+                                                    className={`flex flex-row w-full items-end gap-3 ${group.isMine ? "justify-end" : "justify-start"} ${gIdx > 0 ? "mt-4" : ""}`}
+                                                >
+                                                    {!group.isMine && selectedConv && (
+                                                        <div className="flex-shrink-0 w-8 h-8 mt-1">
+                                                            <AvatarImage
+                                                                url={selectedConv.otherUserAvatarUrl}
+                                                                fallback={
+                                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-medium bg-slate-400">
+                                                                        {getDisplayName(selectedConv).charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                }
+                                                                imgClassName="w-8 h-8 rounded-full object-cover"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className={`space-y-0.5 max-w-[90%] sm:max-w-[85%] ${group.isMine ? "chat-bubbles-mine order-1" : ""}`}>
+                                                        {group.messages.map((msg, mIdx) => {
+                                                            const isLast = mIdx === group.messages.length - 1;
+                                                            const readKey = isStudent ? msg.read_by_teacher_at : msg.read_by_student_at;
+                                                            return (
+                                                                <div
+                                                                    key={`${msg.id}-${readKey || "unread"}`}
+                                                                    className={`flex ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""}`}
+                                                                >
+                                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
+                                                                        {msg.message ? <p className="whitespace-pre-wrap break-words">{msg.message}</p> : null}
+                                                                        {msg.attachment_url && (
+                                                                            <div className="mt-2 rounded-lg overflow-hidden max-w-[280px]">
+                                                                                {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(msg.attachment_url) ? (
+                                                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
+                                                                                        <img src={msg.attachment_url} alt="Прикачена снимка" className="max-h-[240px] w-auto object-contain rounded-lg" />
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="text-sm underline break-all">
+                                                                                        Отвори прикачен файл
+                                                                                    </a>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {isLast && (
+                                                                            <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${group.isMine ? "text-white/90" : "text-slate-400"}`}>
+                                                                                <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>
+                                                                                    {formatTime(msg.created_at)}
+                                                                                </span>
+                                                                                {group.isMine && <MessageStatus message={msg} />}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {group.isMine && (
+                                                        <div className="flex-shrink-0 w-9 h-9 mt-1 order-2">
+                                                            <AvatarImage
+                                                                url={currentUserAvatarUrl}
+                                                                fallback={
+                                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-medium chat-avatar-mine">
+                                                                        {(currentUserProfile?.first_name?.charAt(0) ?? (user?.user_metadata as { first_name?: string } | undefined)?.first_name?.charAt(0))?.toUpperCase() ||
+                                                                            user?.email?.charAt(0).toUpperCase() ||
+                                                                            "?"}
+                                                                    </div>
+                                                                }
+                                                                imgClassName="w-9 h-9 rounded-full object-cover ring-2 ring-white/30"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            </div>
+                            {showScrollFAB && messages.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleScrollToBottomClick}
+                                    className="chat-scroll-fab absolute bottom-4 left-1/2 px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-[12px] font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5"
+                                    aria-label="Към новите съобщения"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                    </svg>
+                                    Ново
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Input area */}
+                        <div className="chat-input-wrap flex-none px-4 pb-5 pt-4 w-full border-t border-slate-200/80">
+                            <div className="chat-input-inner w-full max-w-3xl mx-auto">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*,.pdf,.doc,.docx,.txt"
+                                    onChange={handleFileChange}
+                                    aria-hidden
+                                />
+                                <div className="chat-input-row flex items-center gap-3 p-4 rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200">
+                                    <button
+                                        type="button"
+                                        onClick={handleAttachmentClick}
+                                        className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                                        aria-label="Прикачи файл"
+                                        title="Прикачи файл"
+                                        disabled={sending}
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                    </button>
+                                    <div className="relative shrink-0" ref={emojiPickerRef}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEmojiPickerOpen((open) => !open)}
+                                            className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                                            aria-label="Емотикон"
+                                            title="Емотикон"
+                                            disabled={sending}
+                                            aria-expanded={emojiPickerOpen}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </button>
+                                        {emojiPickerOpen && (
+                                            <div className="absolute bottom-full left-0 mb-2 p-3 rounded-xl bg-white border border-slate-200 shadow-lg z-50 grid grid-cols-5 gap-1.5 min-w-[200px]">
+                                                {EMOJI_LIST.map((emoji) => (
+                                                    <button
+                                                        key={emoji}
+                                                        type="button"
+                                                        onClick={() => handleEmojiSelect(emoji)}
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg text-lg hover:bg-slate-100 transition-colors"
+                                                        aria-label={`Вмъкни ${emoji}`}
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        onKeyPress={handleKeyPress}
+                                        placeholder="Напишете съобщение..."
+                                        disabled={sending}
+                                        className="chat-input-field flex-1 min-w-0 px-4 py-3 rounded-xl border-0 bg-transparent text-slate-800 placeholder-slate-400 text-[16px] leading-relaxed outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSend}
+                                        disabled={(!newMessage.trim() && !attachmentFile) || sending}
+                                        className="chat-send-btn shrink-0 min-w-[100px] h-12 px-5 rounded-xl text-[15px] font-semibold flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                                    >
+                                        {sending ? (
+                                            <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <>
+                                                <span className="hidden sm:inline">Изпрати</span>
+                                                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                                </svg>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                {attachmentFile && (
+                                    <div className="mt-2 flex items-center gap-2 pl-1">
+                                        <span className="text-[12px] text-slate-600 truncate max-w-[200px]" title={attachmentFile.name}>
+                                            Прикачен: {attachmentFile.name}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttachmentFile(null)}
+                                            className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+                                            aria-label="Премахни файл"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="chat-input-hint mt-1.5 pl-1 text-[12px] text-slate-400">Enter за изпращане</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-center px-6 chat-empty-panel min-h-0">
+                        <div className="max-w-[220px]">
+                            <div className="chat-empty-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                                </svg>
+                            </div>
+                            <p className="text-[15px] font-semibold text-slate-800 mb-1">Изберете чат</p>
+                            <p className="text-[13px] text-slate-500 leading-relaxed">Изберете разговор от списъка, за да видите съобщения</p>
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
     );
 };

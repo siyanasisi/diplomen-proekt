@@ -24,7 +24,7 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className={`w-full pl-14 pr-6 py-4 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white`}
+      className={`w-full pl-14 pr-6 py-4 border-2 ${error ? 'border-red-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800`}
     />
     {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
   </div>
@@ -361,7 +361,7 @@ export default function SignUp() {
                   id="role"
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full pl-14 pr-6 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800"
                 >
                   <option value="student">Ученик</option>
                   <option value="teacher">Учител</option>
@@ -379,7 +379,7 @@ export default function SignUp() {
                       id="grade"
                       value={grade}
                       onChange={(e) => setGrade(e.target.value)}
-                      className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                      className="w-full pl-14 pr-6 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800"
                     >
                       <option value="">Изберете клас</option>
                       <option value="11">11 клас</option>

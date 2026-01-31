@@ -4,7 +4,7 @@ import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
 
 export const Profile = () => {
-    const { user, role, signOut, loading } = useAuth();
+    const { user, role, signOut, loading, refreshProfile } = useAuth();
     const navigate = useNavigate();
 
     const [currentStreak, setCurrentStreak] = useState(0);
@@ -152,13 +152,14 @@ export const Profile = () => {
         if (user) {
             setIsLoadingData(true);
             loadUserData()
-                .then(() => {
+                .then(async () => {
                     if (isMounted) {
                         setIsLoadingData(false);
-                        //load avatar URL from user metadata
                         const userMetadata = user.user_metadata as any;
                         if (userMetadata?.avatar_url) {
                             setAvatarUrl(userMetadata.avatar_url);
+                            // синхронизация в profiles – за чат/навбар (ако още не е записано)
+                            await supabase.from("profiles").update({ avatar_url: userMetadata.avatar_url }).eq("id", user.id);
                         } else {
                             setAvatarUrl(null);
                         }
@@ -395,6 +396,10 @@ export const Profile = () => {
                 throw updateError;
             }
 
+
+            const { error: profileErr } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+            if (profileErr) console.warn("Профил: не може да се запише avatar_url в profiles", profileErr.message);
+
             // update local state immediately
             setAvatarUrl(publicUrl);
             
@@ -402,7 +407,7 @@ export const Profile = () => {
             await new Promise(resolve => setTimeout(resolve, 500));
             
             await loadUserData();
-            
+            await refreshProfile();
             showNotification('success', 'Профилната снимка е обновена успешно!');
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
@@ -537,14 +542,15 @@ export const Profile = () => {
                 throw updateError;
             }
 
+
+            const { error: profileErr } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+            if (profileErr) console.warn("Профил: не може да се изтрие avatar_url в profiles", profileErr.message);
+
             setAvatarUrl(null);
             
-            // wait for auth state change listener to update the user object
             await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // refresh user data to ensure everything is in sync
             await loadUserData();
-            
+            await refreshProfile();
             alert('Профилната снимка е премахната успешно!');
         } catch (error: any) {
             console.error('Error removing avatar:', error);
@@ -563,7 +569,7 @@ export const Profile = () => {
         const firstName = userMetadata?.first_name;
         const lastName = userMetadata?.last_name;
         const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
-        return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+        return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Ученик');
     }, [userMetadata, user?.email, role]);
     
     const memberSince = useMemo(() => {

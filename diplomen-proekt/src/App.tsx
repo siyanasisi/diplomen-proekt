@@ -17,17 +17,19 @@ function App() {
       <Route
         path="/*"
         element={
-          <div>
-    <Navbar />
-            <Routes>
-              <Route path="home" element={<Home />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="signup" element={<SignUp />} />
-              <Route path="login" element={<Login />} />
-              <Route path="find-teacher" element={<FindTeacher />} />
-              <Route path="teacher/:id" element={<TeacherProfile />} />
-              <Route path="chat" element={<Chat />} />
-            </Routes>
+          <div className="h-screen flex flex-col overflow-hidden">
+            <Navbar />
+            <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+              <Routes>
+                <Route path="home" element={<Home />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="signup" element={<SignUp />} />
+                <Route path="login" element={<Login />} />
+                <Route path="find-teacher" element={<FindTeacher />} />
+                <Route path="teacher/:id" element={<TeacherProfile />} />
+                <Route path="chat" element={<Chat />} />
+              </Routes>
+            </main>
           </div>
         }
       />

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase, ensureValidSession } from "../supabase-client";
+import { AvatarImage } from "./AvatarImage";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -50,12 +51,14 @@ export const Navbar = () => {
     ];
 
     const isActive = (path: string) => location.pathname === path;
-    const { signOut, user, role, loading } = useAuth();
+    const { signOut, user, role, loading, currentUserProfile } = useAuth();
     const userMetadata = user?.user_metadata as any;
-    const fullName = userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
-    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const fullName = (currentUserProfile?.first_name != null || currentUserProfile?.last_name != null)
+        ? `${currentUserProfile?.first_name ?? ""} ${currentUserProfile?.last_name ?? ""}`.trim()
+        : userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
+    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Ученик');
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
-    const avatarUrl = userMetadata?.avatar_url || null;
+    const avatarUrl = currentUserProfile?.avatar_url ?? userMetadata?.avatar_url ?? null;
 
     // load unread messages count
     const loadUnreadMessagesCount = async () => {
@@ -171,13 +174,13 @@ export const Navbar = () => {
                     {!loading && user && (
                         <div className="hidden md:flex items-center gap-1.5">
                             {navLinks.map((link) => (
-                                <Link
-                                    key={link.to}
-                                    to={link.to}
-                                    className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
-                                        isActive(link.to)
-                                            ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg shadow-slate-900/20 scale-105'
-                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95'
+<Link
+                                        key={link.to}
+                                        to={link.to}
+                                        className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
+                                            isActive(link.to)
+                                                ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg shadow-slate-900/20 scale-105'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95'
                                     }`}
                                 >
                                     <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
@@ -229,19 +232,17 @@ export const Navbar = () => {
                                     className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
                                 >
                                     <div className="relative">
-                                        {avatarUrl ? (
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
-                                                <img 
-                                                    src={avatarUrl} 
-                                                    alt={displayName}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
-                                                {displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        <AvatarImage
+                                            url={avatarUrl}
+                                            fallback={
+                                                <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
+                                            }
+                                            className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            imgClassName="w-full h-full object-cover"
+                                            alt={displayName}
+                                        />
                                         <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
                                     </div>
                                     <span className="text-sm font-semibold text-slate-900 max-w-[140px] truncate">
@@ -379,19 +380,17 @@ export const Navbar = () => {
                                         className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
                                         onClick={() => setMenuOpen(false)}
                                     >
-                                        {avatarUrl ? (
-                                            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
-                                                <img 
-                                                    src={avatarUrl} 
-                                                    alt={displayName}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
-                                                {displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        <AvatarImage
+                                            url={avatarUrl}
+                                            fallback={
+                                                <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
+                                            }
+                                            className="w-9 h-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            imgClassName="w-full h-full object-cover"
+                                            alt={displayName}
+                                        />
                                         <div className="flex-1">
                                             <p className="font-semibold">{displayName}</p>
                                             <p className="text-xs text-slate-500 truncate">{user.email}</p>

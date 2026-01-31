@@ -1,37 +1,41 @@
-import { createContext, useContext, useEffect } from "react"
+import { createContext, useContext, useEffect, useCallback } from "react"
 import type { User } from "@supabase/supabase-js";
 import { useState } from "react"
 import { supabase } from "../supabase-client"
 
 export type UserRole = 'student' | 'teacher';
 
+export interface CurrentUserProfile {
+   avatar_url: string | null;
+   first_name?: string | null;
+   last_name?: string | null;
+}
+
 interface AuthContextType {
    user: User | null;
    role: UserRole | null;
    loading: boolean;
    signOut: () => Promise<void>;
+   currentUserProfile: CurrentUserProfile | null;
+   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// helper function to extract role from user metadata
 const getUserRole = (user: User | null): UserRole | null => {
    if (!user || !user.user_metadata) return null;
    const role = user.user_metadata.role;
-   if (role === 'student' || role === 'teacher') {
-      return role;
-   }
+   if (role === 'student' || role === 'teacher') return role;
    return null;
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-   
    const [user, setUser] = useState<User | null>(null)
    const [role, setRole] = useState<UserRole | null>(null)
    const [loading, setLoading] = useState(true)
+   const [currentUserProfile, setCurrentUserProfile] = useState<CurrentUserProfile | null>(null)
 
    useEffect(() => {
-     // get initial session
      supabase.auth.getSession().then(({ data: { session } }) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
@@ -39,39 +43,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
      })
 
-     // listen for auth state changes
      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        // Handle token expired event
-        if (event === 'TOKEN_REFRESHED') {
-           console.log('Token refreshed successfully');
-        } else if (event === 'SIGNED_OUT') {
-           console.log('User signed out');
-        }
-        
+        if (event === 'TOKEN_REFRESHED') console.log('Token refreshed successfully');
+        else if (event === 'SIGNED_OUT') console.log('User signed out');
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setRole(getUserRole(currentUser));
         setLoading(false);
      })
-     
-     return () => {
-        subscription.unsubscribe()
-     }
+     return () => subscription.unsubscribe()
    }, [])
+
+   const loadProfile = useCallback(async () => {
+     if (!user?.id) {
+        setCurrentUserProfile(null);
+        return;
+     }
+     const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url, first_name, last_name')
+        .eq('id', user.id)
+        .maybeSingle();
+     if (data) {
+        setCurrentUserProfile({
+           avatar_url: data.avatar_url ?? null,
+           first_name: data.first_name ?? null,
+           last_name: data.last_name ?? null,
+        });
+     } else {
+        setCurrentUserProfile(null);
+     }
+   }, [user?.id]);
+
+   useEffect(() => {
+     if (!user?.id) {
+        setCurrentUserProfile(null);
+        return;
+     }
+     loadProfile();
+   }, [user?.id, loadProfile]);
+
+   const refreshProfile = useCallback(() => loadProfile(), [loadProfile]);
 
    const signOut = async () => {
      const { error } = await supabase.auth.signOut()
-     if (error) {
-        console.error('Error signing out:', error)
-     } else {
-        setUser(null)
-        setRole(null)
-        window.location.href = '/'
+     if (error) console.error('Error signing out:', error)
+     else {
+        setUser(null);
+        setRole(null);
+        setCurrentUserProfile(null);
+        window.location.href = '/';
      }
    }
-   
+
    return (
-      <AuthContext.Provider value={{ user, role, loading, signOut }}>
+      <AuthContext.Provider value={{ user, role, loading, signOut, currentUserProfile, refreshProfile }}>
          {children}
       </AuthContext.Provider>
    )
