@@ -16,6 +16,9 @@ interface Message {
     read_by_teacher_at: string | null;
     is_from_student: boolean;
     attachment_url?: string | null;
+    updated_at?: string | null;
+    is_edited?: boolean;
+    deleted_at?: string | null;
 }
 
 interface Conversation {
@@ -64,6 +67,10 @@ export const Chat = () => {
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editingDraft, setEditingDraft] = useState("");
+    const [messageMenuOpenId, setMessageMenuOpenId] = useState<string | null>(null);
+    const messageMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!user) {
@@ -283,11 +290,13 @@ export const Chat = () => {
             // build conversations
             const convs: Conversation[] = [];
             for (const [otherUserId, msgs] of groups.entries()) {
-                msgs.sort((a, b) => 
+                msgs.sort((a, b) =>
                     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
-                const lastMsg = msgs[msgs.length - 1];
+                const nonDeleted = msgs.filter((m: Message) => !m.deleted_at);
+                const lastMsg = nonDeleted[nonDeleted.length - 1] ?? msgs[msgs.length - 1];
                 const unreadCount = msgs.filter(m => {
+                    if (m.deleted_at) return false;
                     if (role === "student") return m.is_from_student === false && !m.read_by_student_at;
                     return m.is_from_student === true && !m.read_by_teacher_at;
                 }).length;
@@ -303,8 +312,8 @@ export const Chat = () => {
                     otherUserName: userInfo.name,
                     otherUserEmail: userInfo.email,
                     otherUserAvatarUrl: userInfo.avatarUrl,
-                    lastMessage: lastMsg.message || "",
-                    lastTime: lastMsg.created_at,
+                    lastMessage: lastMsg?.deleted_at ? "Съобщението е изтрито" : (lastMsg?.message || ""),
+                    lastTime: lastMsg?.created_at ?? "",
                     unreadCount,
                 });
             }
@@ -820,6 +829,100 @@ export const Chat = () => {
         setEmojiPickerOpen(false);
     }, [newMessage]);
 
+    const handleEditStart = useCallback((msg: Message) => {
+        setEditingMessageId(msg.id);
+        setEditingDraft(msg.message || "");
+        setMessageMenuOpenId(null);
+    }, []);
+
+    const handleEditSave = useCallback(async () => {
+        if (!editingMessageId || !user) return;
+        const trimmed = editingDraft.trim();
+        if (!trimmed) {
+            setEditingMessageId(null);
+            setEditingDraft("");
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from("messages")
+                .update({
+                    message: trimmed,
+                    updated_at: new Date().toISOString(),
+                    is_edited: true,
+                })
+                .eq("id", editingMessageId);
+
+            if (error) {
+                console.error("Error editing message:", error);
+                alert(`Грешка при запазване: ${error.message}`);
+                return;
+            }
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.id === editingMessageId
+                        ? { ...m, message: trimmed, updated_at: new Date().toISOString(), is_edited: true }
+                        : m
+                )
+            );
+            setEditingMessageId(null);
+            setEditingDraft("");
+        } catch (e: unknown) {
+            console.error(e);
+            alert("Грешка при запазване.");
+        }
+    }, [editingMessageId, editingDraft, user]);
+
+    const handleEditCancel = useCallback(() => {
+        setEditingMessageId(null);
+        setEditingDraft("");
+    }, []);
+
+    const handleDeleteMessage = useCallback(
+        async (msg: Message) => {
+            setMessageMenuOpenId(null);
+            if (!window.confirm("Изтриване на съобщението?")) return;
+            try {
+                const { error } = await supabase
+                    .from("messages")
+                    .update({ deleted_at: new Date().toISOString() })
+                    .eq("id", msg.id);
+
+                if (error) {
+                    console.error("Error deleting message:", error);
+                    alert(`Грешка при изтриване: ${error.message}`);
+                    return;
+                }
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m))
+                );
+                debouncedLoadConversations();
+            } catch (e: unknown) {
+                console.error(e);
+                alert("Грешка при изтриване.");
+            }
+        },
+        [debouncedLoadConversations]
+    );
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (messageMenuRef.current && !messageMenuRef.current.contains(e.target as Node)) {
+                setMessageMenuOpenId(null);
+            }
+        };
+        if (messageMenuOpenId) {
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }
+    }, [messageMenuOpenId]);
+
+    useEffect(() => {
+        setEditingMessageId(null);
+        setEditingDraft("");
+        setMessageMenuOpenId(null);
+    }, [selectedConv?.otherUserId]);
+
     const EMOJI_LIST = ["😀", "😊", "😂", "👍", "❤️", "😍", "🙏", "😅", "😢", "😡", "👎", "✨", "🔥", "🎉", "💯", "👋", "😎", "🥳", "🤔", "💪"];
 
     const formatTime = useCallback((iso: string) => {
@@ -1316,32 +1419,83 @@ export const Chat = () => {
                                                         {group.messages.map((msg, mIdx) => {
                                                             const isLast = mIdx === group.messages.length - 1;
                                                             const readKey = isStudent ? msg.read_by_teacher_at : msg.read_by_student_at;
+                                                            const isEditing = editingMessageId === msg.id;
+                                                            const isDeleted = !!msg.deleted_at;
                                                             return (
                                                                 <div
                                                                     key={`${msg.id}-${readKey || "unread"}`}
-                                                                    className={`flex ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""}`}
+                                                                    className={`flex items-end gap-1.5 ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""} group/row`}
                                                                 >
-                                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
-                                                                        {msg.message ? <p className="whitespace-pre-wrap break-words">{msg.message}</p> : null}
-                                                                        {msg.attachment_url && (
-                                                                            <div className="mt-2 rounded-lg overflow-hidden max-w-[280px]">
-                                                                                {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(msg.attachment_url) ? (
-                                                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
-                                                                                        <img src={msg.attachment_url} alt="Прикачена снимка" className="max-h-[240px] w-auto object-contain rounded-lg" />
-                                                                                    </a>
-                                                                                ) : (
-                                                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="text-sm underline break-all">
-                                                                                        Отвори прикачен файл
-                                                                                    </a>
-                                                                                )}
+                                                                    {group.isMine && !isDeleted && !isEditing && (
+                                                                        <div className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 flex items-center pb-1 relative" ref={messageMenuOpenId === msg.id ? messageMenuRef : undefined}>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setMessageMenuOpenId((id) => (id === msg.id ? null : msg.id))}
+                                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 touch-manipulation"
+                                                                                aria-label="Действия със съобщението"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
+                                                                            </button>
+                                                                            {messageMenuOpenId === msg.id && (
+                                                                                <div className="absolute right-full top-0 mr-1 py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+                                                                                    <button type="button" onClick={() => handleEditStart(msg)} className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2">
+                                                                                        <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                                                        Редактирай
+                                                                                    </button>
+                                                                                    <button type="button" onClick={() => handleDeleteMessage(msg)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2">
+                                                                                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                                        Изтрий
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
+                                                                        {isDeleted ? (
+                                                                            <p className="text-[15px] italic opacity-80">{group.isMine ? "Съобщението е изтрито" : "Съобщението е изтрито"}</p>
+                                                                        ) : isEditing ? (
+                                                                            <div className="space-y-2">
+                                                                                <textarea
+                                                                                    value={editingDraft}
+                                                                                    onChange={(e) => setEditingDraft(e.target.value)}
+                                                                                    className="w-full min-h-[80px] px-3 py-2 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 resize-none text-[16px] focus:outline-none focus:ring-2 focus:ring-white/50"
+                                                                                    placeholder="Текст на съобщението"
+                                                                                    autoFocus
+                                                                                />
+                                                                                <div className="flex items-center justify-end gap-2">
+                                                                                    <button type="button" onClick={handleEditCancel} className="px-3 py-1.5 rounded-lg text-sm font-medium text-white/90 hover:bg-white/20">
+                                                                                        Отказ
+                                                                                    </button>
+                                                                                    <button type="button" onClick={handleEditSave} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/30 hover:bg-white/40 text-white">
+                                                                                        Запази
+                                                                                    </button>
+                                                                                </div>
                                                                             </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                {msg.message ? <p className="whitespace-pre-wrap break-words">{msg.message}</p> : null}
+                                                                                {msg.attachment_url && (
+                                                                                    <div className="mt-2 rounded-lg overflow-hidden max-w-[280px]">
+                                                                                        {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(msg.attachment_url) ? (
+                                                                                            <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="block">
+                                                                                                <img src={msg.attachment_url} alt="Прикачена снимка" className="max-h-[240px] w-auto object-contain rounded-lg" />
+                                                                                            </a>
+                                                                                        ) : (
+                                                                                            <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="text-sm underline break-all">
+                                                                                                Отвори прикачен файл
+                                                                                            </a>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
                                                                         )}
-                                                                        {isLast && (
+                                                                        {isLast && !isEditing && (
                                                                             <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${group.isMine ? "text-white/90" : "text-slate-400"}`}>
+                                                                                {msg.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
                                                                                 <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>
                                                                                     {formatTime(msg.created_at)}
                                                                                 </span>
-                                                                                {group.isMine && <MessageStatus message={msg} />}
+                                                                                {group.isMine && !isDeleted && <MessageStatus message={msg} />}
                                                                             </div>
                                                                         )}
                                                                     </div>
