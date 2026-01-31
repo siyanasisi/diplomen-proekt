@@ -1034,54 +1034,58 @@ export const Chat = () => {
     return (
         <div className="flex-1 min-h-0 w-full flex flex-col md:flex-row overflow-hidden chat-page h-full">
             {/* left sidebar - conversations list */}
-            <aside className={`w-full md:w-[420px] lg:w-[480px] h-full min-h-0 flex flex-col chat-sidebar-panel transition-all duration-300 ease-out shrink-0 ${selectedConv ? "hidden md:flex" : "flex"}`}>
+            <aside
+                className={`chat-sidebar-aside w-full md:w-[360px] lg:w-[400px] xl:w-[420px] h-full min-h-0 max-h-[100dvh] flex flex-col shrink-0 ${selectedConv ? "hidden md:flex" : "flex"}`}
+                aria-label="Списък със съобщения"
+            >
                 <div className="chat-sidebar-top shrink-0 flex flex-col z-10">
-                    <div className="px-5 pt-5 pb-4">
-                        <h1 className="text-[20px] font-semibold text-slate-900 tracking-tight">
+                    <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5 safe-area-sidebar">
+                        <h1 className="text-[20px] sm:text-[22px] font-semibold text-slate-900 tracking-tight">
                             Съобщения
                         </h1>
-                        <p className="text-[14px] text-slate-500 mt-1.5">
+                        <p className="text-[12px] sm:text-[13px] text-slate-400 mt-1.5">
                             {conversations.length === 0
                                 ? "Все още нямате чатове"
                                 : `${conversations.length} ${conversations.length === 1 ? "чат" : "чата"}`}
                         </p>
                     </div>
                     {conversations.length > 0 && (
-                        <div className="px-4 pb-5 pt-0">
-                            <div className="chat-sidebar-search-wrap relative">
-                            <span className="chat-sidebar-search-icon" aria-hidden>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
-                            <input
-                                type="search"
-                                value={conversationSearch}
-                                onChange={(e) => setConversationSearch(e.target.value)}
-                                placeholder="Търси разговори..."
-                                className="chat-sidebar-search w-full pl-10 pr-9 py-3 rounded-2xl text-slate-900 text-[14px] placeholder:text-slate-400 focus:outline-none"
-                                aria-label="Търси разговори"
-                            />
-                            {conversationSearch ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setConversationSearch("")}
-                                    className="chat-sidebar-search-clear absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                                    aria-label="Изчисти търсенето"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            ) : null}
+                        <div className="px-3 sm:px-4 pb-4 sm:pb-5 pt-1 sm:pt-2">
+                            <div className="chat-sidebar-search-wrap">
+                                <span className="chat-sidebar-search-icon" aria-hidden>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </span>
+                                <input
+                                    type="search"
+                                    value={conversationSearch}
+                                    onChange={(e) => setConversationSearch(e.target.value)}
+                                    placeholder="Търси по име или съобщение..."
+                                    className="chat-sidebar-search w-full rounded-lg text-slate-800 text-[14px] sm:text-[15px] placeholder:text-slate-400 focus:outline-none"
+                                    aria-label="Търси разговори"
+                                    autoComplete="off"
+                                />
+                                {conversationSearch ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setConversationSearch("")}
+                                        className="chat-sidebar-search-clear"
+                                        aria-label="Изчисти търсенето"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                ) : null}
                             </div>
                         </div>
                     )}
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-sidebar-scroll">
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-sidebar-scroll overscroll-contain">
                     {loadingConversations ? (
-                        <div className="py-2 px-3">
+                        <div className="py-2 px-2 sm:px-3 mt-3 sm:mt-4">
                             {[1, 2, 3, 4, 5].map((i) => (
-                                <div key={i} className="flex items-center gap-4 px-4 py-4 rounded-xl">
-                                    <div className="chat-skeleton-avatar w-14 h-14 rounded-full shrink-0" />
+                                <div key={i} className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-4 rounded-xl mx-0.5 sm:mx-1 mb-1.5 sm:mb-2">
+                                    <div className="chat-skeleton-avatar w-11 h-11 sm:w-12 sm:h-12 rounded-full shrink-0" />
                                     <div className="flex-1 min-w-0 space-y-2">
                                         <div className="chat-skeleton-line h-3.5 w-2/3 rounded-md" />
                                         <div className="chat-skeleton-line h-3 w-1/2 rounded-md" />
@@ -1090,22 +1094,22 @@ export const Chat = () => {
                             ))}
                         </div>
                     ) : conversations.length === 0 ? (
-                        <div className="h-full flex items-center justify-center px-6 text-center min-h-[200px]">
+                        <div className="h-full flex items-center justify-center px-4 sm:px-5 text-center min-h-[180px] py-6 chat-sidebar-empty">
                             <div className="max-w-[200px]">
-                                <div className="chat-empty-icon-wrap w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                <div className="chat-empty-icon-wrap w-11 h-11 rounded-lg flex items-center justify-center mx-auto mb-3">
+                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                     </svg>
                                 </div>
-                                <p className="text-[14px] font-medium text-slate-700 mb-1">Няма чатове</p>
-                                <p className="text-[13px] text-slate-500 leading-relaxed">
+                                <p className="text-[13px] font-medium text-slate-600 mb-0.5">Все още няма разговори</p>
+                                <p className="text-[12px] text-slate-400 leading-relaxed">
                                     {isStudent ? "Започнете разговор от профил на учител." : "Учениците ще могат да ви пишат от вашия профил."}
                                 </p>
                             </div>
                         </div>
                     ) : filteredConversations.length === 0 ? (
-                        <div className="px-4 py-8 text-center">
-                            <p className="text-[13px] text-slate-500">Няма намерени разговори</p>
+                        <div className="px-4 sm:px-6 py-8 text-center">
+                            <p className="text-[12px] sm:text-[13px] text-slate-500">Няма намерени разговори</p>
                             <button
                                 type="button"
                                 onClick={() => setConversationSearch("")}
@@ -1115,7 +1119,7 @@ export const Chat = () => {
                             </button>
                         </div>
                     ) : (
-                        <div className="py-2 px-3 mt-4">
+                        <div className="py-2 px-2 sm:px-3 mt-3 sm:mt-4 pb-3 sm:pb-4">
                             {filteredConversations.map((conv) => {
                                 const isActive = selectedConv?.otherUserId === conv.otherUserId;
                                 const hasUnread = conv.unreadCount > 0;
@@ -1123,37 +1127,37 @@ export const Chat = () => {
                                     <button
                                         key={conv.otherUserId}
                                         onClick={() => setSelectedConv(conv)}
-                                        className={`w-full px-4 py-3.5 flex items-center gap-4 text-left chat-conv-item rounded-2xl mx-1 ${isActive ? "chat-conv-item-active" : ""}`}
+                                        className={`w-full px-3 sm:px-4 py-3 sm:py-3.5 flex items-center gap-3 sm:gap-4 text-left chat-conv-item rounded-xl mx-0.5 sm:mx-1 min-h-[72px] sm:min-h-0 touch-manipulation ${isActive ? "chat-conv-item-active" : ""}`}
                                     >
                                         <div className="relative flex-shrink-0">
                                             <AvatarImage
                                                 url={conv.otherUserAvatarUrl}
                                                 fallback={
-                                                    <div className="chat-avatar w-12 h-12 rounded-full flex items-center justify-center text-white text-[15px] font-semibold">
+                                                    <div className="chat-avatar w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white text-[14px] sm:text-[15px] font-semibold">
                                                         {getDisplayName(conv).charAt(0).toUpperCase()}
                                                     </div>
                                                 }
-                                                imgClassName="chat-avatar w-12 h-12 rounded-full object-cover"
+                                                imgClassName="chat-avatar w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover"
                                             />
                                             {hasUnread && conv.unreadCount === 1 && (
                                                 <span className="chat-unread-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full" title="1 непрочетено" />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0 pr-2">
-                                            <div className="flex items-center justify-between gap-3 min-w-0">
-                                                <span className={`text-[15px] truncate font-semibold ${hasUnread ? "text-slate-900" : "text-slate-800"}`}>
+                                            <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+                                                <span className={`text-[14px] sm:text-[15px] truncate font-semibold ${hasUnread ? "text-slate-900" : "text-slate-800"}`}>
                                                     {getDisplayName(conv)}
                                                 </span>
-                                                <span className="text-[12px] font-medium text-slate-500 whitespace-nowrap shrink-0 min-w-[2.5rem] text-right" title={conv.lastTime}>
+                                                <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0 min-w-[2.25rem] sm:min-w-[2.5rem] text-right" title={conv.lastTime}>
                                                     {formatDateShort(conv.lastTime)}
                                                 </span>
                                             </div>
-                                            <p className={`text-[13px] truncate mt-1 leading-snug ${hasUnread ? "text-slate-600 font-medium" : "text-slate-500"}`}>
+                                            <p className={`text-[11px] sm:text-[12px] truncate mt-0.5 block ${hasUnread ? "text-slate-500 font-medium" : "text-slate-400"}`}>
                                                 {conv.lastMessage || "Няма съобщения"}
                                             </p>
                                         </div>
                                         {hasUnread && conv.unreadCount > 1 && (
-                                            <span className="chat-unread-badge shrink-0 min-w-[22px] h-6 px-2 rounded-full text-[12px] font-semibold flex items-center justify-center">
+                                            <span className="chat-unread-badge shrink-0 min-w-[20px] sm:min-w-[22px] h-5 sm:h-6 px-1.5 sm:px-2 rounded-full text-[11px] sm:text-[12px] font-semibold flex items-center justify-center">
                                                 {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
                                             </span>
                                         )}
@@ -1170,7 +1174,7 @@ export const Chat = () => {
                 {selectedConv ? (
                     <div className="chat-right-grid h-full min-h-0 flex flex-col bg-white">
                         {/* chat header */}
-                        <header className="chat-header-bar flex-none px-4 py-3 flex items-center gap-3 min-h-[56px] border-b border-slate-200/80">
+                        <header className="chat-header-bar flex-none px-4 py-3 flex items-center gap-3 min-h-[56px]">
                             <button
                                 type="button"
                                 onClick={() => setSelectedConv(null)}
@@ -1181,7 +1185,7 @@ export const Chat = () => {
                                     <path d="M15 19l-7-7 7-7" />
                                 </svg>
                             </button>
-                            <div className="relative flex-shrink-0">
+                            <div className="chat-header-avatar-wrap relative flex-shrink-0 rounded-full w-9 h-9">
                                 <AvatarImage
                                     url={selectedConv.otherUserAvatarUrl}
                                     fallback={
@@ -1205,7 +1209,7 @@ export const Chat = () => {
                                 <button
                                     type="button"
                                     onClick={() => {/* TODO: open info / profile */}}
-                                    className="chat-header-btn p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    className="chat-header-btn p-2 rounded-lg text-slate-500"
                                     aria-label="Информация"
                                     title="Информация"
                                 >
@@ -1217,7 +1221,7 @@ export const Chat = () => {
                                     <button
                                         type="button"
                                         onClick={() => setChatHeaderMoreOpen((v) => !v)}
-                                        className="chat-header-btn p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                        className="chat-header-btn p-2 rounded-lg text-slate-500"
                                         aria-label="Още"
                                         aria-expanded={chatHeaderMoreOpen}
                                     >
@@ -1270,7 +1274,7 @@ export const Chat = () => {
                             ) : messages.length === 0 ? (
                                 <div className="h-full min-h-[240px] flex items-center justify-center text-center px-4">
                                     <div className="max-w-[240px]">
-                                        <div className="chat-empty-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <div className="chat-empty-icon-wrap w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                                             <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                                             </svg>
@@ -1283,12 +1287,12 @@ export const Chat = () => {
                                 <div className="w-full space-y-0 pb-2">
                                     {Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
                                         <div key={dateKey} className="chat-date-group">
-                                            <div className="chat-date-separator flex items-center gap-3 my-4">
-                                                <span className="chat-date-line flex-1 h-px" aria-hidden />
-                                                <span className="chat-date-pill shrink-0 px-3 py-1.5 text-[12px] font-medium text-slate-500">
+                                            <div className="chat-date-separator gap-3">
+                                                <span className="chat-date-line" aria-hidden />
+                                                <span className="chat-date-pill shrink-0">
                                                     {formatDateLabel(dateKey)}
                                                 </span>
-                                                <span className="chat-date-line flex-1 h-px" aria-hidden />
+                                                <span className="chat-date-line" aria-hidden />
                                             </div>
                                             {groupMessagesBySender(dateMessages, isStudent).map((group, gIdx) => (
                                                 <div
@@ -1393,11 +1397,11 @@ export const Chat = () => {
                                     onChange={handleFileChange}
                                     aria-hidden
                                 />
-                                <div className="chat-input-row flex items-center gap-3 p-4 rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200">
+                                <div className="chat-input-row flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200">
                                     <button
                                         type="button"
                                         onClick={handleAttachmentClick}
-                                        className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                                        className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-slate-500 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
                                         aria-label="Прикачи файл"
                                         title="Прикачи файл"
                                         disabled={sending}
@@ -1410,7 +1414,7 @@ export const Chat = () => {
                                         <button
                                             type="button"
                                             onClick={() => setEmojiPickerOpen((open) => !open)}
-                                            className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                                            className="chat-input-icon-btn shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-slate-500 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
                                             aria-label="Емотикон"
                                             title="Емотикон"
                                             disabled={sending}
@@ -1421,7 +1425,7 @@ export const Chat = () => {
                                             </svg>
                                         </button>
                                         {emojiPickerOpen && (
-                                            <div className="absolute bottom-full left-0 mb-2 p-3 rounded-xl bg-white border border-slate-200 shadow-lg z-50 grid grid-cols-5 gap-1.5 min-w-[200px]">
+                                            <div className="absolute bottom-full left-0 mb-2 p-3 rounded-lg bg-white border border-slate-200 shadow-lg z-50 grid grid-cols-5 gap-1.5 min-w-[200px]">
                                                 {EMOJI_LIST.map((emoji) => (
                                                     <button
                                                         key={emoji}
@@ -1444,13 +1448,13 @@ export const Chat = () => {
                                         onKeyPress={handleKeyPress}
                                         placeholder="Напишете съобщение..."
                                         disabled={sending}
-                                        className="chat-input-field flex-1 min-w-0 px-4 py-3 rounded-xl border-0 bg-transparent text-slate-800 placeholder-slate-400 text-[16px] leading-relaxed outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                                        className="chat-input-field flex-1 min-w-0 px-4 py-3 rounded-lg border-0 bg-transparent text-slate-800 placeholder-slate-400 text-[16px] leading-relaxed outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                                     />
                                     <button
                                         type="button"
                                         onClick={handleSend}
                                         disabled={(!newMessage.trim() && !attachmentFile) || sending}
-                                        className="chat-send-btn shrink-0 min-w-[100px] h-12 px-5 rounded-xl text-[15px] font-semibold flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                                        className="chat-send-btn shrink-0 min-w-[100px] h-12 px-5 rounded-lg text-[15px] font-semibold flex items-center justify-center gap-2 disabled:cursor-not-allowed"
                                     >
                                         {sending ? (
                                             <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -1488,7 +1492,7 @@ export const Chat = () => {
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-center px-6 chat-empty-panel min-h-0">
                         <div className="max-w-[220px]">
-                            <div className="chat-empty-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <div className="chat-empty-icon-wrap w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                                 <svg className="w-7 h-7 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                                 </svg>

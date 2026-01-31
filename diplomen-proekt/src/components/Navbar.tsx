@@ -179,11 +179,11 @@ export const Navbar = () => {
                                         to={link.to}
                                         className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
                                             isActive(link.to)
-                                                ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg shadow-slate-900/20 scale-105'
-                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95'
+                                                ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                                                : 'text-slate-600 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
                                     }`}
                                 >
-                                    <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                    <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
                                     <span>{link.label}</span>
                                     {isActive(link.to) && (
                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
@@ -215,13 +215,17 @@ export const Navbar = () => {
                             <>
                                 <Link
                                     to="/chat"
-                                    className="relative p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
+                                    className={`relative p-2.5 rounded-xl transition-all duration-200 active:scale-95 ${
+                                        location.pathname === "/chat"
+                                            ? "text-purple-600 bg-purple-50"
+                                            : "text-slate-600 hover:text-purple-600 hover:bg-purple-50/80"
+                                    }`}
                                 >
                                     <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                     </svg>
                                     {unreadMessagesCount > 0 && (
-                                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/40">
+                                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold flex items-center justify-center shadow-md shadow-purple-500/30">
                                             {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                                         </span>
                                     )}
@@ -363,12 +367,12 @@ export const Navbar = () => {
                                             to={link.to}
                                             className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                                 isActive(link.to)
-                                                    ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg'
-                                                    : 'text-slate-700 hover:bg-slate-100 active:scale-95'
+                                                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                                                    : 'text-slate-700 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
                                             }`}
                                             onClick={() => setMenuOpen(false)}
                                         >
-                                            <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                            <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
                                             <span>{link.label}</span>
                                         </Link>
                                     ))}
