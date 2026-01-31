@@ -60,17 +60,35 @@ export const TeacherProfile = () => {
         try {
             await ensureValidSession();
             
-            const { data, error } = await supabase
+            // Try by teacher_profiles.id first (from FindTeacher), then by user_id (from Chat)
+            let { data, error } = await supabase
                 .from('teacher_profiles')
                 .select('*')
                 .eq('id', id)
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error('Error loading teacher:', error);
                 navigate('/find-teacher');
-            } else if (data) {
+                return;
+            }
+            if (!data) {
+                const byUser = await supabase
+                    .from('teacher_profiles')
+                    .select('*')
+                    .eq('user_id', id)
+                    .maybeSingle();
+                if (byUser.error) {
+                    console.error('Error loading teacher by user_id:', byUser.error);
+                    navigate('/find-teacher');
+                    return;
+                }
+                data = byUser.data;
+            }
+            if (data) {
                 setTeacher(data);
+            } else {
+                navigate('/find-teacher');
             }
         } catch (error) {
             console.error('Failed to load teacher:', error);
@@ -201,6 +219,9 @@ export const TeacherProfile = () => {
                 alert("Грешка при изпращане на съобщението. Моля, опитайте отново.");
                 return;
             }
+
+            // ако ученикът беше „изтрил“ чата с този учител, премахни го от скритите – така в страницата Чатове ще се покаже отново
+            await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", teacher.user_id);
 
             // update local chat state so the new message appears immediately
             if (data) {

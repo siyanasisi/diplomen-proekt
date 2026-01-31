@@ -48,13 +48,24 @@ export const FindTeacher = () => {
 
     useEffect(() => {
         loadTeachers();
-    }, []);
+    }, [user?.id]);
 
     const loadTeachers = async () => {
         try {
             // try to ensure session if user is logged in, but don't fail if not
             if (user) {
                 await ensureValidSession();
+            }
+
+            let blockedUserIds = new Set<string>();
+            if (user) {
+                const { data: blockedData } = await supabase
+                    .from('blocked_users')
+                    .select('blocked_id')
+                    .eq('blocker_id', user.id);
+                if (blockedData) {
+                    blockedUserIds = new Set(blockedData.map((r: { blocked_id: string }) => r.blocked_id));
+                }
             }
             
             // fetch teachers from teacher_profiles table
@@ -72,9 +83,11 @@ export const FindTeacher = () => {
                     hint: error.hint
                 });
             } else if (data) {
-                console.log('Loaded teachers:', data.length);
-                setTeachers(data);
-                setFilteredTeachers(data);
+                const list = user
+                    ? data.filter((t: Teacher) => !blockedUserIds.has(t.user_id))
+                    : data;
+                setTeachers(list);
+                setFilteredTeachers(list);
             } else {
                 console.log('No teachers found in database');
             }

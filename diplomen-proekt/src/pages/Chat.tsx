@@ -62,7 +62,9 @@ export const Chat = () => {
     const [showScrollFAB, setShowScrollFAB] = useState(false);
     const [conversationSearch, setConversationSearch] = useState("");
     const [chatHeaderMoreOpen, setChatHeaderMoreOpen] = useState(false);
+    const [chatHeaderInfoOpen, setChatHeaderInfoOpen] = useState(false);
     const chatHeaderMoreRef = useRef<HTMLDivElement>(null);
+    const chatHeaderInfoRef = useRef<HTMLDivElement>(null);
     const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +73,7 @@ export const Chat = () => {
     const [editingDraft, setEditingDraft] = useState("");
     const [messageMenuOpenId, setMessageMenuOpenId] = useState<string | null>(null);
     const messageMenuRef = useRef<HTMLDivElement>(null);
+    const [confirmAction, setConfirmAction] = useState<'block' | 'delete_chat' | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -173,6 +176,14 @@ export const Chat = () => {
         setLoadingConversations(true);
         try {
             await ensureValidSession();
+
+            // load blocked and hidden so we can filter conversations
+            const [blockRes, hiddenRes] = await Promise.all([
+                supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
+                supabase.from("hidden_conversations").select("other_user_id").eq("user_id", user.id),
+            ]);
+            const blockedIds = new Set(blockRes.error ? [] : (blockRes.data ?? []).map((r: { blocked_id: string }) => r.blocked_id));
+            const hiddenOtherIds = new Set(hiddenRes.error ? [] : (hiddenRes.data ?? []).map((r: { other_user_id: string }) => r.other_user_id));
 
             // get all messages for this user 
             const { data, error } = await supabase
@@ -290,6 +301,7 @@ export const Chat = () => {
             // build conversations
             const convs: Conversation[] = [];
             for (const [otherUserId, msgs] of groups.entries()) {
+                if (blockedIds.has(otherUserId) || hiddenOtherIds.has(otherUserId)) continue;
                 msgs.sort((a, b) =>
                     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
@@ -312,7 +324,9 @@ export const Chat = () => {
                     otherUserName: userInfo.name,
                     otherUserEmail: userInfo.email,
                     otherUserAvatarUrl: userInfo.avatarUrl,
-                    lastMessage: lastMsg?.deleted_at ? "Съобщението е изтрито" : (lastMsg?.message || ""),
+                    lastMessage: lastMsg?.deleted_at
+                        ? "Съобщението е изтрито"
+                        : (lastMsg?.message?.trim() || (lastMsg?.attachment_url ? "Прикачен файл" : "")),
                     lastTime: lastMsg?.created_at ?? "",
                     unreadCount,
                 });
@@ -757,9 +771,10 @@ export const Chat = () => {
 
             if (error) {
                 console.error("Error sending message:", error);
-                console.error("Error details:", JSON.stringify(error, null, 2));
-                console.error("Payload:", payload);
-                alert(`Грешка при изпращане: ${error.message || 'Неизвестна грешка'}`);
+                const isBlocked = error.code === 'P0001' || (error.message && error.message.includes('блокирал'));
+                alert(isBlocked
+                    ? 'Не можете да изпращате съобщения – получателят ви е блокирал.'
+                    : `Грешка при изпращане: ${error.message || 'Неизвестна грешка'}`);
                 return;
             }
 
@@ -777,13 +792,14 @@ export const Chat = () => {
                     // limit to last 500 messages for performance
                     return sorted.slice(-500);
                 });
-                
+
+                const { error: hideErr } = await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", selectedConv.otherUserId);
+                if (hideErr) console.warn("Un-hide conversation:", hideErr);
+                loadConversations();
                 // scroll to bottom after sending with multiple attempts
                 setTimeout(() => scrollToBottom(true), 50);
                 setTimeout(() => scrollToBottom(true), 150);
                 setTimeout(() => scrollToBottom(true), 300);
-                
-                debouncedLoadConversations();
             }
         } catch (error: any) {
             console.error("Failed to send:", error);
@@ -791,7 +807,7 @@ export const Chat = () => {
         } finally {
             setSending(false);
         }
-    }, [user, role, selectedConv, newMessage, sending, scrollToBottom, debouncedLoadConversations]);
+    }, [user, role, selectedConv, newMessage, sending, scrollToBottom, loadConversations]);
 
     const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -921,7 +937,44 @@ export const Chat = () => {
         setEditingMessageId(null);
         setEditingDraft("");
         setMessageMenuOpenId(null);
+        setChatHeaderInfoOpen(false);
+        setChatHeaderMoreOpen(false);
+        setConfirmAction(null);
     }, [selectedConv?.otherUserId]);
+
+    const handleBlockUser = async () => {
+        if (!user || !selectedConv) return;
+        const { error } = await supabase.from("blocked_users").insert({
+            blocker_id: user.id,
+            blocked_id: selectedConv.otherUserId,
+        });
+        if (error) {
+            console.error("Block user error:", error);
+            alert("Неуспешно блокиране. Проверете дали таблицата blocked_users съществува в Supabase.");
+            return;
+        }
+        setConfirmAction(null);
+        setChatHeaderMoreOpen(false);
+        setSelectedConv(null);
+        debouncedLoadConversations();
+    };
+
+    const handleDeleteChat = async () => {
+        if (!user || !selectedConv) return;
+        const { error } = await supabase.from("hidden_conversations").insert({
+            user_id: user.id,
+            other_user_id: selectedConv.otherUserId,
+        });
+        if (error) {
+            console.error("Hide conversation error:", error);
+            alert("Неуспешно изтриване на чата. Проверете дали таблицата hidden_conversations съществува в Supabase.");
+            return;
+        }
+        setConfirmAction(null);
+        setChatHeaderMoreOpen(false);
+        setSelectedConv(null);
+        debouncedLoadConversations();
+    };
 
     const EMOJI_LIST = ["😀", "😊", "😂", "👍", "❤️", "😍", "🙏", "😅", "😢", "😡", "👎", "✨", "🔥", "🎉", "💯", "👋", "😎", "🥳", "🤔", "💪"];
 
@@ -1308,15 +1361,16 @@ export const Chat = () => {
                                     Онлайн
                                 </p>
                             </div>
-                            <div className="flex items-center gap-0.5 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0 mr-6">
                                 <button
                                     type="button"
-                                    onClick={() => {/* TODO: open info / profile */}}
-                                    className="chat-header-btn p-2 rounded-lg text-slate-500"
+                                    onClick={() => { setChatHeaderMoreOpen(false); setChatHeaderInfoOpen((v) => !v); }}
+                                    className={`chat-header-btn p-3.5 rounded-xl text-slate-500 ${chatHeaderInfoOpen ? "bg-slate-100 text-slate-700" : ""}`}
                                     aria-label="Информация"
-                                    title="Информация"
+                                    title="Информация за разговора"
+                                    aria-expanded={chatHeaderInfoOpen}
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </button>
@@ -1324,37 +1378,147 @@ export const Chat = () => {
                                     <button
                                         type="button"
                                         onClick={() => setChatHeaderMoreOpen((v) => !v)}
-                                        className="chat-header-btn p-2 rounded-lg text-slate-500"
+                                        className="chat-header-btn p-3.5 rounded-xl text-slate-500"
                                         aria-label="Още"
                                         aria-expanded={chatHeaderMoreOpen}
                                     >
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                                         </svg>
                                     </button>
                                     {chatHeaderMoreOpen && (
-                                        <div className="chat-header-more-dropdown absolute right-0 top-full mt-1 py-1 min-w-[140px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+                                        <div className="chat-header-more-dropdown absolute right-0 top-full mt-2 py-2 min-w-[200px] bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+                                            {isStudent && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setChatHeaderMoreOpen(false); navigate(`/teacher/${selectedConv.otherUserId}`); }}
+                                                    className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+                                                >
+                                                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-500">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                    </span>
+                                                    Виж профил
+                                                </button>
+                                            )}
+                                            <div className="my-1 border-t border-slate-100" />
                                             <button
                                                 type="button"
-                                                onClick={() => { setChatHeaderMoreOpen(false); /* TODO: mute */ }}
-                                                className="w-full px-3 py-2 text-left text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                onClick={() => { setChatHeaderMoreOpen(false); setConfirmAction('block'); }}
+                                                className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                             >
-                                                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-                                                Заглуши
+                                                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-500">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                </span>
+                                                Блокирай
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => { setChatHeaderMoreOpen(false); /* TODO: archive */ }}
-                                                className="w-full px-3 py-2 text-left text-[13px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                onClick={() => { setChatHeaderMoreOpen(false); setConfirmAction('delete_chat'); }}
+                                                className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                             >
-                                                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                                                Архивирай
+                                                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-500">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </span>
+                                                Изтрий чат
                                             </button>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </header>
+
+                        {/* confirmation modal for block / delete chat */}
+                        {confirmAction && selectedConv && (
+                            <>
+                                <div className="fixed inset-0 bg-black/30 z-40" aria-hidden onClick={() => setConfirmAction(null)} />
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+                                    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
+                                        <h3 id="confirm-title" className="text-base font-semibold text-slate-900">
+                                            {confirmAction === 'block' ? 'Блокиране на потребител' : 'Изтриване на чат'}
+                                        </h3>
+                                        <p className="mt-2 text-sm text-slate-600">
+                                            {confirmAction === 'block'
+                                                ? `Сигурни ли сте, че искате да блокирате ${getDisplayName(selectedConv)}? Няма да получавате съобщения от този потребител.`
+                                                : 'Сигурни ли сте? Разговорът ще бъде премахнат от списъка. Съобщенията остават запазени.'}
+                                        </p>
+                                        <div className="mt-5 flex gap-3 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => setConfirmAction(null)}
+                                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                            >
+                                                Отказ
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={confirmAction === 'block' ? handleBlockUser : handleDeleteChat}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                                            >
+                                                {confirmAction === 'block' ? 'Блокирай' : 'Изтрий чат'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* info panel (slide-in) */}
+                        {chatHeaderInfoOpen && selectedConv && (
+                                            <>
+                                                <div
+                                                    className="fixed inset-0 bg-black/20 z-40 md:bg-transparent"
+                                                    aria-hidden
+                                                    onClick={() => setChatHeaderInfoOpen(false)}
+                                                />
+                                                <div
+                                                    ref={chatHeaderInfoRef}
+                                                    className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-white shadow-xl z-50 flex flex-col border-l border-slate-200 chat-info-panel"
+                                                    role="dialog"
+                                                    aria-label="Информация за разговора"
+                                                >
+                                                    <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                                                        <h3 className="text-base font-semibold text-slate-900">Информация</h3>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setChatHeaderInfoOpen(false)}
+                                                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                                                            aria-label="Затвори"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    </div>
+                                                    <div className="p-4 flex-1 overflow-auto">
+                                                        <div className="flex flex-col items-center text-center mb-6">
+                                                            <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-slate-200 mb-3">
+                                                                <AvatarImage
+                                                                    url={selectedConv.otherUserAvatarUrl}
+                                                                    fallback={
+                                                                        <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-600 text-xl font-semibold">
+                                                                            {getDisplayName(selectedConv).charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    }
+                                                                    imgClassName="w-full h-full object-cover"
+                                                                />
+                                                            </div>
+                                                            <h4 className="text-lg font-semibold text-slate-900">{getDisplayName(selectedConv)}</h4>
+                                                            {selectedConv.otherUserEmail && (
+                                                                <p className="text-sm text-slate-500 mt-0.5 break-all">{selectedConv.otherUserEmail}</p>
+                                                            )}
+                                                        </div>
+                                                        {isStudent && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setChatHeaderInfoOpen(false); navigate(`/teacher/${selectedConv.otherUserId}`); }}
+                                                                className="w-full py-3 px-4 rounded-lg bg-slate-100 text-slate-800 font-medium text-sm hover:bg-slate-200 flex items-center justify-center gap-2 transition-colors"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                                Виж профил на учителя
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
 
                         {/* messages area */}
                         <div

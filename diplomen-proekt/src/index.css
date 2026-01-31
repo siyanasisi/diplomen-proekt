@@ -356,6 +356,19 @@ nav[aria-label="Main navigation"]::-webkit-scrollbar {
   }
 }
 
+.chat-info-panel {
+  animation: chat-info-panel-in 0.2s ease-out;
+}
+
+@keyframes chat-info-panel-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* message bubbles */
 .chat-bubble-mine {
   background: #9333ea;
