@@ -89,6 +89,8 @@ export function useChat() {
         };
     }, []);
 
+    // escape: close one layer at a time; skip only when focus is in main chat input
+
     const checkIfNearBottom = useCallback(() => {
         if (!messagesContainerRef.current) return false;
         const container = messagesContainerRef.current;
@@ -252,7 +254,7 @@ export function useChat() {
                     otherUserName: userInfo.name,
                     otherUserEmail: userInfo.email,
                     otherUserAvatarUrl: userInfo.avatarUrl,
-                    lastMessage: lastMsg?.deleted_at ? "Съобщението е изтрито" : (lastMsg?.message?.trim() || (lastMsg?.attachment_url ? "Прикачен файл" : "")),
+                    lastMessage: lastMsg?.deleted_at ? "Съобщението е изтрито" : (lastMsg?.message?.trim() || (lastMsg?.attachment_url ? "📎 Прикачен файл" : "")),
                     lastTime: lastMsg?.created_at ?? "",
                     unreadCount,
                 });
@@ -553,7 +555,7 @@ export function useChat() {
         };
     }, [user, role, selectedConv, scrollToBottom, debouncedLoadConversations]);
 
-    // send message (text and/or attachment), optimistic update, retry on fail
+    // send message 
     const handleSend = useCallback(async () => {
         if (!user || !role || !selectedConv || (!newMessage.trim() && !attachmentFile) || sending) return;
         setSending(true);
@@ -749,6 +751,40 @@ export function useChat() {
         setEditingMessageId(null);
         setEditingDraft("");
     }, []);
+
+    // escape - close one layer at a time
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            const active = document.activeElement;
+            if (active === inputRef.current) return;
+            if (editingMessageId) {
+                handleEditCancel();
+                return;
+            }
+            if (deleteMessageConfirm) {
+                setDeleteMessageConfirm(null);
+                return;
+            }
+            if (confirmAction) {
+                setConfirmAction(null);
+                return;
+            }
+            if (messageMenuOpenId) {
+                setMessageMenuOpenId(null);
+                return;
+            }
+            if (chatHeaderInfoOpen) {
+                setChatHeaderInfoOpen(false);
+                return;
+            }
+            if (chatHeaderMoreOpen) {
+                setChatHeaderMoreOpen(false);
+            }
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [editingMessageId, deleteMessageConfirm, confirmAction, messageMenuOpenId, chatHeaderInfoOpen, chatHeaderMoreOpen, handleEditCancel]);
 
     const handleDeleteMessage = useCallback(
         async (msg: Message) => {
