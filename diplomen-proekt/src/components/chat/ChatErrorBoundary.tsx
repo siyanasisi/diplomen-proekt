@@ -6,12 +6,13 @@ interface ChatErrorBoundaryProps {
 
 interface ChatErrorBoundaryState {
     hasError: boolean;
+    retryKey: number;
 }
 
 export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, ChatErrorBoundaryState> {
-    state: ChatErrorBoundaryState = { hasError: false };
+    state: ChatErrorBoundaryState = { hasError: false, retryKey: 0 };
 
-    static getDerivedStateFromError(): ChatErrorBoundaryState {
+    static getDerivedStateFromError(): Partial<ChatErrorBoundaryState> {
         return { hasError: true };
     }
 
@@ -20,7 +21,7 @@ export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, ChatErr
     }
 
     handleRetry = (): void => {
-        this.setState({ hasError: false });
+        this.setState((prev) => ({ hasError: false, retryKey: prev.retryKey + 1 }));
     };
 
     render(): ReactNode {
@@ -56,6 +57,10 @@ export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, ChatErr
                 </div>
             );
         }
-        return <div key={this.state.retryKey}>{this.props.children}</div>;
+        return (
+            <div key={this.state.retryKey} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {this.props.children}
+            </div>
+        );
     }
 }

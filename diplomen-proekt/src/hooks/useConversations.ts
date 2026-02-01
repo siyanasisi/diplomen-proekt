@@ -12,9 +12,9 @@ export function useConversations(user: { id: string } | null, role: string | nul
     const loadConversationsTimeoutRef = useRef<number | null>(null);
     const conversationsChannelRef = useRef<RealtimeChannel | null>(null);
 
-    const loadConversations = useCallback(async () => {
+    const loadConversations = useCallback(async (silent?: boolean) => {
         if (!user || !role) return;
-        setLoadingConversations(true);
+        if (!silent) setLoadingConversations(true);
         try {
             const myCol = getMyMessagesColumn(role as ChatRole);
             const messagesQuery = supabase
@@ -146,7 +146,7 @@ export function useConversations(user: { id: string } | null, role: string | nul
             console.error("Failed to load conversations:", error);
             setConversations([]);
         } finally {
-            setLoadingConversations(false);
+            if (!silent) setLoadingConversations(false);
         }
     }, [user, role]);
 
@@ -183,7 +183,7 @@ export function useConversations(user: { id: string } | null, role: string | nul
 
     const debouncedLoadConversations = useCallback(() => {
         if (loadConversationsTimeoutRef.current) clearTimeout(loadConversationsTimeoutRef.current);
-        loadConversationsTimeoutRef.current = window.setTimeout(() => loadConversations(), 300);
+        loadConversationsTimeoutRef.current = window.setTimeout(() => loadConversations(true), 1200);
     }, [loadConversations]);
 
     useEffect(() => {
@@ -205,9 +205,11 @@ export function useConversations(user: { id: string } | null, role: string | nul
             return;
         }
         if (conversationsChannelRef.current) supabase.removeChannel(conversationsChannelRef.current);
+        const msgFilter = `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}`;
         const channel = supabase
             .channel(`conversations-${user.id}`)
-            .on("postgres_changes", { event: "*", schema: "public", table: "messages", filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}` }, () => debouncedLoadConversations())
+            .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: msgFilter }, () => debouncedLoadConversations())
+            .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: msgFilter }, () => debouncedLoadConversations())
             .subscribe();
         conversationsChannelRef.current = channel;
         return () => {
@@ -227,6 +229,5 @@ export function useConversations(user: { id: string } | null, role: string | nul
         conversationSearch,
         setConversationSearch,
         loadConversations,
-        debouncedLoadConversations,
     };
 }

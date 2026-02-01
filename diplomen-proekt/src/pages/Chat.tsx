@@ -90,10 +90,10 @@ export const Chat = () => {
             />
 
             <main
-                className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden chat-main-panel transition-all duration-300 ${!selectedConv ? "hidden md:flex" : "flex"}`}
+                className={`flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden chat-main-panel ${!selectedConv ? "hidden md:flex" : "flex"}`}
             >
                 {selectedConv ? (
-                    <div className="chat-right-grid h-full min-h-0 flex flex-col bg-white">
+                    <div className="chat-right-grid h-full min-h-0 flex flex-col overflow-hidden bg-white">
                         <ChatHeader
                             selectedConv={selectedConv}
                             setSelectedConv={setSelectedConv}

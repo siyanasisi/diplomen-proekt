@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 interface Teacher {
     id: string;
@@ -43,6 +44,17 @@ export const TeacherProfile = () => {
     const [success, setSuccess] = useState(false);
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [loadingChat, setLoadingChat] = useState(false);
+
+    const closeBookingModal = () => {
+        setShowBookingModal(false);
+        setBookingForm({ date: "", time: "", message: "" });
+    };
+    const closeContactModal = () => {
+        setShowContactModal(false);
+        setContactMessage("");
+    };
+    const { modalRef: bookingModalRef } = useModalFocus(showBookingModal, closeBookingModal);
+    const { modalRef: contactModalRef } = useModalFocus(showContactModal, closeContactModal);
 
     useEffect(() => {
         if (!user) {
@@ -497,23 +509,31 @@ export const TeacherProfile = () => {
 
                 {/* booking modal */}
                 {showBookingModal && (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40">
+                    <div
+                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="booking-title"
+                        aria-describedby="booking-desc"
+                    >
+                        <div
+                            ref={bookingModalRef}
+                            className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40"
+                        >
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-slate-900">Запази час</h2>
+                                <h2 id="booking-title" className="text-2xl font-bold text-slate-900">Запази час</h2>
                                 <button
-                                    onClick={() => {
-                                        setShowBookingModal(false);
-                                        setBookingForm({ date: "", time: "", message: "" });
-                                    }}
+                                    type="button"
+                                    onClick={closeBookingModal}
                                     className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
+                                    aria-label="Затвори"
                                 >
                                     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-                            <div className="space-y-4">
+                            <div id="booking-desc" className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                                         Дата
@@ -552,15 +572,14 @@ export const TeacherProfile = () => {
                             </div>
                             <div className="flex gap-3 mt-6">
                                 <button
-                                    onClick={() => {
-                                        setShowBookingModal(false);
-                                        setBookingForm({ date: "", time: "", message: "" });
-                                    }}
+                                    type="button"
+                                    onClick={closeBookingModal}
                                     className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors"
                                 >
                                     Откажи
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleBookLesson}
                                     disabled={submitting || !bookingForm.date || !bookingForm.time}
                                     className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -574,23 +593,31 @@ export const TeacherProfile = () => {
 
                 {/* contact modal */}
                 {showContactModal && (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40">
+                    <div
+                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="contact-title"
+                        aria-describedby="contact-desc"
+                    >
+                        <div
+                            ref={contactModalRef}
+                            className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40"
+                        >
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-slate-900">Свържи се с учителя</h2>
+                                <h2 id="contact-title" className="text-2xl font-bold text-slate-900">Свържи се с учителя</h2>
                                 <button
-                                    onClick={() => {
-                                        setShowContactModal(false);
-                                        setContactMessage("");
-                                    }}
+                                    type="button"
+                                    onClick={closeContactModal}
                                     className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
+                                    aria-label="Затвори"
                                 >
                                     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-                            <div>
+                            <div id="contact-desc">
                                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                                     Съобщение
                                 </label>
@@ -604,15 +631,14 @@ export const TeacherProfile = () => {
                             </div>
                             <div className="flex gap-3 mt-6">
                                 <button
-                                    onClick={() => {
-                                        setShowContactModal(false);
-                                        setContactMessage("");
-                                    }}
+                                    type="button"
+                                    onClick={closeContactModal}
                                     className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors"
                                 >
                                     Откажи
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleContactTeacher}
                                     disabled={submitting || !contactMessage.trim()}
                                     className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

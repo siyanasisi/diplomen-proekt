@@ -92,7 +92,6 @@ export function useMessageActions(
 
     return {
         editingMessageId,
-        setEditingMessageId,
         editingDraft,
         setEditingDraft,
         messageMenuOpenId,

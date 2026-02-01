@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Message, ChatRole } from "../../types/chat";
 import { getReadAtForMyMessage, formatTime, formatFullDate } from "../../types/chat";
 import { isFromMe } from "../../types/chat";
@@ -74,7 +75,7 @@ export interface MessageBubbleProps {
     messageMenuRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function MessageBubble({
+function MessageBubbleInner({
     message,
     isMine,
     isLast,
@@ -247,3 +248,19 @@ export function MessageBubble({
         </div>
     );
 }
+
+function arePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): boolean {
+    return (
+        prev.message === next.message &&
+        prev.isMine === next.isMine &&
+        prev.isLast === next.isLast &&
+        prev.role === next.role &&
+        prev.isEditing === next.isEditing &&
+        prev.editingDraft === next.editingDraft &&
+        prev.messageMenuOpenId === next.messageMenuOpenId
+    );
+}
+
+const MessageBubble = memo(MessageBubbleInner, arePropsEqual);
+export default MessageBubble;
+export { MessageBubble };

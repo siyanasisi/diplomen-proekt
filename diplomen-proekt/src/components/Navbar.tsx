@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase, ensureValidSession } from "../supabase-client";
@@ -60,16 +60,13 @@ export const Navbar = () => {
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
     const avatarUrl = currentUserProfile?.avatar_url ?? userMetadata?.avatar_url ?? null;
 
-    // load unread messages count
-    const loadUnreadMessagesCount = async () => {
+    const loadUnreadMessagesCount = useCallback(async () => {
         if (!user || !role) return;
-        
         try {
             await ensureValidSession();
-            
             const { data, error } = await supabase
                 .from("messages")
-                .select("*");
+                .select("id, student_id, teacher_id, is_from_student, read_by_student_at, read_by_teacher_at");
 
             if (error) {
                 console.error("Error loading unread messages (navbar):", error);
@@ -82,28 +79,31 @@ export const Navbar = () => {
             }
 
             const unreadCount = data.filter((msg: any) => {
-                if (!msg.read_at) {
-                    if (role === "student") {
-                        return msg.student_id === user.id && msg.is_from_student === false;
-                    } else {
-                        return msg.teacher_id === user.id && msg.is_from_student === true;
-                    }
+                if (role === "student") {
+                    return msg.student_id === user.id && msg.is_from_student === false && !msg.read_by_student_at;
                 }
-                return false;
+                return msg.teacher_id === user.id && msg.is_from_student === true && !msg.read_by_teacher_at;
             }).length;
 
             setUnreadMessagesCount(unreadCount);
         } catch (error) {
             console.error("Failed to load unread messages count (navbar):", error);
         }
-    };
+    }, [user, role]);
 
     // initial load + reload when user and role changes
     useEffect(() => {
-        if (user && role) {
+        if (user && role) loadUnreadMessagesCount();
+    }, [user, role, loadUnreadMessagesCount]);
+
+    useEffect(() => {
+        const onUnreadUpdated = () => {
             loadUnreadMessagesCount();
-        }
-    }, [user, role]);
+            setTimeout(() => loadUnreadMessagesCount(), 300);
+        };
+        window.addEventListener("chat-unread-updated", onUnreadUpdated);
+        return () => window.removeEventListener("chat-unread-updated", onUnreadUpdated);
+    }, [loadUnreadMessagesCount]);
 
     useEffect(() => {
         if (!user || !role) return;
@@ -117,16 +117,14 @@ export const Navbar = () => {
                     schema: 'public',
                     table: 'messages',
                 },
-                () => {
-                    loadUnreadMessagesCount();
-                }
+                () => loadUnreadMessagesCount()
             )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user, role]);
+    }, [user, role, loadUnreadMessagesCount]);
 
     // Close dropdown when clicking outside
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import type { Message, Conversation, ChatRole } from "../types/chat";
 import {
@@ -14,7 +14,6 @@ export function useMessages(
     user: { id: string } | null,
     role: string | null,
     messagesContainerRef: React.RefObject<HTMLDivElement | null>,
-    scrollToBottom: (force?: boolean) => void,
     setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>,
     showToast: (msg: string) => void
 ) {
@@ -29,12 +28,17 @@ export function useMessages(
     const pendingScrollRestoreRef = useRef<{ oldScrollHeight: number; oldScrollTop: number } | null>(null);
     const loadOlderRequestedRef = useRef(false);
     const didPrependOlderRef = useRef(false);
+    const loadingForRef = useRef<string | null>(null);
+    const selectedConvRef = useRef<Conversation | null>(null);
 
     messagesRef.current = messages;
+    selectedConvRef.current = selectedConv;
 
     const loadMessages = useCallback(
         async (conv: Conversation) => {
             if (!user || !role || !conv) return;
+            const otherUserId = conv.otherUserId;
+            loadingForRef.current = otherUserId;
             setLoadingMessages(true);
             setMessagesLoadError(false);
             setOlderMessagesLoadError(false);
@@ -45,6 +49,8 @@ export function useMessages(
                     ensureValidSession(),
                     supabase.from("messages").select("*").eq(myCol, user.id).eq(otherCol, conv.otherUserId).order("created_at", { ascending: false }).limit(MESSAGES_PAGE_SIZE),
                 ]);
+
+                if (loadingForRef.current !== otherUserId) return;
 
                 if (error) {
                     console.error("Error loading messages:", error);
@@ -58,33 +64,47 @@ export function useMessages(
                 const msgs = [...raw].reverse();
                 setMessages(msgs);
                 setHasMoreOlderMessages(raw.length === MESSAGES_PAGE_SIZE);
-                setTimeout(() => scrollToBottom(true), 100);
-                setTimeout(() => scrollToBottom(true), 250);
 
                 const readAt = new Date().toISOString();
                 const unreadIds = msgs.filter((m) => isUnreadForMe(m, role as ChatRole)).map((m) => m.id);
+                
+                startTransition(() => {
+                    setConversations((prev) => prev.map((c) => (c.otherUserId === conv.otherUserId ? { ...c, unreadCount: 0 } : c)));
+                });
+
                 if (unreadIds.length > 0) {
                     const readUpdate = getReadAtUpdate(role as ChatRole, readAt);
-                    setConversations((prev) => prev.map((c) => (c.otherUserId === conv.otherUserId ? { ...c, unreadCount: 0 } : c)));
-                    supabase
+                    const myCol = getMyMessagesColumn(role as ChatRole);
+                    console.log('[useMessages] Marking as read:', unreadIds, 'update:', readUpdate, 'myCol:', myCol, 'userId:', user.id);
+              
+                    const { error: updateError, data: updateData } = await supabase
                         .from("messages")
                         .update(readUpdate)
                         .in("id", unreadIds)
-                        .then(({ error: updateError }) => {
-                            if (!updateError)
-                                setMessages((prev) => prev.map((m) => (unreadIds.includes(m.id) ? { ...m, ...readUpdate } : m)));
+                        .eq(myCol, user.id)
+                        .select();
+                    
+                    console.log('[useMessages] Update result:', { error: updateError, dataCount: updateData?.length });
+                    
+                    if (!updateError && updateData && updateData.length > 0) {
+                        startTransition(() => {
+                            setMessages((prev) => prev.map((m) => (unreadIds.includes(m.id) ? { ...m, ...readUpdate } : m)));
                         });
+                    } else if (updateError) {
+                        console.error("Failed to mark messages as read:", updateError);
+                    }
                 }
+                window.dispatchEvent(new CustomEvent("chat-unread-updated"));
             } catch (error) {
                 console.error("Failed to load messages:", error);
                 setMessages([]);
                 setMessagesLoadError(true);
                 showToast("Съобщенията не можаха да се заредят.");
             } finally {
-                setLoadingMessages(false);
+                if (loadingForRef.current === otherUserId) setLoadingMessages(false);
             }
         },
-        [user, role, scrollToBottom, setConversations, showToast]
+        [user, role, setConversations, showToast]
     );
 
     const loadOlderMessages = useCallback(async () => {
@@ -159,13 +179,26 @@ export function useMessages(
         return () => container.removeEventListener("scroll", handleScrollForOlder);
     }, [hasMoreOlderMessages, loadingOlderMessages, loadOlderMessages, messagesContainerRef]);
 
+    const selectedOtherUserId = selectedConv?.otherUserId ?? null;
+
     useEffect(() => {
-        if (selectedConv && user && role) loadMessages(selectedConv);
-        else {
+        if (!selectedConv || !user || !role) {
+            loadingForRef.current = null;
             setMessages([]);
             setMessagesLoadError(false);
+            setLoadingMessages(false);
+            return;
         }
-    }, [selectedConv, user, role, loadMessages]);
+        // clear previous chat immediately 
+        didPrependOlderRef.current = false;
+        pendingScrollRestoreRef.current = null;
+        loadOlderRequestedRef.current = false;
+        setMessages([]);
+        setMessagesLoadError(false);
+        setLoadingMessages(true);
+        const conv = selectedConvRef.current;
+        if (conv) loadMessages(conv);
+    }, [selectedOtherUserId, user, role, loadMessages]);
 
     return {
         messages,

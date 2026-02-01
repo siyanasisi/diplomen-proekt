@@ -1,7 +1,8 @@
-// conversation info, view profile 
+// conversation info, view profile
 import { AvatarImage } from "../AvatarImage";
 import type { Conversation } from "../../types/chat";
 import { getDisplayName } from "../../types/chat";
+import { useModalFocus } from "../../hooks/useModalFocus";
 
 interface ChatInfoPanelProps {
     selectedConv: Conversation;
@@ -18,6 +19,8 @@ export function ChatInfoPanel({
     onViewProfile,
     chatHeaderInfoRef,
 }: ChatInfoPanelProps) {
+    const { modalRef } = useModalFocus(true, onClose);
+
     return (
         <>
             <div
@@ -26,13 +29,18 @@ export function ChatInfoPanel({
                 onClick={onClose}
             />
             <div
-                ref={chatHeaderInfoRef}
+                ref={(el) => {
+                    (chatHeaderInfoRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    (modalRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                }}
                 className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-white shadow-xl z-50 flex flex-col border-l border-slate-200 chat-info-panel"
                 role="dialog"
-                aria-label="Информация за разговора"
+                aria-modal="true"
+                aria-labelledby="chat-info-title"
+                aria-describedby="chat-info-desc"
             >
                 <div className="flex items-center justify-between p-4 border-b border-slate-200">
-                    <h3 className="text-base font-semibold text-slate-900">Информация</h3>
+                    <h3 id="chat-info-title" className="text-base font-semibold text-slate-900">Информация</h3>
                     <button
                         type="button"
                         onClick={onClose}
@@ -42,7 +50,7 @@ export function ChatInfoPanel({
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <div className="p-4 flex-1 overflow-auto">
+                <div id="chat-info-desc" className="p-4 flex-1 overflow-auto">
                     <div className="flex flex-col items-center text-center mb-6">
                         <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-slate-200 mb-3">
                             <AvatarImage

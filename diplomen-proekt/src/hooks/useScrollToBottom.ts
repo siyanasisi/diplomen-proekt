@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 export function useScrollToBottom(messagesContainerRef: React.RefObject<HTMLDivElement | null>) {
     const [showScrollFAB, setShowScrollFAB] = useState(false);
     const isNearBottomRef = useRef(true);
-    const scrollTimeoutRef = useRef<number | null>(null);
+    const showFABRef = useRef({ showFAB: false, programmatic: false });
 
     const checkIfNearBottom = useCallback(() => {
         if (!messagesContainerRef.current) return false;
@@ -15,16 +15,15 @@ export function useScrollToBottom(messagesContainerRef: React.RefObject<HTMLDivE
         if (!messagesContainerRef.current) return;
         const container = messagesContainerRef.current;
         if (force || isNearBottomRef.current) {
-            const scroll = () => {
-                if (container) container.scrollTop = container.scrollHeight;
-            };
-            scroll();
+            showFABRef.current.programmatic = true;
+            container.scrollTop = container.scrollHeight;
+            isNearBottomRef.current = true;
+            if (showFABRef.current.showFAB) {
+                showFABRef.current.showFAB = false;
+                setShowScrollFAB(false);
+            }
             requestAnimationFrame(() => {
-                scroll();
-                setTimeout(() => scroll(), 10);
-                setTimeout(() => scroll(), 50);
-                setTimeout(() => scroll(), 100);
-                setTimeout(() => scroll(), 200);
+                showFABRef.current.programmatic = false;
             });
         }
     }, [messagesContainerRef]);
@@ -34,30 +33,28 @@ export function useScrollToBottom(messagesContainerRef: React.RefObject<HTMLDivE
         if (!container) return;
         let ticking = false;
         const handleScroll = () => {
+            if (showFABRef.current.programmatic) return;
             if (!ticking) {
+                ticking = true;
                 requestAnimationFrame(() => {
                     const near = checkIfNearBottom();
                     isNearBottomRef.current = near;
-                    setShowScrollFAB(!near);
+                    const shouldShowFAB = !near;
+                    if (shouldShowFAB !== showFABRef.current.showFAB) {
+                        showFABRef.current.showFAB = shouldShowFAB;
+                        setShowScrollFAB(shouldShowFAB);
+                    }
                     ticking = false;
                 });
-                ticking = true;
             }
         };
         container.addEventListener("scroll", handleScroll, { passive: true });
         return () => container.removeEventListener("scroll", handleScroll);
     }, [messagesContainerRef, checkIfNearBottom]);
 
-    useEffect(() => {
-        return () => {
-            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-        };
-    }, []);
-
     return {
         scrollToBottom,
         showScrollFAB,
         setShowScrollFAB,
-        scrollTimeoutRef,
     };
 }

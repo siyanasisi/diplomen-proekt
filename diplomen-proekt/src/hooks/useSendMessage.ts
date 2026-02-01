@@ -68,8 +68,6 @@ export function useSendMessage(
             setNewMessage("");
             setAttachmentFile(null);
             setMessages((prev) => [...prev, optimisticMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
-            setTimeout(() => scrollToBottom(true), 50);
-            setTimeout(() => scrollToBottom(true), 200);
 
             await ensureValidSession();
             const { data, error } = await supabase.from("messages").insert(payload).select("*").single();
@@ -117,13 +115,12 @@ export function useSendMessage(
                 setMessages((prev) => prev.map((m) => (m.id === optimisticId ? (data as Message) : m)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
                 await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", selectedConv.otherUserId);
                 loadConversations();
-                setTimeout(() => scrollToBottom(true), 50);
             } catch (err: unknown) {
                 setMessages((prev) => prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: false, sendFailed: true } : m)));
                 showToast(`Грешка: ${err instanceof Error ? err.message : "Неизвестна грешка"}`);
             }
         },
-        [user, role, selectedConv, setMessages, showToast, loadConversations, scrollToBottom]
+        [user, role, selectedConv, setMessages, showToast, loadConversations]
     );
 
     const handleKeyPress = useCallback(

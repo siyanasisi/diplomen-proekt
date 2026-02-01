@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, startTransition } from "react";
 import { supabase } from "../supabase-client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import type { Message, Conversation, ChatRole } from "../types/chat";
 import {
     getMyMessagesColumn,
     getOtherMessagesColumn,
+    getOtherUserId,
     getReadAtUpdate,
     isMessageForMe,
 } from "../types/chat";
@@ -14,14 +15,15 @@ export function useRealtime(
     role: string | null,
     selectedConv: Conversation | null,
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
-    setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>,
-    scrollToBottom: (force?: boolean) => void,
-    debouncedLoadConversations: () => void
+    setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>
 ) {
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const selectedOtherIdRef = useRef<string | null>(null);
+    selectedOtherIdRef.current = selectedConv?.otherUserId ?? null;
 
     useEffect(() => {
         if (!user || !role || !selectedConv) {
+            selectedOtherIdRef.current = null;
             if (channelRef.current) {
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;
@@ -30,68 +32,57 @@ export function useRealtime(
         }
         if (channelRef.current) supabase.removeChannel(channelRef.current);
 
+        const otherUserId = selectedConv.otherUserId;
+        selectedOtherIdRef.current = otherUserId;
+
         const channel = supabase
-            .channel(`chat-${user.id}-${selectedConv.otherUserId}`)
+            .channel(`chat-${user.id}-${otherUserId}`)
             .on(
                 "postgres_changes",
                 {
                     event: "INSERT",
                     schema: "public",
                     table: "messages",
-                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}.and.${getOtherMessagesColumn(role as ChatRole)}=eq.${selectedConv.otherUserId}`,
+                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}.and.${getOtherMessagesColumn(role as ChatRole)}=eq.${otherUserId}`,
                 },
                 async (payload) => {
                     const newMsg = payload.new as Message;
-                    setMessages((prev) => {
-                        if (prev.some((m) => m.id === newMsg.id)) return prev;
-                        return [...prev, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                    const msgOtherId = getOtherUserId(newMsg, role as ChatRole);
+                    if (selectedOtherIdRef.current !== msgOtherId) return;
+                    const isForMe = isMessageForMe(newMsg, role as ChatRole);
+                    const readAt = new Date().toISOString();
+                    const readUpdate = isForMe ? getReadAtUpdate(role as ChatRole, readAt) : null;
+                    const msgToAdd = readUpdate ? { ...newMsg, ...readUpdate } : newMsg;
+                    
+                    startTransition(() => {
+                        setMessages((prev) => {
+                            if (prev.some((m) => m.id === newMsg.id)) return prev;
+                            return [...prev, msgToAdd].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                        });
+                        if (isForMe) {
+                            // reset unread count for this conversation when a new message is received 
+                            setConversations((prev) =>
+                                prev.map((c) => (c.otherUserId === otherUserId ? { ...c, unreadCount: 0 } : c))
+                            );
+                        }
                     });
-                    setTimeout(() => scrollToBottom(false), 50);
-                    setTimeout(() => scrollToBottom(false), 150);
-                    if (isMessageForMe(newMsg, role as ChatRole)) {
-                        const readAt = new Date().toISOString();
-                        const readUpdate = getReadAtUpdate(role as ChatRole, readAt);
-                        await supabase.from("messages").update(readUpdate).eq("id", newMsg.id);
-                        setMessages((prev) => prev.map((m) => (m.id === newMsg.id ? { ...m, ...readUpdate } : m)));
-                        setConversations((prev) =>
-                            prev.map((conv) => (conv.otherUserId === selectedConv?.otherUserId ? { ...conv, unreadCount: Math.max(0, conv.unreadCount - 1) } : conv))
-                        );
-                    }
-                    debouncedLoadConversations();
-                }
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "messages",
-                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}.and.${getOtherMessagesColumn(role as ChatRole)}=eq.${selectedConv.otherUserId}`,
-                },
-                async (payload) => {
-                    const updatedMsg = payload.new as Message;
-                    const oldMsg = payload.old as Message;
-                    const readStatusChanged =
-                        (role === "student" && updatedMsg.read_by_teacher_at !== oldMsg.read_by_teacher_at) ||
-                        (role === "teacher" && updatedMsg.read_by_student_at !== oldMsg.read_by_student_at);
-                    if (readStatusChanged) {
-                        setMessages((prev) =>
-                            prev.map((m) =>
-                                m.id === updatedMsg.id
-                                    ? { ...m, read_by_student_at: updatedMsg.read_by_student_at, read_by_teacher_at: updatedMsg.read_by_teacher_at, read_at: updatedMsg.read_at }
-                                    : m
-                            )
-                        );
+                    
+                    if (isForMe && readUpdate) {
+                        // wait for the update to complete
+                        const myCol = getMyMessagesColumn(role as ChatRole);
+                        await supabase.from("messages").update(readUpdate).eq("id", newMsg.id).eq(myCol, user.id);
+                        window.dispatchEvent(new CustomEvent("chat-unread-updated"));
                     }
                 }
             )
             .subscribe();
         channelRef.current = channel;
         return () => {
+            selectedOtherIdRef.current = null;
             if (channelRef.current) {
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;
             }
         };
-    }, [user, role, selectedConv, setMessages, setConversations, scrollToBottom, debouncedLoadConversations]);
+    }, [user, role, selectedConv?.otherUserId, setMessages, setConversations]);
 }

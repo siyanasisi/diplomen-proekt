@@ -1,28 +1,14 @@
-// loading/error states, date groups, bubbles, edit/delete menu, scroll-to-bottom FAB
 import { useMemo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { AvatarImage } from "../AvatarImage";
 import { useToast } from "../../context/ToastContext";
 import { MessageBubble } from "./MessageBubble";
 import type { Message, Conversation, ChatRole } from "../../types/chat";
 import {
-    getReadAtForMyMessage,
     getDisplayName,
     groupMessagesByDate,
     groupMessagesBySender,
     formatDateLabel,
 } from "../../types/chat";
-
-// virtualization with @tanstack/react-virtual when messages are too many
-
-const VIRTUAL_MESSAGES_THRESHOLD = 200;
-
-type VirtualRow =
-    | { type: "loader" }
-    | { type: "olderError" }
-    | { type: "hint" }
-    | { type: "date"; dateKey: string }
-    | { type: "group"; dateKey: string; groupIndex: number; isMine: boolean; messages: Message[] };
 
 interface MessageListProps {
     messages: Message[];
@@ -87,40 +73,6 @@ export function MessageList(props: MessageListProps) {
     const r = role as ChatRole;
     const dateGroups = useMemo(() => groupMessagesByDate(messages), [messages]);
 
-    const virtualRows = useMemo((): VirtualRow[] => {
-        if (messages.length < VIRTUAL_MESSAGES_THRESHOLD) return [];
-        const rows: VirtualRow[] = [];
-        if (loadingOlderMessages) rows.push({ type: "loader" });
-        if (olderMessagesLoadError && !loadingOlderMessages) rows.push({ type: "olderError" });
-        if (hasMoreOlderMessages && !loadingOlderMessages && !olderMessagesLoadError) rows.push({ type: "hint" });
-        for (const [dateKey, dateMessages] of Object.entries(dateGroups)) {
-            rows.push({ type: "date", dateKey });
-            const groups = groupMessagesBySender(dateMessages, r);
-            for (let gIdx = 0; gIdx < groups.length; gIdx++) {
-                const group = groups[gIdx];
-                rows.push({ type: "group", dateKey, groupIndex: gIdx, isMine: group.isMine, messages: group.messages });
-            }
-        }
-        return rows;
-    }, [messages.length, dateGroups, loadingOlderMessages, olderMessagesLoadError, hasMoreOlderMessages, r]);
-
-    const virtualizer = useVirtualizer({
-        count: virtualRows.length,
-        getScrollElement: () => messagesContainerRef.current,
-        estimateSize: (index) => {
-            const row = virtualRows[index];
-            if (!row) return 80;
-            if (row.type === "loader" || row.type === "olderError") return 52;
-            if (row.type === "hint") return 32;
-            if (row.type === "date") return 40;
-            if (row.type === "group") return Math.max(80, 60 + row.messages.length * 72);
-            return 80;
-        },
-        overscan: 8,
-    });
-
-    const isVirtualized = virtualRows.length > 0;
-
     const renderOneGroup = (group: { isMine: boolean; messages: Message[] }, dateKey: string, gIdx: number) => (
         <div
             key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
@@ -142,9 +94,8 @@ export function MessageList(props: MessageListProps) {
             <div className={`space-y-0.5 max-w-[90%] sm:max-w-[85%] ${group.isMine ? "chat-bubbles-mine order-1" : ""}`}>
                 {group.messages.map((msg, mIdx) => {
                     const isLast = mIdx === group.messages.length - 1;
-                    const readKey = getReadAtForMyMessage(msg, r);
                     return (
-                        <div key={`${msg.id}-${readKey || "unread"}`} className={mIdx > 0 ? "mt-2.5" : ""}>
+                        <div key={msg.id} className={mIdx > 0 ? "mt-2.5" : ""}>
                             <MessageBubble
                                 message={msg}
                                 isMine={group.isMine}
@@ -190,49 +141,6 @@ export function MessageList(props: MessageListProps) {
             )}
         </div>
     );
-
-    const renderVirtualRowContent = (row: VirtualRow) => {
-        if (row.type === "loader") {
-            return (
-                <div className="flex justify-center py-3">
-                    <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" aria-hidden />
-                    <span className="sr-only">Зареждане на по-стари съобщения...</span>
-                </div>
-            );
-        }
-        if (row.type === "olderError") {
-            return (
-                <div className="flex flex-col items-center gap-2 py-3">
-                    <p className="text-xs text-slate-500">По-старите съобщения не можаха да се заредят.</p>
-                    <button type="button" onClick={loadOlderMessages} className="text-xs font-medium text-slate-700 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors">
-                        Опитай отново
-                    </button>
-                </div>
-            );
-        }
-        if (row.type === "hint") {
-            return <p className="text-center text-xs text-slate-400 py-1">Дръпнете нагоре за по-стари съобщения</p>;
-        }
-        if (row.type === "date") {
-            return (
-                <div className="chat-date-group">
-                    <div className="chat-date-separator gap-3">
-                        <span className="chat-date-line" aria-hidden />
-                        <span className="chat-date-pill shrink-0">{formatDateLabel(row.dateKey)}</span>
-                        <span className="chat-date-line" aria-hidden />
-                    </div>
-                </div>
-            );
-        }
-        if (row.type === "group") {
-            return (
-                <div className="chat-date-group">
-                    {renderOneGroup({ isMine: row.isMine, messages: row.messages }, row.dateKey, row.groupIndex)}
-                </div>
-            );
-        }
-        return null;
-    };
 
     if (loadingMessages) {
         return (
@@ -306,32 +214,6 @@ export function MessageList(props: MessageListProps) {
     return (
         <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll px-4 py-4 relative basis-0">
             <div className="chat-message-column w-full min-h-full max-w-3xl ml-auto pr-0">
-                {isVirtualized ? (
-                    <div
-                        style={{
-                            height: `${virtualizer.getTotalSize()}px`,
-                            width: "100%",
-                            position: "relative",
-                        }}
-                    >
-                        {virtualizer.getVirtualItems().map((virtualRow) => (
-                            <div
-                                key={virtualRow.key}
-                                data-index={virtualRow.index}
-                                ref={(el) => { if (el) virtualizer.measureElement(el); }}
-                                style={{
-                                    position: "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    width: "100%",
-                                    transform: `translateY(${virtualRow.start}px)`,
-                                }}
-                            >
-                                {renderVirtualRowContent(virtualRows[virtualRow.index]!)}
-                            </div>
-                        ))}
-                    </div>
-                ) : (
                 <div className="w-full space-y-0 pb-2">
                     {loadingOlderMessages && (
                         <div className="flex justify-center py-3">
@@ -361,7 +243,6 @@ export function MessageList(props: MessageListProps) {
                         </div>
                     ))}
                 </div>
-                )}
             </div>
             {showScrollFAB && (
                 <button

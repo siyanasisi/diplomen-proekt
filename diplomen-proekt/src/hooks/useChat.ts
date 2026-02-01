@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
@@ -28,10 +28,9 @@ export function useChat() {
         conversationSearch,
         setConversationSearch,
         loadConversations,
-        debouncedLoadConversations,
     } = useConversations(user, role);
 
-    const { scrollToBottom, showScrollFAB, setShowScrollFAB, scrollTimeoutRef } = useScrollToBottom(messagesContainerRef);
+    const { scrollToBottom, showScrollFAB, setShowScrollFAB } = useScrollToBottom(messagesContainerRef);
 
     const {
         messages,
@@ -47,9 +46,9 @@ export function useChat() {
         setLoadingOlderMessages,
         loadOlderRequestedRef,
         didPrependOlderRef,
-    } = useMessages(selectedConv, user, role, messagesContainerRef, scrollToBottom, setConversations, showToast);
+    } = useMessages(selectedConv, user, role, messagesContainerRef, setConversations, showToast);
 
-    useRealtime(user, role, selectedConv, setMessages, setConversations, scrollToBottom, debouncedLoadConversations);
+    useRealtime(user, role, selectedConv, setMessages, setConversations);
 
     const sendMessage = useSendMessage(selectedConv, user, role, setMessages, scrollToBottom, loadConversations, showToast);
     const {
@@ -106,27 +105,23 @@ export function useChat() {
         };
     }, []);
 
-    useEffect(() => {
+    React.useLayoutEffect(() => {
         if (didPrependOlderRef.current) {
             didPrependOlderRef.current = false;
             return;
         }
         if (messages.length > 0 && !loadingMessages) {
-            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-            [0, 50, 100, 200].forEach((delay) => {
-                scrollTimeoutRef.current = window.setTimeout(() => scrollToBottom(true), delay);
-            });
+            scrollToBottom(true);
         }
-        return () => {
-            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-        };
-    }, [messages.length, loadingMessages, scrollToBottom, scrollTimeoutRef, didPrependOlderRef]);
+    }, [messages.length, loadingMessages, scrollToBottom, didPrependOlderRef]);
 
     useEffect(() => {
+        didPrependOlderRef.current = false;
         setHasMoreOlderMessages(true);
         setLoadingOlderMessages(false);
         loadOlderRequestedRef.current = false;
-    }, [selectedConv?.otherUserId, setHasMoreOlderMessages, setLoadingOlderMessages]);
+        setShowScrollFAB(false);
+    }, [selectedConv?.otherUserId, setHasMoreOlderMessages, setLoadingOlderMessages, setShowScrollFAB]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -230,9 +225,7 @@ export function useChat() {
         user,
         role,
         currentUserAvatarUrl,
-        navigate,
         conversations,
-        setConversations,
         selectedConv,
         setSelectedConv,
         messages,
@@ -274,7 +267,6 @@ export function useChat() {
         messagesContainerRef,
         loadMessages,
         loadOlderMessages,
-        loadConversations,
         handleSend,
         handleRetrySend,
         handleKeyPress,
@@ -289,6 +281,5 @@ export function useChat() {
         handleDeleteChat,
         handleScrollToBottomClick,
         filteredConversations,
-        showToast,
     };
 }
