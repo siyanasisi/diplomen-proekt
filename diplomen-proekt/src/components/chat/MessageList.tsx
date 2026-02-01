@@ -1,6 +1,6 @@
 // loading/error states, date groups, bubbles, edit/delete menu, scroll-to-bottom FAB
-
 import { useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { AvatarImage } from "../AvatarImage";
 import { useToast } from "../../context/ToastContext";
 import type { Message, Conversation, ChatRole } from "../../types/chat";
@@ -14,6 +14,40 @@ import {
     formatTime,
     formatFullDate,
 } from "../../types/chat";
+
+// virtualization with @tanstack/react-virtual when messages are too many
+
+
+const VIRTUAL_MESSAGES_THRESHOLD = 200;
+
+type VirtualRow =
+    | { type: "loader" }
+    | { type: "olderError" }
+    | { type: "hint" }
+    | { type: "date"; dateKey: string }
+    | { type: "group"; dateKey: string; groupIndex: number; isMine: boolean; messages: Message[] };
+
+// parse text and wrap URLs in <a> tags
+function linkifyText(text: string): React.ReactNode {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+        if (part.startsWith("http://") || part.startsWith("https://")) {
+            return (
+                <a
+                    key={i}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline break-all hover:opacity-90"
+                >
+                    {part}
+                </a>
+            );
+        }
+        return part;
+    });
+}
 
 interface MessageListProps {
     messages: Message[];
@@ -110,6 +144,234 @@ export function MessageList(props: MessageListProps) {
     const r = role as ChatRole;
     const dateGroups = useMemo(() => groupMessagesByDate(messages), [messages]);
 
+    const virtualRows = useMemo((): VirtualRow[] => {
+        if (messages.length < VIRTUAL_MESSAGES_THRESHOLD) return [];
+        const rows: VirtualRow[] = [];
+        if (loadingOlderMessages) rows.push({ type: "loader" });
+        if (olderMessagesLoadError && !loadingOlderMessages) rows.push({ type: "olderError" });
+        if (hasMoreOlderMessages && !loadingOlderMessages && !olderMessagesLoadError) rows.push({ type: "hint" });
+        for (const [dateKey, dateMessages] of Object.entries(dateGroups)) {
+            rows.push({ type: "date", dateKey });
+            const groups = groupMessagesBySender(dateMessages, r);
+            for (let gIdx = 0; gIdx < groups.length; gIdx++) {
+                const group = groups[gIdx];
+                rows.push({ type: "group", dateKey, groupIndex: gIdx, isMine: group.isMine, messages: group.messages });
+            }
+        }
+        return rows;
+    }, [messages.length, dateGroups, loadingOlderMessages, olderMessagesLoadError, hasMoreOlderMessages, r]);
+
+    const virtualizer = useVirtualizer({
+        count: virtualRows.length,
+        getScrollElement: () => messagesContainerRef.current,
+        estimateSize: (index) => {
+            const row = virtualRows[index];
+            if (!row) return 80;
+            if (row.type === "loader" || row.type === "olderError") return 52;
+            if (row.type === "hint") return 32;
+            if (row.type === "date") return 40;
+            if (row.type === "group") return Math.max(80, 60 + row.messages.length * 72);
+            return 80;
+        },
+        overscan: 8,
+    });
+
+    const isVirtualized = virtualRows.length > 0;
+
+    const renderOneGroup = (group: { isMine: boolean; messages: Message[] }, dateKey: string, gIdx: number) => (
+        <div
+            key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
+            className={`flex flex-row w-full items-end gap-3 ${group.isMine ? "justify-end" : "justify-start"} ${gIdx > 0 ? "mt-4" : ""}`}
+        >
+            {!group.isMine && selectedConv && (
+                <div className="flex-shrink-0 w-8 h-8 mt-1">
+                    <AvatarImage
+                        url={selectedConv.otherUserAvatarUrl}
+                        fallback={
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-medium bg-slate-400">
+                                {getDisplayName(selectedConv).charAt(0).toUpperCase()}
+                            </div>
+                        }
+                        imgClassName="w-8 h-8 rounded-full object-cover"
+                    />
+                </div>
+            )}
+            <div className={`space-y-0.5 max-w-[90%] sm:max-w-[85%] ${group.isMine ? "chat-bubbles-mine order-1" : ""}`}>
+                {group.messages.map((msg, mIdx) => {
+                    const isLast = mIdx === group.messages.length - 1;
+                    const readKey = getReadAtForMyMessage(msg, r);
+                    const isEditing = editingMessageId === msg.id;
+                    const isDeleted = !!msg.deleted_at;
+                    return (
+                        <div
+                            key={`${msg.id}-${readKey || "unread"}`}
+                            className={`flex items-end gap-1.5 ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""} group/row`}
+                        >
+                            {group.isMine && !isDeleted && !isEditing && !msg.optimistic && !msg.sendFailed && (
+                                <div className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 flex items-center pb-1 relative" ref={messageMenuOpenId === msg.id ? messageMenuRef : undefined}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setMessageMenuOpenId(messageMenuOpenId === msg.id ? null : msg.id)}
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 touch-manipulation"
+                                        aria-label="Действия със съобщението"
+                                    >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
+                                    </button>
+                                    {messageMenuOpenId === msg.id && (
+                                        <div className="absolute right-full top-0 mr-1 py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200 z-50">
+                                            <button type="button" onClick={() => handleEditStart(msg)} className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                Редактирай
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        await navigator.clipboard.writeText(msg.message ?? "");
+                                                        showToast("Копирано");
+                                                        setMessageMenuOpenId(null);
+                                                    } catch {
+                                                        showToast("Копирането не успя.");
+                                                    }
+                                                }}
+                                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                Копирай текст
+                                            </button>
+                                            <button type="button" onClick={() => { setMessageMenuOpenId(null); setDeleteMessageConfirm(msg); }} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2">
+                                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                Изтрий
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${msg.optimistic ? "opacity-80" : ""}`}>
+                                {isDeleted ? (
+                                    <p className="text-[15px] italic opacity-80">Съобщението е изтрито</p>
+                                ) : isEditing ? (
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={editingDraft}
+                                            onChange={(e) => setEditingDraft(e.target.value)}
+                                            className="w-full min-h-[80px] px-3 py-2 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 resize-none text-[16px] focus:outline-none focus:ring-2 focus:ring-white/50"
+                                            placeholder="Текст на съобщението"
+                                            autoFocus
+                                        />
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button type="button" onClick={handleEditCancel} className="px-3 py-1.5 rounded-lg text-sm font-medium text-white/90 hover:bg-white/20">Отказ</button>
+                                            <button type="button" onClick={handleEditSave} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/30 hover:bg-white/40 text-white">Запази</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {msg.message ? <p className="whitespace-pre-wrap break-words">{linkifyText(msg.message)}</p> : null}
+                                        {msg.attachment_url && (
+                                            <div className="mt-2 rounded-lg overflow-hidden max-w-[280px]">
+                                                {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(msg.attachment_url) ? (
+                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="block rounded-lg ring-1 ring-white/20 overflow-hidden">
+                                                        <img src={msg.attachment_url} alt="Прикачена снимка" className="max-h-[240px] w-auto object-contain rounded-lg" />
+                                                    </a>
+                                                ) : (
+                                                    <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors max-w-full ${group.isMine ? "bg-white/20 text-white hover:bg-white/30 ring-1 ring-white/20" : "bg-slate-100 text-slate-700 hover:bg-slate-200 ring-1 ring-slate-200/80"}`}>
+                                                        <svg className="w-4 h-4 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                        <span className="truncate">Отвори прикачен файл</span>
+                                                        <svg className="w-3.5 h-3.5 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                    </a>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                                {isLast && !isEditing && (
+                                    <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${group.isMine ? "text-white/90" : "text-slate-400"}`}>
+                                        {msg.optimistic ? (
+                                            <span className="text-[12px] opacity-90 inline-flex items-center gap-1">
+                                                <svg className="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                </svg>
+                                                Изпраща се...
+                                            </span>
+                                        ) : msg.sendFailed ? (
+                                            <span className="inline-flex items-center gap-2 flex-wrap justify-end">
+                                                <span className="text-[12px] opacity-90">Неуспешно изпращане</span>
+                                                <button type="button" onClick={() => handleRetrySend(msg)} className="text-[12px] font-medium underline underline-offset-1 hover:no-underline opacity-95">Опитай отново</button>
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {msg.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
+                                                <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>{formatTime(msg.created_at)}</span>
+                                                {group.isMine && !isDeleted && <MessageStatus message={msg} role={r} />}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {group.isMine && (
+                <div className="flex-shrink-0 w-9 h-9 mt-1 order-2">
+                    <AvatarImage
+                        url={currentUserAvatarUrl}
+                        fallback={
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-medium chat-avatar-mine">
+                                {(user?.user_metadata as { first_name?: string } | undefined)?.first_name?.charAt(0)?.toUpperCase() ?? user?.email?.charAt(0)?.toUpperCase() ?? "?"}
+                            </div>
+                        }
+                        imgClassName="w-9 h-9 rounded-full object-cover ring-2 ring-white/30"
+                    />
+                </div>
+            )}
+        </div>
+    );
+
+    const renderVirtualRowContent = (row: VirtualRow) => {
+        if (row.type === "loader") {
+            return (
+                <div className="flex justify-center py-3">
+                    <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" aria-hidden />
+                    <span className="sr-only">Зареждане на по-стари съобщения...</span>
+                </div>
+            );
+        }
+        if (row.type === "olderError") {
+            return (
+                <div className="flex flex-col items-center gap-2 py-3">
+                    <p className="text-xs text-slate-500">По-старите съобщения не можаха да се заредят.</p>
+                    <button type="button" onClick={loadOlderMessages} className="text-xs font-medium text-slate-700 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Опитай отново
+                    </button>
+                </div>
+            );
+        }
+        if (row.type === "hint") {
+            return <p className="text-center text-xs text-slate-400 py-1">Дръпнете нагоре за по-стари съобщения</p>;
+        }
+        if (row.type === "date") {
+            return (
+                <div className="chat-date-group">
+                    <div className="chat-date-separator gap-3">
+                        <span className="chat-date-line" aria-hidden />
+                        <span className="chat-date-pill shrink-0">{formatDateLabel(row.dateKey)}</span>
+                        <span className="chat-date-line" aria-hidden />
+                    </div>
+                </div>
+            );
+        }
+        if (row.type === "group") {
+            return (
+                <div className="chat-date-group">
+                    {renderOneGroup({ isMine: row.isMine, messages: row.messages }, row.dateKey, row.groupIndex)}
+                </div>
+            );
+        }
+        return null;
+    };
+
     if (loadingMessages) {
         return (
             <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll px-4 py-4 relative basis-0">
@@ -182,6 +444,32 @@ export function MessageList(props: MessageListProps) {
     return (
         <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll px-4 py-4 relative basis-0">
             <div className="chat-message-column w-full min-h-full max-w-3xl ml-auto pr-0">
+                {isVirtualized ? (
+                    <div
+                        style={{
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: "100%",
+                            position: "relative",
+                        }}
+                    >
+                        {virtualizer.getVirtualItems().map((virtualRow) => (
+                            <div
+                                key={virtualRow.key}
+                                data-index={virtualRow.index}
+                                ref={(el) => { if (el) virtualizer.measureElement(el); }}
+                                style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "100%",
+                                    transform: `translateY(${virtualRow.start}px)`,
+                                }}
+                            >
+                                {renderVirtualRowContent(virtualRows[virtualRow.index]!)}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
                 <div className="w-full space-y-0 pb-2">
                     {loadingOlderMessages && (
                         <div className="flex justify-center py-3">
@@ -207,159 +495,11 @@ export function MessageList(props: MessageListProps) {
                                 <span className="chat-date-pill shrink-0">{formatDateLabel(dateKey)}</span>
                                 <span className="chat-date-line" aria-hidden />
                             </div>
-                            {groupMessagesBySender(dateMessages, r).map((group, gIdx) => (
-                                <div
-                                    key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
-                                    className={`flex flex-row w-full items-end gap-3 ${group.isMine ? "justify-end" : "justify-start"} ${gIdx > 0 ? "mt-4" : ""}`}
-                                >
-                                    {!group.isMine && selectedConv && (
-                                        <div className="flex-shrink-0 w-8 h-8 mt-1">
-                                            <AvatarImage
-                                                url={selectedConv.otherUserAvatarUrl}
-                                                fallback={
-                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-medium bg-slate-400">
-                                                        {getDisplayName(selectedConv).charAt(0).toUpperCase()}
-                                                    </div>
-                                                }
-                                                imgClassName="w-8 h-8 rounded-full object-cover"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className={`space-y-0.5 max-w-[90%] sm:max-w-[85%] ${group.isMine ? "chat-bubbles-mine order-1" : ""}`}>
-                                        {group.messages.map((msg, mIdx) => {
-                                            const isLast = mIdx === group.messages.length - 1;
-                                            const readKey = getReadAtForMyMessage(msg, r);
-                                            const isEditing = editingMessageId === msg.id;
-                                            const isDeleted = !!msg.deleted_at;
-                                            return (
-                                                <div
-                                                    key={`${msg.id}-${readKey || "unread"}`}
-                                                    className={`flex items-end gap-1.5 ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""} group/row`}
-                                                >
-                                                    {group.isMine && !isDeleted && !isEditing && !msg.optimistic && !msg.sendFailed && (
-                                                        <div className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 flex items-center pb-1 relative" ref={messageMenuOpenId === msg.id ? messageMenuRef : undefined}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setMessageMenuOpenId(messageMenuOpenId === msg.id ? null : msg.id)}
-                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 touch-manipulation"
-                                                                aria-label="Действия със съобщението"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
-                                                            </button>
-                                                            {messageMenuOpenId === msg.id && (
-                                                                <div className="absolute right-full top-0 mr-1 py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-                                                                    <button type="button" onClick={() => handleEditStart(msg)} className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2">
-                                                                        <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                                                        Редактирай
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={async () => {
-                                                                            try {
-                                                                                await navigator.clipboard.writeText(msg.message ?? "");
-                                                                                showToast("Копирано");
-                                                                                setMessageMenuOpenId(null);
-                                                                            } catch {
-                                                                                showToast("Копирането не успя.");
-                                                                            }
-                                                                        }}
-                                                                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                                                                    >
-                                                                        <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                                                        Копирай текст
-                                                                    </button>
-                                                                    <button type="button" onClick={() => { setMessageMenuOpenId(null); setDeleteMessageConfirm(msg); }} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2">
-                                                                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                        Изтрий
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${msg.optimistic ? "opacity-80" : ""}`}>
-                                                        {isDeleted ? (
-                                                            <p className="text-[15px] italic opacity-80">Съобщението е изтрито</p>
-                                                        ) : isEditing ? (
-                                                            <div className="space-y-2">
-                                                                <textarea
-                                                                    value={editingDraft}
-                                                                    onChange={(e) => setEditingDraft(e.target.value)}
-                                                                    className="w-full min-h-[80px] px-3 py-2 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 resize-none text-[16px] focus:outline-none focus:ring-2 focus:ring-white/50"
-                                                                    placeholder="Текст на съобщението"
-                                                                    autoFocus
-                                                                />
-                                                                <div className="flex items-center justify-end gap-2">
-                                                                    <button type="button" onClick={handleEditCancel} className="px-3 py-1.5 rounded-lg text-sm font-medium text-white/90 hover:bg-white/20">Отказ</button>
-                                                                    <button type="button" onClick={handleEditSave} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/30 hover:bg-white/40 text-white">Запази</button>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                {msg.message ? <p className="whitespace-pre-wrap break-words">{msg.message}</p> : null}
-                                                                {msg.attachment_url && (
-                                                                    <div className="mt-2 rounded-lg overflow-hidden max-w-[280px]">
-                                                                        {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(msg.attachment_url) ? (
-                                                                            <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="block rounded-lg ring-1 ring-white/20 overflow-hidden">
-                                                                                <img src={msg.attachment_url} alt="Прикачена снимка" className="max-h-[240px] w-auto object-contain rounded-lg" />
-                                                                            </a>
-                                                                        ) : (
-                                                                            <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors max-w-full ${group.isMine ? "bg-white/20 text-white hover:bg-white/30 ring-1 ring-white/20" : "bg-slate-100 text-slate-700 hover:bg-slate-200 ring-1 ring-slate-200/80"}`}>
-                                                                                <svg className="w-4 h-4 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                                                <span className="truncate">Отвори прикачен файл</span>
-                                                                                <svg className="w-3.5 h-3.5 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                                                            </a>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                        {isLast && !isEditing && (
-                                                            <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${group.isMine ? "text-white/90" : "text-slate-400"}`}>
-                                                                {msg.optimistic ? (
-                                                                    <span className="text-[12px] opacity-90 inline-flex items-center gap-1">
-                                                                        <svg className="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
-                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                                        </svg>
-                                                                        Изпраща се...
-                                                                    </span>
-                                                                ) : msg.sendFailed ? (
-                                                                    <span className="inline-flex items-center gap-2 flex-wrap justify-end">
-                                                                        <span className="text-[12px] opacity-90">Неуспешно изпращане</span>
-                                                                        <button type="button" onClick={() => handleRetrySend(msg)} className="text-[12px] font-medium underline underline-offset-1 hover:no-underline opacity-95">Опитай отново</button>
-                                                                    </span>
-                                                                ) : (
-                                                                    <>
-                                                                        {msg.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
-                                                                        <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>{formatTime(msg.created_at)}</span>
-                                                                        {group.isMine && !isDeleted && <MessageStatus message={msg} role={r} />}
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {group.isMine && (
-                                        <div className="flex-shrink-0 w-9 h-9 mt-1 order-2">
-                                            <AvatarImage
-                                                url={currentUserAvatarUrl}
-                                                fallback={
-                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-medium chat-avatar-mine">
-                                                        {(user?.user_metadata as { first_name?: string } | undefined)?.first_name?.charAt(0)?.toUpperCase() ?? user?.email?.charAt(0).toUpperCase() ?? "?"}
-                                                    </div>
-                                                }
-                                                imgClassName="w-9 h-9 rounded-full object-cover ring-2 ring-white/30"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                            {groupMessagesBySender(dateMessages, r).map((group, gIdx) => renderOneGroup(group, dateKey, gIdx))}
                         </div>
                     ))}
                 </div>
+                )}
             </div>
             {showScrollFAB && (
                 <button

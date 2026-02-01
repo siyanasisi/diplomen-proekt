@@ -236,6 +236,22 @@ export function useChat() {
                             }
                         });
                     }
+
+                    const stillMissing = allOtherUserIds.filter((id) => !userNamesMap.has(id));
+                    if (stillMissing.length > 0) {
+                        const { data: missingData } = await supabase
+                            .from("profiles")
+                            .select("id, first_name, last_name, email, avatar_url")
+                            .in("id", stillMissing);
+                        (missingData ?? []).forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }) => {
+                            if (row?.id) {
+                                const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
+                                const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
+                                const avatarUrl = row.avatar_url ?? undefined;
+                                userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl });
+                            }
+                        });
+                    }
                 } catch (err) {
                     console.error("Error batch loading user names:", err);
                 }
@@ -534,6 +550,7 @@ export function useChat() {
                     const readStatusChanged =
                         (role === "student" && updatedMsg.read_by_teacher_at !== oldMsg.read_by_teacher_at) ||
                         (role === "teacher" && updatedMsg.read_by_student_at !== oldMsg.read_by_student_at);
+                    // update only the affected message
                     if (readStatusChanged) {
                         setMessages((prev) =>
                             prev.map((m) =>
