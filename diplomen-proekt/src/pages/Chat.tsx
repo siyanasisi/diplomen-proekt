@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +20,8 @@ interface Message {
     updated_at?: string | null;
     is_edited?: boolean;
     deleted_at?: string | null;
+    optimistic?: boolean;
+    sendFailed?: boolean;
 }
 
 interface Conversation {
@@ -31,6 +34,49 @@ interface Conversation {
     unreadCount: number;
 }
 
+type ChatRole = "student" | "teacher";
+
+function getOtherUserId(msg: Message, role: ChatRole): string {
+    return role === "student" ? msg.teacher_id : msg.student_id;
+}
+
+function getMyMessagesColumn(role: ChatRole): "student_id" | "teacher_id" {
+    return role === "student" ? "student_id" : "teacher_id";
+}
+
+function getOtherMessagesColumn(role: ChatRole): "student_id" | "teacher_id" {
+    return role === "student" ? "teacher_id" : "student_id";
+}
+
+function isFromMe(msg: Message, role: ChatRole): boolean {
+    return role === "student" ? msg.is_from_student : !msg.is_from_student;
+}
+
+function isUnreadForMe(msg: Message, role: ChatRole): boolean {
+    if (role === "student") return !msg.is_from_student && !msg.read_by_student_at;
+    return msg.is_from_student === true && !msg.read_by_teacher_at;
+}
+
+function getReadAtUpdate(role: ChatRole, readAt: string): { read_by_student_at?: string; read_by_teacher_at?: string; read_at: string } {
+    return role === "student"
+        ? { read_by_student_at: readAt, read_at: readAt }
+        : { read_by_teacher_at: readAt, read_at: readAt };
+}
+
+function isMessageForMe(msg: Message, role: ChatRole): boolean {
+    return role === "student" ? !msg.is_from_student : msg.is_from_student === true;
+}
+
+function getReadAtForMyMessage(msg: Message, role: ChatRole): string | null {
+    return role === "student" ? msg.read_by_teacher_at : msg.read_by_student_at;
+}
+
+function buildMessagePayload(role: ChatRole, myId: string, otherId: string): { student_id: string; teacher_id: string; is_from_student: boolean } {
+    return role === "student"
+        ? { student_id: myId, teacher_id: otherId, is_from_student: true }
+        : { student_id: otherId, teacher_id: myId, is_from_student: false };
+}
+
 function getDisplayName(conv: Conversation): string {
     if ((["Ученик", "Учител"] as string[]).includes(conv.otherUserName) && conv.otherUserEmail) {
         const prefix = conv.otherUserEmail.split("@")[0];
@@ -38,6 +84,21 @@ function getDisplayName(conv: Conversation): string {
     }
     return conv.otherUserName;
 }
+
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_NAME_DISPLAY_LENGTH = 36;
+
+function formatFileNameForDisplay(name: string, maxLen: number = MAX_FILE_NAME_DISPLAY_LENGTH): string {
+    if (!name || name.length <= maxLen) return name;
+    const lastDot = name.lastIndexOf(".");
+    const ext = lastDot > 0 ? name.slice(lastDot) : "";
+    const base = lastDot > 0 ? name.slice(0, lastDot) : name;
+    const take = maxLen - ext.length - 3;
+    if (take < 1) return name.slice(0, maxLen - 3) + "...";
+    return base.slice(0, take) + "..." + ext;
+}
+
+const MESSAGES_PAGE_SIZE = 80;
 
 export const Chat = () => {
     const { user, role, currentUserProfile } = useAuth();
@@ -51,12 +112,18 @@ export const Chat = () => {
     const isNearBottomRef = useRef(true);
     const loadConversationsTimeoutRef = useRef<number | null>(null);
     const scrollTimeoutRef = useRef<number | null>(null);
+    const pendingScrollRestoreRef = useRef<{ oldScrollHeight: number; oldScrollTop: number } | null>(null);
+    const loadOlderRequestedRef = useRef(false);
+    const messagesRef = useRef<Message[]>([]);
+    const didPrependOlderRef = useRef(false);
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+    const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
     const [newMessage, setNewMessage] = useState("");
     const [sending, setSending] = useState(false);
     const [showScrollFAB, setShowScrollFAB] = useState(false);
@@ -74,6 +141,9 @@ export const Chat = () => {
     const [messageMenuOpenId, setMessageMenuOpenId] = useState<string | null>(null);
     const messageMenuRef = useRef<HTMLDivElement>(null);
     const [confirmAction, setConfirmAction] = useState<'block' | 'delete_chat' | null>(null);
+    const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<Message | null>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const toastTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -150,9 +220,13 @@ export const Chat = () => {
         return () => container.removeEventListener('scroll', handleScroll);
     }, [checkIfNearBottom]);
 
+
     useEffect(() => {
+        if (didPrependOlderRef.current) {
+            didPrependOlderRef.current = false;
+            return;
+        }
         if (messages.length > 0 && !loadingMessages) {
-            // clear any pending scroll
             if (scrollTimeoutRef.current) {
                 clearTimeout(scrollTimeoutRef.current);
             }
@@ -172,26 +246,28 @@ export const Chat = () => {
 
     const loadConversations = useCallback(async () => {
         if (!user || !role) return;
-        
+
         setLoadingConversations(true);
         try {
-            await ensureValidSession();
+            const myCol = getMyMessagesColumn(role as ChatRole);
+            const messagesQuery = supabase
+                .from("messages")
+                .select("id, student_id, teacher_id, message, created_at, is_from_student, read_by_student_at, read_by_teacher_at, read_at, deleted_at, attachment_url")
+                .eq(myCol, user.id)
+                .order("created_at", { ascending: false })
+                .limit(500);
 
-            // load blocked and hidden so we can filter conversations
-            const [blockRes, hiddenRes] = await Promise.all([
+            const [_, blockRes, hiddenRes, messagesRes] = await Promise.all([
+                ensureValidSession(),
                 supabase.from("blocked_users").select("blocked_id").eq("blocker_id", user.id),
                 supabase.from("hidden_conversations").select("other_user_id").eq("user_id", user.id),
+                messagesQuery,
             ]);
+
             const blockedIds = new Set(blockRes.error ? [] : (blockRes.data ?? []).map((r: { blocked_id: string }) => r.blocked_id));
             const hiddenOtherIds = new Set(hiddenRes.error ? [] : (hiddenRes.data ?? []).map((r: { other_user_id: string }) => r.other_user_id));
 
-            // get all messages for this user 
-            const { data, error } = await supabase
-                .from("messages")
-                .select("*")
-                .eq(role === "student" ? "student_id" : "teacher_id", user.id)
-                .order("created_at", { ascending: false })
-                .limit(1000); 
+            const { data, error } = messagesRes; 
 
             if (error) {
                 console.error("Error loading conversations:", error);
@@ -209,7 +285,7 @@ export const Chat = () => {
             // group messages by conversation partner
             const groups = new Map<string, Message[]>();
             data.forEach((msg: Message) => {
-                const otherId = role === "student" ? msg.teacher_id : msg.student_id;
+                const otherId = getOtherUserId(msg, role as ChatRole);
                 if (!groups.has(otherId)) {
                     groups.set(otherId, []);
                 }
@@ -226,72 +302,45 @@ export const Chat = () => {
             
             if (allOtherUserIds.length > 0) {
                 try {
-                    if (role === "student") {
-                        const { data: teacherData } = await supabase
-                            .from('teacher_profiles')
-                            .select('user_id, full_name, email, profile_picture')
-                            .in('user_id', allOtherUserIds);
-                        
-                        if (teacherData) {
-                            teacherData.forEach((teacher: { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }) => {
-                                if (teacher.user_id) {
-                                    userNamesMap.set(teacher.user_id, {
-                                        name: teacher.full_name || "Учител",
-                                        email: teacher.email ?? undefined,
-                                        avatarUrl: teacher.profile_picture ?? undefined
-                                    });
-                                }
+                    const defaultName = role === "student" ? "Учител" : "Ученик";
+                    const [teacherRes, profilesRes] = await Promise.all([
+                        role === "student"
+                            ? supabase.from("teacher_profiles").select("user_id, full_name, email, profile_picture").in("user_id", allOtherUserIds)
+                            : Promise.resolve({ data: [] as { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }[] }),
+                        supabase.from("profiles").select("id, first_name, last_name, email, avatar_url").in("id", allOtherUserIds),
+                    ]);
+
+                    (teacherRes.data ?? []).forEach((t: { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }) => {
+                        if (t.user_id) {
+                            userNamesMap.set(t.user_id, {
+                                name: t.full_name || defaultName,
+                                email: t.email ?? undefined,
+                                avatarUrl: t.profile_picture ?? undefined,
                             });
                         }
-                    }
-                    
-                    const missingIds = allOtherUserIds.filter(id => !userNamesMap.has(id));
-                    if (missingIds.length > 0) {
-                        let profileData: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }[] | null = null;
-                        const { data: withAvatar, error: errAvatar } = await supabase
-                            .from('profiles')
-                            .select('id, first_name, last_name, email, avatar_url')
-                            .in('id', missingIds);
-                        if (!errAvatar && withAvatar?.length) {
-                            profileData = withAvatar;
-                        } else {
-                            const { data: noAvatar } = await supabase
-                                .from('profiles')
-                                .select('id, first_name, last_name, email')
-                                .in('id', missingIds);
-                            if (noAvatar?.length) profileData = noAvatar;
-                        }
-                        if (profileData?.length) {
-                            profileData.forEach((profile) => {
-                                if (profile.id) {
-                                    const fromParts = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-                                    const name = fromParts || (profile.email?.split('@')[0] || null) || (role === "student" ? "Учител" : "Ученик");
-                                    const avatarUrl = 'avatar_url' in profile ? (profile.avatar_url ?? undefined) : undefined;
-                                    userNamesMap.set(profile.id, { name, email: profile.email || undefined, avatarUrl });
-                                }
-                            });
-                        }
-                        const stillMissing = missingIds.filter(id => !userNamesMap.has(id));
-                        for (const uid of stillMissing) {
-                            const { data: single } = await supabase
-                                .from('profiles')
-                                .select('id, first_name, last_name, email, avatar_url')
-                                .eq('id', uid)
-                                .maybeSingle();
-                            if (!single?.id) continue;
-                            const { data: singleFallback } = await supabase
-                                .from('profiles')
-                                .select('id, first_name, last_name, email')
-                                .eq('id', uid)
-                                .maybeSingle();
-                            const row = single ?? singleFallback;
+                    });
+
+                    const profileRows = profilesRes.data ?? [];
+                    if (profilesRes.error && profileRows.length === 0) {
+                        const fallback = await supabase.from("profiles").select("id, first_name, last_name, email").in("id", allOtherUserIds);
+                        (fallback.data ?? []).forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null }) => {
                             if (row?.id) {
-                                const fromParts = `${row.first_name || ''} ${row.last_name || ''}`.trim();
-                                const name = fromParts || (row.email?.split('@')[0] || null) || (role === "student" ? "Учител" : "Ученик");
-                                const avatarUrl = single && 'avatar_url' in single ? (single.avatar_url ?? undefined) : undefined;
-                                userNamesMap.set(row.id, { name, email: row.email || undefined, avatarUrl });
+                                const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
+                                const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
+                                userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl: undefined });
                             }
-                        }
+                        });
+                    } else {
+                        profileRows.forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }) => {
+                            if (row?.id) {
+                                const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
+                                const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
+                                const avatarUrl = row.avatar_url ?? undefined;
+                                if (!userNamesMap.has(row.id)) {
+                                    userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl });
+                                }
+                            }
+                        });
                     }
                 } catch (err) {
                     console.error("Error batch loading user names:", err);
@@ -307,11 +356,7 @@ export const Chat = () => {
                 );
                 const nonDeleted = msgs.filter((m: Message) => !m.deleted_at);
                 const lastMsg = nonDeleted[nonDeleted.length - 1] ?? msgs[msgs.length - 1];
-                const unreadCount = msgs.filter(m => {
-                    if (m.deleted_at) return false;
-                    if (role === "student") return m.is_from_student === false && !m.read_by_student_at;
-                    return m.is_from_student === true && !m.read_by_teacher_at;
-                }).length;
+                const unreadCount = msgs.filter((m) => !m.deleted_at && isUnreadForMe(m, role as ChatRole)).length;
 
                 const userInfo = userNamesMap.get(otherUserId) || {
                     name: role === "student" ? "Учител" : "Ученик",
@@ -339,17 +384,19 @@ export const Chat = () => {
 
             setConversations(convs);
 
-            // auto-select first if none selected
-            if (!selectedConv && convs.length > 0) {
-                setSelectedConv(convs[0]);
-            }
+            // auto-select first if none selected or keep current if still in list
+            setSelectedConv((prev) => {
+                if (convs.length === 0) return null;
+                if (prev && convs.some((c) => c.otherUserId === prev.otherUserId)) return prev;
+                return convs[0];
+            });
         } catch (error) {
             console.error("Failed to load conversations:", error);
             setConversations([]);
         } finally {
             setLoadingConversations(false);
         }
-    }, [user, role, selectedConv]);
+    }, [user, role]);
 
     // when a conversation is selected try to load profile again
     useEffect(() => {
@@ -412,110 +459,58 @@ export const Chat = () => {
     
     const loadMessages = useCallback(async (conv: Conversation) => {
         if (!user || !role || !conv) return;
-        
+
         setLoadingMessages(true);
         try {
-            await ensureValidSession();
+            const myCol = getMyMessagesColumn(role as ChatRole);
+            const otherCol = getOtherMessagesColumn(role as ChatRole);
+            const messagesQuery = supabase
+                .from("messages")
+                .select("*")
+                .eq(myCol, user.id)
+                .eq(otherCol, conv.otherUserId)
+                .order("created_at", { ascending: false })
+                .limit(MESSAGES_PAGE_SIZE);
 
-            let query = supabase.from("messages").select("*");
-            if (role === "student") {
-                query = query
-                    .eq("student_id", user.id)
-                    .eq("teacher_id", conv.otherUserId);
-            } else {
-                query = query
-                    .eq("teacher_id", user.id)
-                    .eq("student_id", conv.otherUserId);
-            }
-            
-            const { data, error } = await query
-                .order("created_at", { ascending: true })
-                .limit(500); 
+            const [, { data, error }] = await Promise.all([
+                ensureValidSession(),
+                messagesQuery,
+            ]);
 
             if (error) {
                 console.error("Error loading messages:", error);
-                console.error("Error details:", JSON.stringify(error, null, 2));
-                console.error("Query params:", { role, userId: user.id, otherUserId: conv.otherUserId });
                 setMessages([]);
                 return;
             }
 
-            const msgs = (data as Message[]) || [];
+            const raw = (data as Message[]) || [];
+            const msgs = [...raw].reverse();
             setMessages(msgs);
-            
+            setHasMoreOlderMessages(raw.length === MESSAGES_PAGE_SIZE);
             setTimeout(() => scrollToBottom(true), 100);
-            setTimeout(() => scrollToBottom(true), 200);
-            setTimeout(() => scrollToBottom(true), 400);
-
-            // mark as read 
-            const unreadIds = msgs
-                .filter(m => {
-                    if (role === "student") {
-                        return m.is_from_student === false && !m.read_by_student_at;
-                    } else {
-                        return m.is_from_student === true && !m.read_by_teacher_at;
-                    }
-                })
-                .map(m => m.id);
+            setTimeout(() => scrollToBottom(true), 250);
 
             const readAt = new Date().toISOString();
-            
+            const unreadIds = msgs.filter((m) => isUnreadForMe(m, role as ChatRole)).map((m) => m.id);
             if (unreadIds.length > 0) {
-                // mark received messages as read
-                const updateData = role === "student" 
-                    ? { read_by_student_at: readAt, read_at: readAt } 
-                    : { read_by_teacher_at: readAt, read_at: readAt };
-                
-                const { error: updateError } = await supabase
+                const readUpdate = getReadAtUpdate(role as ChatRole, readAt);
+                setConversations((prev) =>
+                    prev.map((c) => (c.otherUserId === conv.otherUserId ? { ...c, unreadCount: 0 } : c))
+                );
+                supabase
                     .from("messages")
-                    .update(updateData)
-                    .in("id", unreadIds);
-                
-                if (updateError) {
-                    console.error("Error updating read status:", updateError);
-                } else {
-                    // update messages locally
-                    setMessages(prev => prev.map(m => {
-                        if (unreadIds.includes(m.id)) {
-                            if (role === "student") {
-                                return { ...m, read_by_student_at: readAt, read_at: readAt };
-                            } else {
-                                return { ...m, read_by_teacher_at: readAt, read_at: readAt };
-                            }
+                    .update(readUpdate)
+                    .in("id", unreadIds)
+                    .then(({ error: updateError }) => {
+                        if (updateError) {
+                            console.error("Error updating read status:", updateError);
+                        } else {
+                            setMessages((prev) =>
+                                prev.map((m) => (unreadIds.includes(m.id) ? { ...m, ...readUpdate } : m))
+                            );
                         }
-                        return m;
-                    }));
-                }
-                
-                // update conversations unread count locally instead of reloading
-                setConversations(prev => prev.map(c => 
-                    c.otherUserId === conv.otherUserId 
-                        ? { ...c, unreadCount: 0 }
-                        : c
-                ));
+                    });
             }
-
-            // mark as read only the received messages
-
-            setTimeout(async () => {
-                const { data: refreshedMsgs, error: refreshError } = await supabase
-                    .from("messages")
-                    .select("*")
-                    .eq(role === "student" ? "student_id" : "teacher_id", user.id)
-                    .eq(role === "student" ? "teacher_id" : "student_id", conv.otherUserId)
-                    .order("created_at", { ascending: true });
-                
-                if (refreshError) {
-                    console.error("Error refreshing messages:", refreshError);
-                } else if (refreshedMsgs) {
-                    const updatedMessages = refreshedMsgs.map(m => ({
-                        ...m,
-                        read_by_student_at: m.read_by_student_at || null,
-                        read_by_teacher_at: m.read_by_teacher_at || null,
-                    })) as Message[];
-                    setMessages(updatedMessages);
-                }
-            }, 1000);
         } catch (error) {
             console.error("Failed to load messages:", error);
             setMessages([]);
@@ -523,6 +518,81 @@ export const Chat = () => {
             setLoadingMessages(false);
         }
     }, [user, role, scrollToBottom]);
+
+    messagesRef.current = messages;
+
+    const loadOlderMessages = useCallback(async () => {
+        if (!user || !role || !selectedConv || loadingOlderMessages || !hasMoreOlderMessages) return;
+        const current = messagesRef.current;
+        if (current.length === 0) return;
+        const oldest = current[0];
+        if (loadOlderRequestedRef.current) return;
+        loadOlderRequestedRef.current = true;
+        setLoadingOlderMessages(true);
+        const container = messagesContainerRef.current;
+        const oldScrollHeight = container?.scrollHeight ?? 0;
+        const oldScrollTop = container?.scrollTop ?? 0;
+
+        try {
+            await ensureValidSession();
+            const myCol = getMyMessagesColumn(role as ChatRole);
+            const otherCol = getOtherMessagesColumn(role as ChatRole);
+            const { data, error } = await supabase
+                .from("messages")
+                .select("*")
+                .eq(myCol, user.id)
+                .eq(otherCol, selectedConv.otherUserId)
+                .lt("created_at", oldest.created_at)
+                .order("created_at", { ascending: false })
+                .limit(MESSAGES_PAGE_SIZE);
+
+            if (error) {
+                console.error("Error loading older messages:", error);
+                setHasMoreOlderMessages(false);
+                return;
+            }
+            const raw = (data as Message[]) || [];
+            const older = [...raw].reverse();
+            setHasMoreOlderMessages(raw.length === MESSAGES_PAGE_SIZE);
+            if (older.length > 0) {
+                pendingScrollRestoreRef.current = { oldScrollHeight, oldScrollTop };
+                didPrependOlderRef.current = true;
+                setMessages((prev) => [...older, ...prev]);
+            } else {
+                setHasMoreOlderMessages(false);
+            }
+        } finally {
+            setLoadingOlderMessages(false);
+            loadOlderRequestedRef.current = false;
+        }
+    }, [user, role, selectedConv, loadingOlderMessages, hasMoreOlderMessages]);
+
+    useEffect(() => {
+        if (!pendingScrollRestoreRef.current || !messagesContainerRef.current) return;
+        const pending = pendingScrollRestoreRef.current;
+        pendingScrollRestoreRef.current = null;
+        requestAnimationFrame(() => {
+            const container = messagesContainerRef.current;
+            if (!container) return;
+            const added = container.scrollHeight - pending.oldScrollHeight;
+            container.scrollTop = pending.oldScrollTop + added;
+        });
+    }, [messages.length]);
+
+    const scrollLoadOlderThreshold = 200;
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (!container || !hasMoreOlderMessages || loadingOlderMessages) return;
+
+        const handleScrollForOlder = () => {
+            if (container.scrollTop < scrollLoadOlderThreshold && hasMoreOlderMessages && !loadingOlderMessages) {
+                loadOlderMessages();
+            }
+        };
+
+        container.addEventListener("scroll", handleScrollForOlder, { passive: true });
+        return () => container.removeEventListener("scroll", handleScrollForOlder);
+    }, [hasMoreOlderMessages, loadingOlderMessages, loadOlderMessages]);
 
     // initial load
     useEffect(() => {
@@ -554,9 +624,7 @@ export const Chat = () => {
                     event: '*',
                     schema: 'public',
                     table: 'messages',
-                    filter: role === 'student'
-                        ? `student_id=eq.${user.id}`
-                        : `teacher_id=eq.${user.id}`
+                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}`
                 },
                 () => {
                     debouncedLoadConversations();
@@ -606,53 +674,27 @@ export const Chat = () => {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'messages',
-                    filter: role === 'student'
-                        ? `student_id=eq.${user.id}.and.teacher_id=eq.${selectedConv.otherUserId}`
-                        : `teacher_id=eq.${user.id}.and.student_id=eq.${selectedConv.otherUserId}`
+                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}.and.${getOtherMessagesColumn(role as ChatRole)}=eq.${selectedConv.otherUserId}`
                 },
                 async (payload) => {
                     const newMsg = payload.new as Message;
-                    setMessages(prev => {
-                        // avoid duplicate messages
-                        if (prev.some(m => m.id === newMsg.id)) return prev;
-                        // insert in sorted order 
-                        const newMessages = [...prev, newMsg];
-                        const sorted = newMessages.sort(
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === newMsg.id)) return prev;
+                        return [...prev, newMsg].sort(
                             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                         );
-                        return sorted.slice(-500);
                     });
 
                     setTimeout(() => scrollToBottom(false), 50);
                     setTimeout(() => scrollToBottom(false), 150);
-                    
-                    // mark as read if message is for current user
-                    const isForMe = role === "student" 
-                        ? newMsg.is_from_student === false 
-                        : newMsg.is_from_student === true;
-                    
-                    if (isForMe) {
+
+                    if (isMessageForMe(newMsg, role as ChatRole)) {
                         const readAt = new Date().toISOString();
-                        const updateData = role === "student"
-                            ? { read_by_student_at: readAt, read_at: readAt }
-                            : { read_by_teacher_at: readAt, read_at: readAt };
-                        
-                        await supabase
-                            .from("messages")
-                            .update(updateData)
-                            .eq("id", newMsg.id);
-                        
-                        // update message locally to show read status
-                        setMessages(prev => prev.map(m => {
-                            if (m.id === newMsg.id) {
-                                if (role === "student") {
-                                    return { ...m, read_by_student_at: readAt, read_at: readAt };
-                                } else {
-                                    return { ...m, read_by_teacher_at: readAt, read_at: readAt };
-                                }
-                            }
-                            return m;
-                        }));
+                        const readUpdate = getReadAtUpdate(role as ChatRole, readAt);
+                        await supabase.from("messages").update(readUpdate).eq("id", newMsg.id);
+                        setMessages((prev) =>
+                            prev.map((m) => (m.id === newMsg.id ? { ...m, ...readUpdate } : m))
+                        );
                         
                         // update conversations unread count locally
                         setConversations(prev => prev.map(conv => 
@@ -671,9 +713,7 @@ export const Chat = () => {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'messages',
-                    filter: role === 'student'
-                        ? `student_id=eq.${user.id}.and.teacher_id=eq.${selectedConv.otherUserId}`
-                        : `teacher_id=eq.${user.id}.and.student_id=eq.${selectedConv.otherUserId}`
+                    filter: `${getMyMessagesColumn(role as ChatRole)}=eq.${user.id}.and.${getOtherMessagesColumn(role as ChatRole)}=eq.${selectedConv.otherUserId}`
                 },
                 async (payload) => {
                     const updatedMsg = payload.new as Message;
@@ -684,37 +724,18 @@ export const Chat = () => {
                         (role === "teacher" && updatedMsg.read_by_student_at !== oldMsg.read_by_student_at);
                     
                     if (readStatusChanged) {
-                        setMessages(prev => prev.map(m => {
-                            if (m.id === updatedMsg.id) {
-                                return {
-                                    ...m,
-                                    read_by_student_at: updatedMsg.read_by_student_at,
-                                    read_by_teacher_at: updatedMsg.read_by_teacher_at,
-                                    read_at: updatedMsg.read_at // backward compatibility
-                                };
-                            }
-                            return m;
-                        }));
-                        
-                        // also reload all messages to ensure we have the latest status
-                        setTimeout(async () => {
-                            const { data: refreshedMsgs } = await supabase
-                                .from("messages")
-                                .select("*")
-                                .eq(role === "student" ? "student_id" : "teacher_id", user.id)
-                                .eq(role === "student" ? "teacher_id" : "student_id", selectedConv.otherUserId)
-                                .order("created_at", { ascending: true });
-                            
-                            if (refreshedMsgs) {
-                                // force update with new array reference and ensure all fields are present
-                                const updatedMessages = refreshedMsgs.map(m => ({
-                                    ...m,
-                                    read_by_student_at: m.read_by_student_at || null,
-                                    read_by_teacher_at: m.read_by_teacher_at || null,
-                                })) as Message[];
-                                setMessages(updatedMessages);
-                            }
-                        }, 300);
+                        setMessages((prev) =>
+                            prev.map((m) =>
+                                m.id === updatedMsg.id
+                                    ? {
+                                          ...m,
+                                          read_by_student_at: updatedMsg.read_by_student_at,
+                                          read_by_teacher_at: updatedMsg.read_by_teacher_at,
+                                          read_at: updatedMsg.read_at,
+                                      }
+                                    : m
+                            )
+                        );
                     }
                 }
             )
@@ -730,16 +751,40 @@ export const Chat = () => {
         };
     }, [user, role, selectedConv, scrollToBottom, debouncedLoadConversations]);
 
-    // send message
+    const showToast = useCallback((text: string) => {
+        if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = null;
+        }
+        setToastMessage(text);
+        toastTimeoutRef.current = window.setTimeout(() => {
+            setToastMessage(null);
+            toastTimeoutRef.current = null;
+        }, 4000);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        };
+    }, []);
+
+    // send message (with optimistic update)
     const handleSend = useCallback(async () => {
         if (!user || !role || !selectedConv || (!newMessage.trim() && !attachmentFile) || sending) return;
-        
-        setSending(true);
-        try {
-            await ensureValidSession();
 
-            let attachmentUrl: string | null = null;
+        setSending(true);
+        let attachmentUrl: string | null = null;
+        const optimisticId = `opt-${Date.now()}`;
+        try {
             if (attachmentFile) {
+                if (attachmentFile.size > MAX_ATTACHMENT_SIZE_BYTES) {
+                    const maxMb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024);
+                    showToast(`Файлът надвишава лимита от ${maxMb} MB. Премахнете прикачването и изберете по-малък файл.`);
+                    setSending(false);
+                    return;
+                }
+                await ensureValidSession();
                 const safeName = attachmentFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
                 const storagePath = `${user.id}/${Date.now()}_${safeName}`;
                 const { data: uploadData, error: uploadError } = await supabase.storage
@@ -747,7 +792,7 @@ export const Chat = () => {
                     .upload(storagePath, attachmentFile, { upsert: false });
                 if (uploadError) {
                     console.error("Error uploading attachment:", uploadError);
-                    alert(`Грешка при качване на файла: ${uploadError.message}`);
+                    showToast(`Грешка при качване на файла: ${uploadError.message}`);
                     setSending(false);
                     return;
                 }
@@ -756,13 +801,36 @@ export const Chat = () => {
             }
 
             const payload = {
-                student_id: role === "student" ? user.id : selectedConv.otherUserId,
-                teacher_id: role === "student" ? selectedConv.otherUserId : user.id,
+                ...buildMessagePayload(role as ChatRole, user.id, selectedConv.otherUserId),
                 message: newMessage.trim() || "",
-                is_from_student: role === "student",
                 ...(attachmentUrl && { attachment_url: attachmentUrl }),
             };
+            const now = new Date().toISOString();
+            const optimisticMsg: Message = {
+                id: optimisticId,
+                student_id: payload.student_id,
+                teacher_id: payload.teacher_id,
+                message: payload.message,
+                created_at: now,
+                read_at: null,
+                read_by_student_at: null,
+                read_by_teacher_at: null,
+                is_from_student: payload.is_from_student,
+                ...(attachmentUrl && { attachment_url: attachmentUrl }),
+                optimistic: true,
+            };
 
+            setNewMessage("");
+            setAttachmentFile(null);
+            setMessages((prev) =>
+                [...prev, optimisticMsg].sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                )
+            );
+            setTimeout(() => scrollToBottom(true), 50);
+            setTimeout(() => scrollToBottom(true), 200);
+
+            await ensureValidSession();
             const { data, error } = await supabase
                 .from("messages")
                 .insert(payload)
@@ -771,43 +839,93 @@ export const Chat = () => {
 
             if (error) {
                 console.error("Error sending message:", error);
-                const isBlocked = error.code === 'P0001' || (error.message && error.message.includes('блокирал'));
-                alert(isBlocked
-                    ? 'Не можете да изпращате съобщения – получателят ви е блокирал.'
-                    : `Грешка при изпращане: ${error.message || 'Неизвестна грешка'}`);
+                const isBlocked = error.code === "P0001" || (error.message && error.message.includes("блокирал"));
+                showToast(
+                    isBlocked
+                        ? "Не можете да изпращате съобщения – получателят ви е блокирал."
+                        : `Грешка при изпращане: ${error.message || "Неизвестна грешка"}`
+                );
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: false, sendFailed: true } : m))
+                );
+                setSending(false);
                 return;
             }
 
-            if (data) {
-                setNewMessage("");
-                setAttachmentFile(null);
-                setMessages(prev => {
-                    // avoid duplicate messages
-                    if (prev.some(m => m.id === data.id)) return prev;
-                    // insert in sorted order
-                    const newMessages = [...prev, data as Message];
-                    const sorted = newMessages.sort(
-                        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                    );
-                    // limit to last 500 messages for performance
-                    return sorted.slice(-500);
-                });
-
-                const { error: hideErr } = await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", selectedConv.otherUserId);
-                if (hideErr) console.warn("Un-hide conversation:", hideErr);
-                loadConversations();
-                // scroll to bottom after sending with multiple attempts
-                setTimeout(() => scrollToBottom(true), 50);
-                setTimeout(() => scrollToBottom(true), 150);
-                setTimeout(() => scrollToBottom(true), 300);
-            }
+            setMessages((prev) =>
+                prev.map((m) => (m.id === optimisticId ? (data as Message) : m)).sort(
+                    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                )
+            );
+            const { error: hideErr } = await supabase
+                .from("hidden_conversations")
+                .delete()
+                .eq("user_id", user.id)
+                .eq("other_user_id", selectedConv.otherUserId);
+            if (hideErr) console.warn("Un-hide conversation:", hideErr);
+            loadConversations();
+            setTimeout(() => scrollToBottom(true), 50);
+            setTimeout(() => scrollToBottom(true), 200);
         } catch (error: any) {
             console.error("Failed to send:", error);
-            alert(`Грешка: ${error?.message || 'Неизвестна грешка'}`);
+            showToast(`Грешка: ${error?.message || "Неизвестна грешка"}`);
+            setMessages((prev) =>
+                prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: false, sendFailed: true } : m))
+            );
         } finally {
             setSending(false);
         }
-    }, [user, role, selectedConv, newMessage, sending, scrollToBottom, loadConversations]);
+    }, [user, role, selectedConv, newMessage, sending, scrollToBottom, loadConversations, showToast]);
+
+    const handleRetrySend = useCallback(
+        async (msg: Message) => {
+            if (!msg.sendFailed || !user || !role || !selectedConv) return;
+            const optimisticId = msg.id;
+            setMessages((prev) =>
+                prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: true, sendFailed: false } : m))
+            );
+            try {
+                const payload = {
+                    ...buildMessagePayload(role as ChatRole, user.id, selectedConv.otherUserId),
+                    message: msg.message || "",
+                    ...(msg.attachment_url && { attachment_url: msg.attachment_url }),
+                };
+                await ensureValidSession();
+                const { data, error } = await supabase.from("messages").insert(payload).select("*").single();
+                if (error) {
+                    setMessages((prev) =>
+                        prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: false, sendFailed: true } : m))
+                    );
+                    const isBlocked = error.code === "P0001" || (error.message && error.message.includes("блокирал"));
+                    showToast(
+                        isBlocked
+                            ? "Не можете да изпращате съобщения – получателят ви е блокирал."
+                            : `Грешка при изпращане: ${error.message || "Неизвестна грешка"}`
+                    );
+                    return;
+                }
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === optimisticId ? (data as Message) : m)).sort(
+                        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    )
+                );
+                const { error: hideErr } = await supabase
+                    .from("hidden_conversations")
+                    .delete()
+                    .eq("user_id", user.id)
+                    .eq("other_user_id", selectedConv.otherUserId);
+                if (hideErr) console.warn("Un-hide conversation:", hideErr);
+                loadConversations();
+                setTimeout(() => scrollToBottom(true), 50);
+            } catch (err: unknown) {
+                setMessages((prev) =>
+                    prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: false, sendFailed: true } : m))
+                );
+                showToast(`Грешка: ${err instanceof Error ? err.message : "Неизвестна грешка"}`);
+            }
+        },
+        [user, role, selectedConv, showToast, loadConversations, scrollToBottom]
+    );
 
     const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -820,11 +938,24 @@ export const Chat = () => {
         fileInputRef.current?.click();
     }, []);
 
-    const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        setAttachmentFile(file ?? null);
-        e.target.value = "";
-    }, []);
+    const handleFileChange = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) {
+                setAttachmentFile(null);
+                return;
+            }
+            if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+                const maxMb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024);
+                showToast(`Файлът „${formatFileNameForDisplay(file.name)}“ надвишава лимита от ${maxMb} MB. Изберете по-малък файл.`);
+                setAttachmentFile(null);
+                return;
+            }
+            setAttachmentFile(file);
+        },
+        [showToast]
+    );
 
     const handleEmojiSelect = useCallback((emoji: string) => {
         const input = inputRef.current;
@@ -871,7 +1002,7 @@ export const Chat = () => {
 
             if (error) {
                 console.error("Error editing message:", error);
-                alert(`Грешка при запазване: ${error.message}`);
+                showToast(`Грешка при запазване: ${error.message}`);
                 return;
             }
             setMessages((prev) =>
@@ -883,11 +1014,12 @@ export const Chat = () => {
             );
             setEditingMessageId(null);
             setEditingDraft("");
+            showToast("Редакцията е запазена.");
         } catch (e: unknown) {
             console.error(e);
-            alert("Грешка при запазване.");
+            showToast("Грешка при запазване.");
         }
-    }, [editingMessageId, editingDraft, user]);
+    }, [editingMessageId, editingDraft, user, showToast]);
 
     const handleEditCancel = useCallback(() => {
         setEditingMessageId(null);
@@ -896,8 +1028,8 @@ export const Chat = () => {
 
     const handleDeleteMessage = useCallback(
         async (msg: Message) => {
+            setDeleteMessageConfirm(null);
             setMessageMenuOpenId(null);
-            if (!window.confirm("Изтриване на съобщението?")) return;
             try {
                 const { error } = await supabase
                     .from("messages")
@@ -906,19 +1038,20 @@ export const Chat = () => {
 
                 if (error) {
                     console.error("Error deleting message:", error);
-                    alert(`Грешка при изтриване: ${error.message}`);
+                    showToast(`Грешка при изтриване: ${error.message}`);
                     return;
                 }
                 setMessages((prev) =>
                     prev.map((m) => (m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m))
                 );
-                debouncedLoadConversations();
+                loadConversations();
+                showToast("Съобщението е изтрито.");
             } catch (e: unknown) {
                 console.error(e);
-                alert("Грешка при изтриване.");
+                showToast("Грешка при изтриване.");
             }
         },
-        [debouncedLoadConversations]
+        [loadConversations, showToast]
     );
 
     useEffect(() => {
@@ -940,6 +1073,10 @@ export const Chat = () => {
         setChatHeaderInfoOpen(false);
         setChatHeaderMoreOpen(false);
         setConfirmAction(null);
+        setDeleteMessageConfirm(null);
+        setHasMoreOlderMessages(true);
+        setLoadingOlderMessages(false);
+        loadOlderRequestedRef.current = false;
     }, [selectedConv?.otherUserId]);
 
     const handleBlockUser = async () => {
@@ -950,13 +1087,13 @@ export const Chat = () => {
         });
         if (error) {
             console.error("Block user error:", error);
-            alert("Неуспешно блокиране. Проверете дали таблицата blocked_users съществува в Supabase.");
+            showToast("Блокирането не можа да се извърши. Моля, опитайте отново по-късно.");
             return;
         }
         setConfirmAction(null);
         setChatHeaderMoreOpen(false);
         setSelectedConv(null);
-        debouncedLoadConversations();
+        loadConversations();
     };
 
     const handleDeleteChat = async () => {
@@ -967,13 +1104,13 @@ export const Chat = () => {
         });
         if (error) {
             console.error("Hide conversation error:", error);
-            alert("Неуспешно изтриване на чата. Проверете дали таблицата hidden_conversations съществува в Supabase.");
+            showToast("Чатът не можа да бъде изтрит. Моля, опитайте отново по-късно.");
             return;
         }
         setConfirmAction(null);
         setChatHeaderMoreOpen(false);
         setSelectedConv(null);
-        debouncedLoadConversations();
+        loadConversations();
     };
 
     const EMOJI_LIST = ["😀", "😊", "😂", "👍", "❤️", "😍", "🙏", "😅", "😢", "😡", "👎", "✨", "🔥", "🎉", "💯", "👋", "😎", "🥳", "🤔", "💪"];
@@ -1051,9 +1188,8 @@ export const Chat = () => {
     const isStudent = useMemo(() => role === "student", [role]);
 
     const MessageStatus = ({ message }: { message: Message }) => {
-        const isMine = isStudent ? message.is_from_student : !message.is_from_student;
-        if (!isMine) return null;
-        const readStatus = isStudent ? message.read_by_teacher_at : message.read_by_student_at;
+        if (!isFromMe(message, role as ChatRole)) return null;
+        const readStatus = getReadAtForMyMessage(message, role as ChatRole);
         const seen = !!(readStatus && typeof readStatus === "string" && readStatus.length > 0);
         const label = seen ? "Прочетено" : "Изпратено";
         return (
@@ -1120,16 +1256,16 @@ export const Chat = () => {
 
     // group consecutive messages from same sender 
     const GROUP_MAX_MINUTES = 5;
-    const groupMessagesBySender = useCallback((msgs: Message[], student: boolean) => {
+    const groupMessagesBySender = useCallback((msgs: Message[], r: ChatRole) => {
         if (msgs.length === 0) return [];
         const result: { isMine: boolean; messages: Message[] }[] = [];
         let current: { isMine: boolean; messages: Message[] } = {
-            isMine: student ? msgs[0].is_from_student : !msgs[0].is_from_student,
+            isMine: isFromMe(msgs[0], r),
             messages: [msgs[0]],
         };
         for (let i = 1; i < msgs.length; i++) {
             const msg = msgs[i];
-            const isMine = student ? msg.is_from_student : !msg.is_from_student;
+            const isMine = isFromMe(msg, r);
             const prevTime = new Date(msgs[i - 1].created_at).getTime();
             const currTime = new Date(msg.created_at).getTime();
             const sameSender = isMine === current.isMine;
@@ -1462,6 +1598,39 @@ export const Chat = () => {
                             </>
                         )}
 
+                        {/* confirmation modal for delete message */}
+                        {deleteMessageConfirm && (
+                            <>
+                                <div className="fixed inset-0 bg-black/30 z-40" aria-hidden onClick={() => setDeleteMessageConfirm(null)} />
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="delete-msg-title">
+                                    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
+                                        <h3 id="delete-msg-title" className="text-base font-semibold text-slate-900">
+                                            Изтриване на съобщението
+                                        </h3>
+                                        <p className="mt-2 text-sm text-slate-600">
+                                            Сигурни ли сте? Съобщението ще бъде премахнато.
+                                        </p>
+                                        <div className="mt-5 flex gap-3 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteMessageConfirm(null)}
+                                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                            >
+                                                Отказ
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteMessage(deleteMessageConfirm)}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                                            >
+                                                Изтрий
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         {/* info panel (slide-in) */}
                         {chatHeaderInfoOpen && selectedConv && (
                                             <>
@@ -1552,6 +1721,15 @@ export const Chat = () => {
                                 </div>
                             ) : (
                                 <div className="w-full space-y-0 pb-2">
+                                    {loadingOlderMessages && (
+                                        <div className="flex justify-center py-3">
+                                            <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" aria-hidden />
+                                            <span className="sr-only">Зареждане на по-стари съобщения...</span>
+                                        </div>
+                                    )}
+                                    {hasMoreOlderMessages && !loadingOlderMessages && messages.length > 0 && (
+                                        <p className="text-center text-xs text-slate-400 py-1">Дръпнете нагоре за по-стари съобщения</p>
+                                    )}
                                     {Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
                                         <div key={dateKey} className="chat-date-group">
                                             <div className="chat-date-separator gap-3">
@@ -1561,7 +1739,7 @@ export const Chat = () => {
                                                 </span>
                                                 <span className="chat-date-line" aria-hidden />
                                             </div>
-                                            {groupMessagesBySender(dateMessages, isStudent).map((group, gIdx) => (
+                                            {groupMessagesBySender(dateMessages, role as ChatRole).map((group, gIdx) => (
                                                 <div
                                                     key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
                                                     className={`flex flex-row w-full items-end gap-3 ${group.isMine ? "justify-end" : "justify-start"} ${gIdx > 0 ? "mt-4" : ""}`}
@@ -1582,7 +1760,7 @@ export const Chat = () => {
                                                     <div className={`space-y-0.5 max-w-[90%] sm:max-w-[85%] ${group.isMine ? "chat-bubbles-mine order-1" : ""}`}>
                                                         {group.messages.map((msg, mIdx) => {
                                                             const isLast = mIdx === group.messages.length - 1;
-                                                            const readKey = isStudent ? msg.read_by_teacher_at : msg.read_by_student_at;
+                                                            const readKey = getReadAtForMyMessage(msg, role as ChatRole);
                                                             const isEditing = editingMessageId === msg.id;
                                                             const isDeleted = !!msg.deleted_at;
                                                             return (
@@ -1590,7 +1768,7 @@ export const Chat = () => {
                                                                     key={`${msg.id}-${readKey || "unread"}`}
                                                                     className={`flex items-end gap-1.5 ${group.isMine ? "justify-end" : "justify-start"} ${mIdx > 0 ? "mt-2.5" : ""} group/row`}
                                                                 >
-                                                                    {group.isMine && !isDeleted && !isEditing && (
+                                                                    {group.isMine && !isDeleted && !isEditing && !msg.optimistic && !msg.sendFailed && (
                                                                         <div className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 flex items-center pb-1 relative" ref={messageMenuOpenId === msg.id ? messageMenuRef : undefined}>
                                                                             <button
                                                                                 type="button"
@@ -1606,7 +1784,7 @@ export const Chat = () => {
                                                                                         <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                                                                         Редактирай
                                                                                     </button>
-                                                                                    <button type="button" onClick={() => handleDeleteMessage(msg)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2">
+                                                                                    <button type="button" onClick={() => { setMessageMenuOpenId(null); setDeleteMessageConfirm(msg); }} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2">
                                                                                         <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                                                         Изтрий
                                                                                     </button>
@@ -1614,7 +1792,7 @@ export const Chat = () => {
                                                                             )}
                                                                         </div>
                                                                     )}
-                                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"}`}>
+                                                                    <div className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${group.isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${msg.optimistic ? "opacity-80" : ""}`}>
                                                                         {isDeleted ? (
                                                                             <p className="text-[15px] italic opacity-80">{group.isMine ? "Съобщението е изтрито" : "Съобщението е изтрито"}</p>
                                                                         ) : isEditing ? (
@@ -1662,11 +1840,34 @@ export const Chat = () => {
                                                                         )}
                                                                         {isLast && !isEditing && (
                                                                             <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${group.isMine ? "text-white/90" : "text-slate-400"}`}>
-                                                                                {msg.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
-                                                                                <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>
-                                                                                    {formatTime(msg.created_at)}
-                                                                                </span>
-                                                                                {group.isMine && !isDeleted && <MessageStatus message={msg} />}
+                                                                                {msg.optimistic ? (
+                                                                                    <span className="text-[12px] opacity-90 inline-flex items-center gap-1">
+                                                                                        <svg className="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
+                                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                                                        </svg>
+                                                                                        Изпраща се...
+                                                                                    </span>
+                                                                                ) : msg.sendFailed ? (
+                                                                                    <span className="inline-flex items-center gap-2 flex-wrap justify-end">
+                                                                                        <span className="text-[12px] opacity-90">Неуспешно изпращане</span>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleRetrySend(msg)}
+                                                                                            className="text-[12px] font-medium underline underline-offset-1 hover:no-underline opacity-95"
+                                                                                        >
+                                                                                            Опитай отново
+                                                                                        </button>
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {msg.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
+                                                                                        <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(msg.created_at)}>
+                                                                                            {formatTime(msg.created_at)}
+                                                                                        </span>
+                                                                                        {group.isMine && !isDeleted && <MessageStatus message={msg} />}
+                                                                                    </>
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1796,7 +1997,7 @@ export const Chat = () => {
                                 {attachmentFile && (
                                     <div className="mt-2 flex items-center gap-2 pl-1">
                                         <span className="text-[12px] text-slate-600 truncate max-w-[200px]" title={attachmentFile.name}>
-                                            Прикачен: {attachmentFile.name}
+                                            Прикачен: {formatFileNameForDisplay(attachmentFile.name)}
                                         </span>
                                         <button
                                             type="button"
@@ -1810,7 +2011,7 @@ export const Chat = () => {
                                         </button>
                                     </div>
                                 )}
-                                <p className="chat-input-hint mt-1.5 pl-1 text-[12px] text-slate-400">Enter за изпращане</p>
+                                <p className="chat-input-hint mt-1.5 pl-1 text-[12px] text-slate-400">Enter за изпращане • Макс. прикачен файл {MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)} MB</p>
                             </div>
                         </div>
                     </div>
@@ -1828,6 +2029,20 @@ export const Chat = () => {
                     </div>
                 )}
             </main>
+
+            {/* toast for errors */}
+            {toastMessage &&
+                createPortal(
+                    <div
+                        className="chat-toast fixed bottom-4 right-4 max-w-[min(90vw,22rem)] px-4 py-3 rounded-xl bg-slate-800 text-white text-sm shadow-xl border border-slate-600/50 z-[9999]"
+                        style={{ marginBottom: "env(safe-area-inset-bottom, 0)" }}
+                        role="alert"
+                        aria-live="assertive"
+                    >
+                        {toastMessage}
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 };
