@@ -5,6 +5,7 @@ import { ChatHeader } from "../components/chat/ChatHeader";
 import { ChatModals } from "../components/chat/ChatModals";
 import { ChatInfoPanel } from "../components/chat/ChatInfoPanel";
 import { MessageList } from "../components/chat/MessageList";
+import { ChatErrorBoundary } from "../components/chat/ChatErrorBoundary";
 import { ChatInput } from "../components/chat/ChatInput";
 
 export const Chat = () => {
@@ -131,7 +132,8 @@ export const Chat = () => {
 
                         {/* scrollable message list */}
                         <div className="flex-1 min-h-0 flex flex-col basis-0">
-                            <MessageList
+                            <ChatErrorBoundary>
+                                <MessageList
                                 messages={messages}
                                 loadingMessages={loadingMessages}
                                 messagesLoadError={messagesLoadError}
@@ -159,6 +161,7 @@ export const Chat = () => {
                                 showScrollFAB={showScrollFAB}
                                 handleScrollToBottomClick={handleScrollToBottomClick}
                             />
+                            </ChatErrorBoundary>
                         </div>
 
                         <ChatInput
