@@ -45,7 +45,7 @@ export default function Login() {
         };
         setTimeout(checkSession, 100);
       }
-    } catch (error) {
+    } catch {
       setMessage('Нещо се обърка!');
       setMessageType('error');
       showToast('Нещо се обърка!');

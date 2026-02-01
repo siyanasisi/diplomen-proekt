@@ -61,11 +61,13 @@ export const TeacherProfile = () => {
             await ensureValidSession();
             
             // Try by teacher_profiles.id first (from FindTeacher), then by user_id (from Chat)
-            let { data, error } = await supabase
+            const first = await supabase
                 .from('teacher_profiles')
                 .select('*')
                 .eq('id', id)
                 .maybeSingle();
+            let data = first.data;
+            const error = first.error;
 
             if (error) {
                 console.error('Error loading teacher:', error);
