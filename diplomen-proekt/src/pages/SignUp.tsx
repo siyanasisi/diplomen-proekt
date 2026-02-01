@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase-client';
+import { useToast } from '../context/ToastContext';
 
 
 interface InputFieldProps {
@@ -32,6 +33,7 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 
 export default function SignUp() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -93,15 +95,19 @@ export default function SignUp() {
 
     // validate name fields
     if (!firstName.trim()) {
-      setMessage('Моля, въведете име.');
+      const msg = 'Моля, въведете име.';
+      setMessage(msg);
       setMessageType('error');
+      showToast(msg);
       setLoading(false);
       return;
     }
 
     if (!lastName.trim()) {
-      setMessage('Моля, въведете фамилия.');
+      const msg = 'Моля, въведете фамилия.';
+      setMessage(msg);
       setMessageType('error');
+      showToast(msg);
       setLoading(false);
       return;
     }
@@ -163,6 +169,7 @@ export default function SignUp() {
             if (!signInError && signInData.user) {
               setMessage('Успешно! Вие сте влезли в акаунта си.');
               setMessageType('success');
+              showToast('Успешно! Вие сте влезли в акаунта си.');
               setLoading(false);
               
               const checkSession = async () => {
@@ -195,8 +202,10 @@ export default function SignUp() {
           errorMessage = error.message || 'Възникна грешка при регистрация. Моля опитайте отново.';
         }
         
-        setMessage(`Грешка: ${errorMessage}`);
+        const msg = `Грешка: ${errorMessage}`;
+        setMessage(msg);
         setMessageType('error');
+        showToast(msg);
       } else {
 
         if (role === 'teacher') {
@@ -259,6 +268,7 @@ export default function SignUp() {
     } catch (error) {
       setMessage('Нещо се обърка!');
       setMessageType('error');
+      showToast('Нещо се обърка!');
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { supabase } from '../supabase-client';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,11 +24,14 @@ export default function Login() {
       });
 
       if (error) {
-        setMessage('Грешка: ' + error.message);
+        const msg = 'Грешка: ' + error.message;
+        setMessage(msg);
         setMessageType('error');
+        showToast(msg);
       } else {
         setMessage('Успешно влизане! Пренасочване...');
         setMessageType('success');
+        showToast('Успешно влизане!');
         
         // wait for session to be established then redirect
         const checkSession = async () => {
@@ -43,6 +48,7 @@ export default function Login() {
     } catch (error) {
       setMessage('Нещо се обърка!');
       setMessageType('error');
+      showToast('Нещо се обърка!');
     } finally {
       setLoading(false);
     }

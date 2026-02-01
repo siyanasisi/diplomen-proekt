@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { AvatarImage } from "../components/AvatarImage";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -142,8 +142,8 @@ export const Chat = () => {
     const messageMenuRef = useRef<HTMLDivElement>(null);
     const [confirmAction, setConfirmAction] = useState<'block' | 'delete_chat' | null>(null);
     const [deleteMessageConfirm, setDeleteMessageConfirm] = useState<Message | null>(null);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const toastTimeoutRef = useRef<number | null>(null);
+
+    const showToast = useToast();
 
     useEffect(() => {
         if (!user) {
@@ -750,24 +750,6 @@ export const Chat = () => {
             }
         };
     }, [user, role, selectedConv, scrollToBottom, debouncedLoadConversations]);
-
-    const showToast = useCallback((text: string) => {
-        if (toastTimeoutRef.current) {
-            clearTimeout(toastTimeoutRef.current);
-            toastTimeoutRef.current = null;
-        }
-        setToastMessage(text);
-        toastTimeoutRef.current = window.setTimeout(() => {
-            setToastMessage(null);
-            toastTimeoutRef.current = null;
-        }, 4000);
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-        };
-    }, []);
 
     // send message (with optimistic update)
     const handleSend = useCallback(async () => {
@@ -2029,20 +2011,6 @@ export const Chat = () => {
                     </div>
                 )}
             </main>
-
-            {/* toast for errors */}
-            {toastMessage &&
-                createPortal(
-                    <div
-                        className="chat-toast fixed bottom-4 right-4 max-w-[min(90vw,22rem)] px-4 py-3 rounded-xl bg-slate-800 text-white text-sm shadow-xl border border-slate-600/50 z-[9999]"
-                        style={{ marginBottom: "env(safe-area-inset-bottom, 0)" }}
-                        role="alert"
-                        aria-live="assertive"
-                    >
-                        {toastMessage}
-                    </div>,
-                    document.body
-                )}
         </div>
     );
 };

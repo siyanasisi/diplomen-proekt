@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 interface Teacher {
     id: string;
@@ -22,6 +23,7 @@ interface Teacher {
 export const FindTeacher = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const showToast = useToast();
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -76,12 +78,7 @@ export const FindTeacher = () => {
 
             if (error) {
                 console.error('Error loading teachers:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    code: error.code,
-                    details: error.details,
-                    hint: error.hint
-                });
+                showToast('Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.');
             } else if (data) {
                 const list = user
                     ? data.filter((t: Teacher) => !blockedUserIds.has(t.user_id))
@@ -93,6 +90,7 @@ export const FindTeacher = () => {
             }
         } catch (error) {
             console.error('Failed to load teachers:', error);
+            showToast('Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.');
         } finally {
             setLoading(false);
         }

@@ -1,4 +1,5 @@
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 export const Profile = () => {
     const { user, role, signOut, loading, refreshProfile } = useAuth();
     const navigate = useNavigate();
+    const showToast = useToast();
 
     const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
@@ -34,21 +36,6 @@ export const Profile = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
-    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    // show notification and hide after 3s
-    const showNotification = useCallback((type: 'success' | 'error', message: string) => {
-        setNotification({ type, message });
-        setTimeout(() => {
-            setNotification((prev) => {
-                // Only clear if this is still the current notification
-                if (prev?.type === type && prev?.message === message) {
-                    return null;
-                }
-                return prev;
-            });
-        }, 3000);
-    }, []);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -201,16 +188,16 @@ export const Profile = () => {
         if (!user) return;
 
         if (!deletePassword) {
-            alert('Моля въведете паролата си за потвърждение');
+            showToast('Моля въведете паролата си за потвърждение');
             return;
         }
         if (deleteConfirmText !== 'ИЗТРИЙ') {
-            alert('Моля напишете "ИЗТРИЙ" за потвърждение');
+            showToast('Моля напишете "ИЗТРИЙ" за потвърждение');
             return;
         }
 
         if (!user.email) {
-            alert('Email не е наличен');
+            showToast('Email не е наличен');
             return;
         }
 
@@ -223,7 +210,7 @@ export const Profile = () => {
             });
 
             if (verifyError) {
-                showNotification('error', 'Паролата е неправилна. Моля опитайте отново.');
+                showToast('Паролата е неправилна. Моля опитайте отново.');
                 setDeletingAccount(false);
                 return;
             }
@@ -262,15 +249,13 @@ export const Profile = () => {
             }
 
 
-            alert('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
-            
-
+            showToast('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
 
             await signOut();
             navigate("/");
         } catch (error: any) {
             console.error('Error deleting account:', error);
-            alert(`Грешка при изтриване на акаунта: ${error.message}`);
+            showToast(`Грешка при изтриване на акаунта: ${error.message}`);
         } finally {
             setDeletingAccount(false);
         }
@@ -308,18 +293,18 @@ export const Profile = () => {
 
             if (error) {
                 console.error('Error updating profile:', error);
-                showNotification('error', 'Грешка при обновяване на профила');
+                showToast('Грешка при обновяване на профила');
             } else {
                 // wait for auth state change to propagate (onAuthStateChange in AuthContext will update user)
                 // then reload our local data without full page reload
                 await new Promise(resolve => setTimeout(resolve, 300));
                 await loadUserData();
                 setEditMode(false);
-                showNotification('success', 'Профилът е обновен успешно!');
+                showToast('Профилът е обновен успешно!');
             }
         } catch (error) {
             console.error('Error:', error);
-            showNotification('error', 'Грешка при обновяване на профила');
+            showToast('Грешка при обновяване на профила');
         } finally {
             setLoadingUpdate(false);
         }
@@ -335,12 +320,12 @@ export const Profile = () => {
 
         if (error) {
             console.error('Error deleting event:', error);
-            showNotification('error', 'Грешка при изтриване на събитието');
+            showToast('Грешка при изтриване на събитието');
         } else {
-            showNotification('success', 'Събитието е изтрито успешно');
+            showToast('Събитието е изтрито успешно');
             loadUserData();
         }
-    }, [showNotification, loadUserData]);
+    }, [showToast, loadUserData]);
 
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!user || !event.target.files || event.target.files.length === 0) return;
@@ -348,12 +333,12 @@ export const Profile = () => {
         const file = event.target.files[0];
         
         if (!file.type.startsWith('image/')) {
-            alert('Моля изберете валиден файл (изображение)');
+            showToast('Моля изберете валиден файл (изображение)');
             return;
         }
 
         if (file.size > 2 * 1024 * 1024) {
-            alert('Файлът е твърде голям. Моля изберете изображение под 2MB');
+            showToast('Файлът е твърде голям. Моля изберете изображение под 2MB');
             return;
         }
 
@@ -408,10 +393,10 @@ export const Profile = () => {
             
             await loadUserData();
             await refreshProfile();
-            showNotification('success', 'Профилната снимка е обновена успешно!');
+            showToast('Профилната снимка е обновена успешно!');
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
-            showNotification('error', `Грешка при качване на снимката: ${error.message}`);
+            showToast(`Грешка при качване на снимката: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
             event.target.value = '';
@@ -497,7 +482,7 @@ export const Profile = () => {
                 throw updateError;
             }
 
-            showNotification('success', 'Паролата е променена успешно!');
+            showToast('Паролата е променена успешно!');
             setShowChangePassword(false);
             setCurrentPassword('');
             setNewPassword('');
@@ -505,7 +490,9 @@ export const Profile = () => {
             setPasswordError('');
         } catch (error: any) {
             console.error('Error changing password:', error);
-            setPasswordError(error.message || 'Грешка при промяна на паролата');
+            const errMsg = error.message || 'Грешка при промяна на паролата';
+            setPasswordError(errMsg);
+            showToast(errMsg);
         } finally {
             setChangingPassword(false);
         }
@@ -551,10 +538,10 @@ export const Profile = () => {
             await new Promise(resolve => setTimeout(resolve, 500));
             await loadUserData();
             await refreshProfile();
-            alert('Профилната снимка е премахната успешно!');
+            showToast('Профилната снимка е премахната успешно!');
         } catch (error: any) {
             console.error('Error removing avatar:', error);
-            alert(`Грешка при премахване на снимката: ${error.message}`);
+            showToast(`Грешка при премахване на снимката: ${error.message}`);
         }
     };
 
@@ -616,36 +603,6 @@ export const Profile = () => {
                 <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl"></div>
             </div>
-            {/* notification toast */}
-            {notification && (
-                <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 duration-500 ease-out">
-                    <div className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-2xl border-2 flex items-center gap-3 transform transition-all duration-500 hover:scale-105 ${
-                        notification.type === 'success' 
-                            ? 'bg-gradient-to-br from-emerald-50/95 to-emerald-100/80 border-emerald-300/60 text-emerald-900 shadow-emerald-900/20' 
-                            : 'bg-gradient-to-br from-red-50/95 to-red-100/80 border-red-300/60 text-red-900 shadow-red-900/20'
-                    }`}>
-                        {notification.type === 'success' ? (
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                        ) : (
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                        )}
-                        <p className="font-semibold text-sm">{notification.message}</p>
-                        <button
-                            onClick={() => setNotification(null)}
-                            className="ml-2 p-1 rounded-lg hover:bg-black/10 transition-colors"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
