@@ -122,7 +122,9 @@ export const Chat = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [messagesLoadError, setMessagesLoadError] = useState(false);
     const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+    const [olderMessagesLoadError, setOlderMessagesLoadError] = useState(false);
     const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(true);
     const [newMessage, setNewMessage] = useState("");
     const [sending, setSending] = useState(false);
@@ -461,6 +463,8 @@ export const Chat = () => {
         if (!user || !role || !conv) return;
 
         setLoadingMessages(true);
+        setMessagesLoadError(false);
+        setOlderMessagesLoadError(false);
         try {
             const myCol = getMyMessagesColumn(role as ChatRole);
             const otherCol = getOtherMessagesColumn(role as ChatRole);
@@ -480,6 +484,8 @@ export const Chat = () => {
             if (error) {
                 console.error("Error loading messages:", error);
                 setMessages([]);
+                setMessagesLoadError(true);
+                showToast("Съобщенията не можаха да се заредят.");
                 return;
             }
 
@@ -514,10 +520,12 @@ export const Chat = () => {
         } catch (error) {
             console.error("Failed to load messages:", error);
             setMessages([]);
+            setMessagesLoadError(true);
+            showToast("Съобщенията не можаха да се заредят.");
         } finally {
             setLoadingMessages(false);
         }
-    }, [user, role, scrollToBottom]);
+    }, [user, role, scrollToBottom, showToast]);
 
     messagesRef.current = messages;
 
@@ -529,6 +537,7 @@ export const Chat = () => {
         if (loadOlderRequestedRef.current) return;
         loadOlderRequestedRef.current = true;
         setLoadingOlderMessages(true);
+        setOlderMessagesLoadError(false);
         const container = messagesContainerRef.current;
         const oldScrollHeight = container?.scrollHeight ?? 0;
         const oldScrollTop = container?.scrollTop ?? 0;
@@ -548,7 +557,8 @@ export const Chat = () => {
 
             if (error) {
                 console.error("Error loading older messages:", error);
-                setHasMoreOlderMessages(false);
+                setOlderMessagesLoadError(true);
+                showToast("По-старите съобщения не можаха да се заредят.");
                 return;
             }
             const raw = (data as Message[]) || [];
@@ -561,11 +571,15 @@ export const Chat = () => {
             } else {
                 setHasMoreOlderMessages(false);
             }
+        } catch (err) {
+            console.error("Failed to load older messages:", err);
+            setOlderMessagesLoadError(true);
+            showToast("По-старите съобщения не можаха да се заредят.");
         } finally {
             setLoadingOlderMessages(false);
             loadOlderRequestedRef.current = false;
         }
-    }, [user, role, selectedConv, loadingOlderMessages, hasMoreOlderMessages]);
+    }, [user, role, selectedConv, loadingOlderMessages, hasMoreOlderMessages, showToast]);
 
     useEffect(() => {
         if (!pendingScrollRestoreRef.current || !messagesContainerRef.current) return;
@@ -648,6 +662,7 @@ export const Chat = () => {
             loadMessages(selectedConv);
         } else {
             setMessages([]);
+            setMessagesLoadError(false);
         }
     }, [selectedConv?.otherUserId, user, role, loadMessages]);
 
@@ -1689,6 +1704,27 @@ export const Chat = () => {
                                         </div>
                                     ))}
                                 </div>
+                            ) : messagesLoadError ? (
+                                <div className="h-full min-h-[240px] flex items-center justify-center text-center px-4">
+                                    <div className="max-w-[280px]">
+                                        <div className="chat-empty-icon-wrap w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 bg-red-50">
+                                            <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-base font-semibold text-slate-800 mb-1">Съобщенията не можаха да се заредят</p>
+                                        <p className="text-[13px] text-slate-500 leading-relaxed mb-4">Моля, опитайте отново.</p>
+                                        {selectedConv && (
+                                            <button
+                                                type="button"
+                                                onClick={() => loadMessages(selectedConv)}
+                                                className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+                                            >
+                                                Опитай отново
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             ) : messages.length === 0 ? (
                                 <div className="h-full min-h-[240px] flex items-center justify-center text-center px-4">
                                     <div className="max-w-[240px]">
@@ -1709,7 +1745,19 @@ export const Chat = () => {
                                             <span className="sr-only">Зареждане на по-стари съобщения...</span>
                                         </div>
                                     )}
-                                    {hasMoreOlderMessages && !loadingOlderMessages && messages.length > 0 && (
+                                    {olderMessagesLoadError && !loadingOlderMessages && (
+                                        <div className="flex flex-col items-center gap-2 py-3">
+                                            <p className="text-xs text-slate-500">По-старите съобщения не можаха да се заредят.</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => loadOlderMessages()}
+                                                className="text-xs font-medium text-slate-700 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+                                            >
+                                                Опитай отново
+                                            </button>
+                                        </div>
+                                    )}
+                                    {hasMoreOlderMessages && !loadingOlderMessages && !olderMessagesLoadError && messages.length > 0 && (
                                         <p className="text-center text-xs text-slate-400 py-1">Дръпнете нагоре за по-стари съобщения</p>
                                     )}
                                     {Object.entries(groupMessagesByDate(messages)).map(([dateKey, dateMessages]) => (
