@@ -58,7 +58,7 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
 
     return (
         <article
-            className="group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-300/80 transition-all duration-300 ease-out"
+            className="find-teacher-card group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-400 transition-all duration-300 ease-out"
             data-testid="teacher-card"
         >
             {/* badges row: предмет = цветен, локация = неутрален */}

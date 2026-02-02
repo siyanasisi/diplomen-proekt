@@ -78,6 +78,60 @@ nav[aria-label="Main navigation"]::-webkit-scrollbar {
   background: rgba(148, 163, 184, 0.55);
 }
 
+/* Find Teacher – Hero pattern + gradient */
+.find-teacher-hero {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.12) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.find-teacher-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.98) 0%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 1) 100%
+  );
+  pointer-events: none;
+}
+
+/* Find Teacher – появяване на карти със stagger */
+@keyframes find-teacher-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.find-teacher-card-enter {
+  animation: find-teacher-fade-in-up 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .find-teacher-card-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .find-teacher-card:hover {
+    transform: none;
+  }
+
+  .animate-pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 .chat-page {
   background: #f8fafc;
   min-height: 0;
