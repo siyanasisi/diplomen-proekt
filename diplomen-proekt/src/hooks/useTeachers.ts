@@ -8,9 +8,11 @@ export function useTeachers(userId: string | null) {
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(false);
 
     const loadTeachers = useCallback(async (isRefresh = false) => {
         try {
+            setError(false);
             if (isRefresh) {
                 setRefreshing(true);
             } else {
@@ -40,6 +42,7 @@ export function useTeachers(userId: string | null) {
                 console.error("[useTeachers] Error loading teachers:", error);
                 showToast("Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.");
                 setTeachers([]);
+                setError(true);
                 return;
             }
 
@@ -67,6 +70,7 @@ export function useTeachers(userId: string | null) {
             console.error("[useTeachers] Failed to load teachers:", err);
             showToast("Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.");
             setTeachers([]);
+            setError(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -81,5 +85,5 @@ export function useTeachers(userId: string | null) {
         loadTeachers(true);
     }, [loadTeachers]);
 
-    return { teachers, loading, refreshing, refresh };
+    return { teachers, loading, refreshing, error, refresh };
 }

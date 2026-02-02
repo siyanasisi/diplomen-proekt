@@ -2,9 +2,11 @@ import { Link } from "react-router-dom";
 
 type EmptyVariant = "no_teachers" | "no_results";
 
-interface FindTeacherEmptyProps {
+export interface FindTeacherEmptyProps {
     variant: EmptyVariant;
     onClearFilters?: () => void;
+    filteredCount?: number;
+    totalCount?: number;
 }
 
 const content = {
@@ -34,8 +36,9 @@ const content = {
     },
 };
 
-export function FindTeacherEmpty({ variant, onClearFilters }: FindTeacherEmptyProps) {
+export function FindTeacherEmpty({ variant, onClearFilters, filteredCount = 0, totalCount }: FindTeacherEmptyProps) {
     const config = content[variant];
+    const showCounts = variant === "no_results" && totalCount != null && totalCount > 0;
 
     return (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 lg:p-16 text-center shadow-sm">
@@ -52,6 +55,11 @@ export function FindTeacherEmpty({ variant, onClearFilters }: FindTeacherEmptyPr
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">{config.title}</h2>
             <p className="text-slate-600 mb-4 max-w-sm mx-auto">{config.description}</p>
+            {showCounts && (
+                <p className="text-sm font-medium text-slate-500 mb-4">
+                    Няма учители при тези филтри ({filteredCount} от {totalCount})
+                </p>
+            )}
             {config.hint && (
                 <p className="text-sm text-slate-500 mb-6">{config.hint}</p>
             )}

@@ -14,7 +14,7 @@ import {
 export const FindTeacher = () => {
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { teachers, loading, refreshing, refresh } = useTeachers(user?.id ?? null);
+    const { teachers, loading, refreshing, error, refresh } = useTeachers(user?.id ?? null);
     const [skeletonCount, setSkeletonCount] = useState(4);
 
     useEffect(() => {
@@ -111,7 +111,30 @@ export const FindTeacher = () => {
                     <span className="flex-1 h-px bg-slate-200" aria-hidden />
                 </div>
 
-                {loading && teachers.length === 0 ? (
+                {error && teachers.length === 0 ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50/80 p-8 sm:p-12 text-center shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Неуспешно зареждане</h2>
+                        <p className="text-slate-600 mb-6 max-w-sm mx-auto">
+                            Списъкът с учители не можа да се зареди. Моля, опитайте отново.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={refresh}
+                            disabled={loading}
+                            className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Опитай отново
+                        </button>
+                    </div>
+                ) : loading && teachers.length === 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-8 lg:gap-x-8 lg:gap-y-10">
                         {Array.from({ length: skeletonCount }).map((_, i) => (
                             <TeacherCardSkeleton key={i} />
@@ -120,7 +143,12 @@ export const FindTeacher = () => {
                 ) : teachers.length === 0 ? (
                     <FindTeacherEmpty variant="no_teachers" />
                 ) : filteredTeachers.length === 0 ? (
-                    <FindTeacherEmpty variant="no_results" onClearFilters={clearFilters} />
+                    <FindTeacherEmpty
+                        variant="no_results"
+                        onClearFilters={clearFilters}
+                        filteredCount={filteredTeachers.length}
+                        totalCount={teachers.length}
+                    />
                 ) : (
                     <div className="relative">
                         {/* overlay */}
