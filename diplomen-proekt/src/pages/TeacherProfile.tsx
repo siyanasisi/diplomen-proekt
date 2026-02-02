@@ -3,22 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useModalFocus } from "../hooks/useModalFocus";
-
-interface Teacher {
-    id: string;
-    user_id: string;
-    full_name: string;
-    profile_picture?: string;
-    subject: string;
-    description: string;
-    rating: number;
-    city?: string;
-    is_online: boolean;
-    education?: string;
-    qualifications?: string;
-    available_schedule?: string;
-    email?: string;
-}
+import type { Teacher } from "../types/teacher";
 
 interface BookingForm {
     date: string;
