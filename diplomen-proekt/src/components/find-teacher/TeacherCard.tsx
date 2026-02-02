@@ -58,12 +58,12 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
 
     return (
         <article
-            className="group relative flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-300/80 transition-all duration-300 ease-out"
+            className="group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-300/80 transition-all duration-300 ease-out"
             data-testid="teacher-card"
         >
-            {/* badges row */}
+            {/* badges row: предмет = цветен, локация = неутрален */}
             <div className="px-5 pt-5 sm:px-6 sm:pt-6 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 rounded-md">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-md">
                     {teacher.subject}
                 </span>
                 {teacher.city && (
@@ -83,14 +83,14 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                 )}
             </div>
 
-            <div className="flex flex-col flex-1 p-5 pt-4 sm:p-6 sm:pt-5">
+            <div className="flex min-h-0 flex-1 flex-col p-5 pt-4 sm:p-6 sm:pt-5">
                 {/* avatar & name */}
                 <div className="flex items-start gap-4 sm:gap-5 mb-3">
                     <div className="relative flex-shrink-0">
                         <AvatarImage
                             url={teacher.profile_picture}
                             fallback={
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 flex items-center justify-center text-white shadow-inner ring-2 ring-white/50">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center text-white shadow-inner ring-2 ring-white/50">
                                     <span className="relative text-2xl sm:text-3xl font-bold drop-shadow-sm">
                                         {teacher.full_name.charAt(0).toUpperCase()}
                                     </span>
@@ -115,19 +115,24 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                         )}
                     </div>
                     <div className="flex-1 min-w-0 pt-0.5">
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate leading-tight">
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate leading-tight tracking-tight">
                             {teacher.full_name}
                         </h3>
                         {hasRating ? (
-                            <div className="flex items-center gap-1.5 mt-1.5">
+                            <div className="flex items-center gap-1.5 mt-2">
                                 <RatingStars rating={Math.round(teacher.rating)} size="xs" />
-                                <span className="text-xs font-medium text-slate-600">
+                                <span className="text-xs font-medium text-gray-500">
                                     {teacher.rating.toFixed(1)}
                                 </span>
                             </div>
                         ) : (
-                            <p className="mt-1.5 text-xs font-medium text-slate-500">
-                                Все още без оценки
+                            <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 leading-none">
+                                <span className="shrink-0 text-amber-400" aria-hidden>
+                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
+                                </span>
+                                Бъди първият, който ще оцени
                             </p>
                         )}
                     </div>
@@ -149,11 +154,11 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                 )}
 
                 {/* cta */}
-                <div className="mt-auto pt-2 flex flex-wrap items-center gap-3">
+                <div className="mt-auto pt-3 flex flex-wrap items-center gap-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">
                     <button
                         type="button"
                         onClick={handleViewProfile}
-                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:ring-offset-1 rounded-lg py-1.5 -ml-1.5 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-lg px-3 py-2 transition-colors"
                     >
                         Виж профил
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -163,7 +168,7 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                     <button
                         type="button"
                         onClick={handleContact}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:ring-offset-1 rounded-lg py-1.5 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 rounded-lg px-3 py-2 border border-slate-200 bg-transparent transition-colors"
                     >
                         Свържи се
                     </button>

@@ -37,9 +37,25 @@ export function useTeachers(userId: string | null) {
                 return;
             }
 
-            const list = userId
+            let list: Teacher[] = userId
                 ? (data ?? []).filter((t: Teacher) => !blockedUserIds.has(t.user_id))
-                : data ?? [];
+                : (data ?? []);
+
+            const userIds = [...new Set(list.map((t: Teacher) => t.user_id))];
+            if (userIds.length > 0) {
+                const { data: profilesData } = await supabase
+                    .from("profiles")
+                    .select("id, avatar_url")
+                    .in("id", userIds);
+                const avatarByUserId = new Map<string, string>();
+                (profilesData ?? []).forEach((p: { id: string; avatar_url: string | null }) => {
+                    if (p.avatar_url) avatarByUserId.set(p.id, p.avatar_url);
+                });
+                list = list.map((t: Teacher) => ({
+                    ...t,
+                    profile_picture: t.profile_picture ?? avatarByUserId.get(t.user_id) ?? undefined,
+                }));
+            }
             setTeachers(list);
         } catch (err) {
             console.error("[useTeachers] Failed to load teachers:", err);

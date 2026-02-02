@@ -87,7 +87,7 @@ export const FindTeacher = () => {
                 ) : filteredTeachers.length === 0 ? (
                     <FindTeacherEmpty variant="no_results" onClearFilters={clearFilters} />
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-8 lg:gap-x-8 lg:gap-y-10">
                         {sortedTeachers.map((teacher) => (
                             <TeacherCard
                                 key={teacher.id}

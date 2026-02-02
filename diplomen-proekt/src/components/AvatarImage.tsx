@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "../supabase-client";
 
 const BUCKET = "profile-pictures";
 
 function getStoragePathFromPublicUrl(url: string): string | null {
   try {
-    if (!url.includes(BUCKET + "/")) return null;
+    if (!url || !url.includes(BUCKET + "/")) return null;
     const after = url.split(BUCKET + "/")[1];
     return after?.split("?")[0] ?? null;
   } catch (err) {
@@ -22,12 +22,12 @@ interface AvatarImageProps {
   alt?: string;
 }
 
-
 export function AvatarImage({ url, fallback, className, imgClassName, alt = "" }: AvatarImageProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const effectiveUrl = signedUrl || url;
+  const storagePath = url ? getStoragePathFromPublicUrl(url) : null;
+  const effectiveUrl = storagePath ? signedUrl : (signedUrl || url);
 
   const trySignedUrl = useCallback(async (originalUrl: string) => {
     const path = getStoragePathFromPublicUrl(originalUrl);
@@ -47,6 +47,14 @@ export function AvatarImage({ url, fallback, className, imgClassName, alt = "" }
     }
   }, []);
 
+  useEffect(() => {
+    if (!url || failed) return;
+    const path = getStoragePathFromPublicUrl(url);
+    if (path) {
+      trySignedUrl(url);
+    }
+  }, [url, failed, trySignedUrl]);
+
   const handleError = useCallback(() => {
     if (effectiveUrl && !signedUrl && getStoragePathFromPublicUrl(effectiveUrl)) {
       trySignedUrl(effectiveUrl);
@@ -56,6 +64,7 @@ export function AvatarImage({ url, fallback, className, imgClassName, alt = "" }
   }, [effectiveUrl, signedUrl, trySignedUrl]);
 
   if (!effectiveUrl || failed) return <>{fallback}</>;
+  if (storagePath && !signedUrl && !failed) return <>{fallback}</>;
 
   return (
     <span className={className ? `block ${className}` : undefined}>
