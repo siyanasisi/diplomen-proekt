@@ -177,11 +177,12 @@ function MessageBubbleInner({
                     )}
                 </div>
             )}
-            <div
-                className={`shrink-0 max-w-full px-5 py-3.5 text-[16px] leading-[1.5] relative ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
-            >
+            <div className={`shrink-0 max-w-full flex flex-col ${isMine ? "items-end" : "items-start"} relative`}>
+                <div
+                    className={`shrink-0 max-w-full px-3.5 py-2.5 text-[15px] leading-[1.45] ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
+                >
                 {isDeleted ? (
-                    <p className="text-[15px] italic opacity-80">Съобщението е изтрито</p>
+                    <p className="text-[14px] italic opacity-80">Съобщението е изтрито</p>
                 ) : isEditing ? (
                     <div className="space-y-2">
                         <textarea
@@ -203,8 +204,8 @@ function MessageBubbleInner({
                 ) : (
                     <>
                         {replyToMsg && (
-                            <div className={`mb-2.5 pl-3 py-2 border-l-2 rounded-r-md ${isMine ? "border-white/45 bg-white/12" : "border-slate-300 bg-slate-50"}`}>
-                                <p className="text-[12px] font-medium opacity-90 truncate max-w-[220px] text-inherit">
+                            <div className={`mb-2 pl-2.5 py-1.5 border-l-2 rounded-r ${isMine ? "border-white/45 bg-white/12" : "border-slate-300 bg-slate-50"}`}>
+                                <p className="text-[11px] font-medium opacity-90 truncate max-w-[200px] text-inherit">
                                     {replyToMsg.message?.trim() || "Прикачен файл"}
                                 </p>
                             </div>
@@ -245,70 +246,10 @@ function MessageBubbleInner({
                                 )}
                             </div>
                         )}
-                        {reactions.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                {Object.entries(
-                                    reactions.reduce<Record<string, number>>((acc, r) => {
-                                        acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
-                                        return acc;
-                                    }, {})
-                                ).map(([emoji, count]) => (
-                                    <button
-                                        key={emoji}
-                                        type="button"
-                                        onClick={() => toggleReaction?.(message.id, emoji)}
-                                        className={`inline-flex items-center gap-1 min-w-[2rem] justify-center ${isMine ? "chat-reaction-chip-mine" : "chat-reaction-chip-other"}`}
-                                    >
-                                        <span className="text-[15px] leading-none">{emoji}</span>
-                                        {count > 1 && (
-                                            <span className={`text-[11px] font-medium tabular-nums ${isMine ? "text-white/90" : "text-slate-500"}`}>
-                                                {count}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        {toggleReaction && (
-                            <div className="relative mt-1.5">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowReactions((v) => !v)}
-                                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isMine ? "text-white/85 hover:bg-white/18" : "text-slate-500 hover:bg-slate-100/80"}`}
-                                    aria-label="Добави реакция"
-                                >
-                                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="9" />
-                                        <path d="M8 10h.01M16 10h.01M9.5 14.5a3.5 3.5 0 005 0" />
-                                    </svg>
-                                </button>
-                                {showReactions && (
-                                    <>
-                                        <div className="absolute left-0 bottom-full mb-2 py-2.5 px-3 rounded-2xl bg-white border border-slate-200 shadow-xl z-40 flex gap-1">
-                                            {REACTION_EMOJIS.map((e) => (
-                                                <button
-                                                    key={e}
-                                                    type="button"
-                                                    onClick={() => { toggleReaction(message.id, e); setShowReactions(false); }}
-                                                    className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 text-xl transition-colors active:scale-95"
-                                                >
-                                                    {e}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <div
-                                            className="fixed inset-0 z-30"
-                                            aria-hidden
-                                            onClick={() => setShowReactions(false)}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        )}
                     </>
                 )}
-                {isLast && !isEditing && (
-                    <div className={`mt-2 flex items-center justify-end gap-2 min-h-[20px] ${isMine ? "text-white/88" : "text-slate-400"}`}>
+                {!isEditing && (
+                    <div className={`mt-1.5 flex items-center justify-end gap-1.5 min-h-[18px] ${isMine ? "text-white/88" : "text-slate-400"}`}>
                         {message.optimistic ? (
                             <span className="text-[12px] opacity-90 inline-flex items-center gap-1">
                                 <svg className="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
@@ -326,14 +267,111 @@ function MessageBubbleInner({
                             </span>
                         ) : (
                             <>
-                                {message.is_edited && <span className="text-[11px] opacity-75">редактирано</span>}
-                                <span className="text-[13px] font-medium tabular-nums" title={formatFullDate(message.created_at)}>
-                                    {formatTime(message.created_at)}
-                                </span>
+                                {message.is_edited && <span className="text-[10px] opacity-75">редактирано</span>}
+                                {isLast && (
+                                    <span className="text-[12px] font-medium tabular-nums" title={formatFullDate(message.created_at)}>
+                                        {formatTime(message.created_at)}
+                                    </span>
+                                )}
                                 {isMine && !isDeleted && <MessageStatus message={message} role={role} />}
                             </>
                         )}
                     </div>
+                )}
+                </div>
+                {toggleReaction && (
+                    <>
+                        {reactions.length > 0 ? (
+                            <div className="chat-reaction-pill-wrap">
+                                <div className="chat-reaction-pill">
+                                    {Object.entries(
+                                        reactions.reduce<Record<string, number>>((acc, r) => {
+                                            acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+                                            return acc;
+                                        }, {})
+                                    ).map(([emoji, count]) => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => toggleReaction?.(message.id, emoji)}
+                                            className="chat-reaction-emoji-btn"
+                                            title={count > 1 ? `${emoji} × ${count}` : emoji}
+                                        >
+                                            {emoji}
+                                            {count > 1 && (
+                                                <span className="ml-0.5 text-[10px] font-medium tabular-nums text-slate-500">
+                                                    {count}
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReactions((v) => !v)}
+                                            className="chat-reaction-add-btn"
+                                            aria-label="Добави реакция"
+                                        >
+                                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 8v8m-4-4h8" />
+                                            </svg>
+                                        </button>
+                                        {showReactions && (
+                                            <>
+                                                <div className={`absolute bottom-full mb-1.5 py-2 px-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl z-40 flex gap-0.5 ${isMine ? "right-0" : "left-0"}`}>
+                                                    {REACTION_EMOJIS.map((e) => (
+                                                        <button
+                                                            key={e}
+                                                            type="button"
+                                                            onClick={() => { toggleReaction(message.id, e); setShowReactions(false); }}
+                                                            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-lg transition-transform active:scale-95"
+                                                        >
+                                                            {e}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="fixed inset-0 z-30" aria-hidden onClick={() => setShowReactions(false)} />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={`chat-reaction-pill-wrap chat-reaction-pill-wrap-only-hover ${isMine ? "chat-reaction-pill-mine" : "chat-reaction-pill-other"}`}>
+                                <div className="chat-reaction-pill">
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReactions((v) => !v)}
+                                            className="chat-reaction-add-btn"
+                                            aria-label="Добави реакция"
+                                        >
+                                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 8v8m-4-4h8" />
+                                            </svg>
+                                        </button>
+                                        {showReactions && (
+                                            <>
+                                                <div className={`absolute bottom-full mb-1.5 py-2 px-2.5 rounded-2xl bg-white border border-slate-200 shadow-xl z-40 flex gap-0.5 ${isMine ? "right-0" : "left-0"}`}>
+                                                    {REACTION_EMOJIS.map((e) => (
+                                                        <button
+                                                            key={e}
+                                                            type="button"
+                                                            onClick={() => { toggleReaction(message.id, e); setShowReactions(false); }}
+                                                            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-lg transition-transform active:scale-95"
+                                                        >
+                                                            {e}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="fixed inset-0 z-30" aria-hidden onClick={() => setShowReactions(false)} />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

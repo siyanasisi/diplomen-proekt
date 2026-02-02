@@ -33,13 +33,28 @@ export function useReactions(messageIds: string[], userId: string | null) {
     const toggleReaction = useCallback(
         async (messageId: string, emoji: string): Promise<boolean> => {
             if (!userId) return false;
-            const existing = reactionsMap[messageId]?.find((r) => r.user_id === userId && r.emoji === emoji);
-            if (existing) {
-                const { error } = await supabase.from("message_reactions").delete().eq("id", existing.id);
+            const myReaction = reactionsMap[messageId]?.find((r) => r.user_id === userId);
+            if (myReaction && myReaction.emoji === emoji) {
+                const { error } = await supabase.from("message_reactions").delete().eq("id", myReaction.id);
                 if (!error) {
                     setReactionsMap((prev) => ({
                         ...prev,
-                        [messageId]: (prev[messageId] || []).filter((r) => r.id !== existing.id),
+                        [messageId]: (prev[messageId] || []).filter((r) => r.id !== myReaction.id),
+                    }));
+                    return true;
+                }
+            } else if (myReaction && myReaction.emoji !== emoji) {
+                const { error: delError } = await supabase.from("message_reactions").delete().eq("id", myReaction.id);
+                if (delError) return false;
+                const { data, error: insError } = await supabase
+                    .from("message_reactions")
+                    .insert({ message_id: messageId, user_id: userId, emoji })
+                    .select()
+                    .single();
+                if (!insError && data) {
+                    setReactionsMap((prev) => ({
+                        ...prev,
+                        [messageId]: (prev[messageId] || []).filter((r) => r.id !== myReaction.id).concat(data as MessageReaction),
                     }));
                     return true;
                 }
