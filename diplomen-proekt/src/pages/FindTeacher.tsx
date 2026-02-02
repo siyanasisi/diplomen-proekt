@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTeachers } from "../hooks/useTeachers";
 import { useTeacherFilters } from "../hooks/useTeacherFilters";
@@ -12,6 +13,7 @@ import {
 
 export const FindTeacher = () => {
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { teachers, loading, refreshing, refresh } = useTeachers(user?.id ?? null);
     const [skeletonCount, setSkeletonCount] = useState(4);
 
@@ -22,6 +24,21 @@ export const FindTeacher = () => {
         mq.addEventListener("change", update);
         return () => mq.removeEventListener("change", update);
     }, []);
+
+    const urlOptions = useMemo(
+        () => ({
+            searchParams,
+            setSearchParams: (next: Record<string, string | undefined>, opts?: { replace?: boolean }) => {
+                const clean: Record<string, string> = {};
+                Object.entries(next).forEach(([k, v]) => {
+                    if (v !== undefined && v !== "") clean[k] = v;
+                });
+                setSearchParams(clean, opts);
+            },
+        }),
+        [searchParams, setSearchParams]
+    );
+
     const {
         filters,
         setSearchQuery,
@@ -36,18 +53,10 @@ export const FindTeacher = () => {
         activeFiltersCount,
         activeFilterChips,
         clearFilters,
-    } = useTeacherFilters(teachers);
+    } = useTeacherFilters(teachers, urlOptions);
 
     return (
         <div className="relative min-h-screen bg-gradient-to-b from-slate-50 to-white">
-            {/* skip link */}
-            <a
-                href="#teacher-results"
-                className="skip-link absolute left-4 top-4 z-20 -translate-y-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-            >
-                Прескочи до резултати
-            </a>
-
             {/* hero */}
             <div className="find-teacher-hero relative overflow-hidden border-b border-slate-200/80">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(147,51,234,0.06),transparent)]" aria-hidden />

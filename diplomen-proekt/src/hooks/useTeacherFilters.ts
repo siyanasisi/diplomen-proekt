@@ -1,9 +1,53 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { Teacher, TeacherSortOption } from "../types/teacher";
-import { RATING_FILTER_OPTIONS } from "../constants/teachers";
+import { RATING_FILTER_OPTIONS, TEACHER_SUBJECTS, TEACHER_CITIES } from "../constants/teachers";
 import { useDebounce } from "./useDebounce";
 
 const SEARCH_DEBOUNCE_MS = 280;
+
+const VALID_SORT: TeacherSortOption[] = ["rating", "name", "online_first"];
+const VALID_RATINGS = [0, 4, 4.5, 5];
+
+export interface UseTeacherFiltersUrlOptions {
+    searchParams: URLSearchParams;
+    setSearchParams: (next: Record<string, string | undefined>, opts?: { replace?: boolean }) => void;
+}
+
+function parseFiltersFromSearchParams(searchParams: URLSearchParams): TeacherFiltersState {
+    const q = searchParams.get("q") ?? "";
+    const subject = searchParams.get("subject") ?? "";
+    const city = searchParams.get("city") ?? "";
+    const ratingRaw = searchParams.get("rating");
+    const rating = ratingRaw !== null && VALID_RATINGS.includes(Number(ratingRaw))
+        ? Number(ratingRaw)
+        : 0;
+    const isOnlineOnly = searchParams.get("online") === "1";
+    const sort = searchParams.get("sort") ?? "rating";
+    const sortBy: TeacherSortOption = VALID_SORT.includes(sort as TeacherSortOption)
+        ? (sort as TeacherSortOption)
+        : "rating";
+    const subjectValid = subject && TEACHER_SUBJECTS.includes(subject as typeof TEACHER_SUBJECTS[number]);
+    const cityValid = city && (city === "Онлайн" || TEACHER_CITIES.includes(city as typeof TEACHER_CITIES[number]));
+    return {
+        searchQuery: q,
+        selectedSubject: subjectValid ? subject : "",
+        selectedCity: cityValid ? city : "",
+        selectedRating: rating,
+        isOnlineOnly,
+        sortBy,
+    };
+}
+
+function filtersToSearchParams(filters: TeacherFiltersState): Record<string, string | undefined> {
+    const p: Record<string, string | undefined> = {};
+    if (filters.searchQuery) p.q = filters.searchQuery;
+    if (filters.selectedSubject) p.subject = filters.selectedSubject;
+    if (filters.selectedCity) p.city = filters.selectedCity;
+    if (filters.selectedRating > 0) p.rating = String(filters.selectedRating);
+    if (filters.isOnlineOnly) p.online = "1";
+    if (filters.sortBy !== "rating") p.sort = filters.sortBy;
+    return p;
+}
 
 export interface ActiveFilterChip {
     key: string;
@@ -73,8 +117,27 @@ function sortTeachers(list: Teacher[], sortBy: TeacherSortOption): Teacher[] {
     return copy;
 }
 
-export function useTeacherFilters(teachers: Teacher[]) {
-    const [filters, setFilters] = useState<TeacherFiltersState>(defaultFilters);
+export function useTeacherFilters(teachers: Teacher[], urlOptions?: UseTeacherFiltersUrlOptions) {
+    const [filters, setFilters] = useState<TeacherFiltersState>(() =>
+        urlOptions ? parseFiltersFromSearchParams(urlOptions.searchParams) : defaultFilters
+    );
+
+    const searchParams = urlOptions?.searchParams ?? null;
+    const setSearchParams = urlOptions?.setSearchParams ?? null;
+
+    useEffect(() => {
+        if (searchParams) {
+            setFilters(parseFiltersFromSearchParams(searchParams));
+        }
+    }, [searchParams?.toString()]);
+
+    const syncFiltersToUrl = useCallback(
+        (next: TeacherFiltersState) => {
+            setSearchParams?.(filtersToSearchParams(next), { replace: true });
+        },
+        [setSearchParams]
+    );
+
     const debouncedSearchQuery = useDebounce(filters.searchQuery, SEARCH_DEBOUNCE_MS);
     // when the field is cleared we immediately use "" without waiting for debounce
     const effectiveSearchQuery =
@@ -162,7 +225,23 @@ export function useTeacherFilters(teachers: Teacher[]) {
 
     const clearFilters = useCallback(() => {
         setFilters(defaultFilters);
-    }, []);
+        if (setSearchParams) {
+            setSearchParams({}, { replace: true });
+        }
+    }, [setSearchParams]);
+
+    useEffect(() => {
+        if (setSearchParams == null) return;
+        syncFiltersToUrl({ ...filters, searchQuery: effectiveSearchQuery });
+    }, [
+        filters.selectedSubject,
+        filters.selectedCity,
+        filters.selectedRating,
+        filters.isOnlineOnly,
+        filters.sortBy,
+        effectiveSearchQuery,
+        setSearchParams,
+    ]);
 
     const setSearchQuery = useCallback((value: string) => {
         setFilters((prev) => ({ ...prev, searchQuery: value }));
