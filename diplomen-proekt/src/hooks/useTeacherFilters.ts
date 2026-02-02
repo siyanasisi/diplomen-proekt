@@ -1,5 +1,12 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Teacher, TeacherSortOption } from "../types/teacher";
+import { RATING_FILTER_OPTIONS } from "../constants/teachers";
+
+export interface ActiveFilterChip {
+    key: string;
+    label: string;
+    onRemove: () => void;
+}
 
 export interface TeacherFiltersState {
     searchQuery: string;
@@ -84,6 +91,63 @@ export function useTeacherFilters(teachers: Teacher[]) {
         filters.isOnlineOnly
     );
 
+    const activeFiltersCount = useMemo(() => {
+        let n = 0;
+        if (filters.searchQuery) n++;
+        if (filters.selectedSubject) n++;
+        if (filters.selectedCity) n++;
+        if (filters.selectedRating > 0) n++;
+        if (filters.isOnlineOnly) n++;
+        return n;
+    }, [filters.searchQuery, filters.selectedSubject, filters.selectedCity, filters.selectedRating, filters.isOnlineOnly]);
+
+    const activeFilterChips = useMemo((): ActiveFilterChip[] => {
+        const chips: ActiveFilterChip[] = [];
+        if (filters.searchQuery) {
+            chips.push({
+                key: "search",
+                label: filters.searchQuery,
+                onRemove: () => setFilters((prev) => ({ ...prev, searchQuery: "" })),
+            });
+        }
+        if (filters.selectedSubject) {
+            chips.push({
+                key: "subject",
+                label: filters.selectedSubject,
+                onRemove: () => setFilters((prev) => ({ ...prev, selectedSubject: "" })),
+            });
+        }
+        if (filters.selectedCity) {
+            chips.push({
+                key: "city",
+                label: filters.selectedCity,
+                onRemove: () => setFilters((prev) => ({ ...prev, selectedCity: "" })),
+            });
+        }
+        if (filters.selectedRating > 0) {
+            const opt = RATING_FILTER_OPTIONS.find((o) => o.value === filters.selectedRating);
+            chips.push({
+                key: "rating",
+                label: opt?.label ?? `${filters.selectedRating}+ звезди`,
+                onRemove: () => setFilters((prev) => ({ ...prev, selectedRating: 0 })),
+            });
+        }
+        if (filters.isOnlineOnly) {
+            chips.push({
+                key: "online",
+                label: "Само онлайн",
+                onRemove: () => setFilters((prev) => ({ ...prev, isOnlineOnly: false })),
+            });
+        }
+        return chips;
+    }, [
+        filters.searchQuery,
+        filters.selectedSubject,
+        filters.selectedCity,
+        filters.selectedRating,
+        filters.isOnlineOnly,
+    ]);
+
     const clearFilters = useCallback(() => {
         setFilters(defaultFilters);
     }, []);
@@ -118,6 +182,8 @@ export function useTeacherFilters(teachers: Teacher[]) {
         filteredTeachers,
         sortedTeachers,
         hasActiveFilters,
+        activeFiltersCount,
+        activeFilterChips,
         clearFilters,
     };
 }

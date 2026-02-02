@@ -21,7 +21,11 @@ export function TeacherResultsBar({
     const showTotal = totalCount > 0 && filteredCount !== totalCount;
 
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
+        <div
+            className="sticky top-16 z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-5 sm:mb-6 py-3 -mx-1 px-1 rounded-xl bg-gradient-to-b from-slate-50 to-white/95 backdrop-blur-sm border-b border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+            role="region"
+            aria-label="Резултати и сортиране"
+        >
             <p className="text-sm font-medium text-slate-600 flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center min-h-[32px] px-3 py-1 rounded-lg bg-purple-50 text-purple-700 font-semibold">
                     {filteredCount}

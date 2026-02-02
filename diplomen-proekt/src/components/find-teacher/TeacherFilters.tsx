@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TEACHER_SUBJECTS, RATING_FILTER_OPTIONS, TEACHER_CITIES } from "../../constants/teachers";
+import type { ActiveFilterChip } from "../../hooks/useTeacherFilters";
 
 interface TeacherFiltersProps {
     searchQuery: string;
@@ -13,6 +14,8 @@ interface TeacherFiltersProps {
     isOnlineOnly: boolean;
     onOnlineOnlyChange: (value: boolean) => void;
     hasActiveFilters: boolean;
+    activeFiltersCount: number;
+    activeFilterChips: ActiveFilterChip[];
     onClearFilters: () => void;
 }
 
@@ -69,6 +72,8 @@ export function TeacherFilters({
     isOnlineOnly,
     onOnlineOnlyChange,
     hasActiveFilters,
+    activeFiltersCount,
+    activeFilterChips,
     onClearFilters,
 }: TeacherFiltersProps) {
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -112,6 +117,33 @@ export function TeacherFilters({
                 </div>
             </div>
 
+            {/* active filter chips */}
+            {activeFilterChips.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {activeFilterChips.map((chip) => (
+                        <span
+                            key={chip.key}
+                            className="inline-flex items-center gap-1.5 min-h-[32px] pl-3 pr-1.5 py-1.5 rounded-lg bg-purple-100 text-purple-800 text-sm font-medium"
+                        >
+                            <span className="max-w-[180px] truncate" title={chip.label}>
+                                {chip.label}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={chip.onRemove}
+                                className="flex-shrink-0 p-1 rounded-md hover:bg-purple-200/80 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+                                aria-label={`Премахни филтър: ${chip.label}`}
+                            >
+                                <span className="sr-only">Премахни</span>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
             {/* filters */}
             <div className="rounded-2xl border border-slate-200 bg-slate-50/80 sm:bg-slate-50/90 shadow-sm overflow-hidden">
                 {/* toggle filters on mobile */}
@@ -122,7 +154,14 @@ export function TeacherFilters({
                     aria-expanded={filtersOpen}
                     aria-controls="teacher-filters-panel"
                 >
-                    <span>Филтри</span>
+                    <span>
+                        Филтри
+                        {activeFiltersCount > 0 && (
+                            <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-purple-200 text-purple-800 text-xs font-semibold">
+                                {activeFiltersCount}
+                            </span>
+                        )}
+                    </span>
                     <svg
                         className={`w-5 h-5 text-slate-500 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
                         fill="none"

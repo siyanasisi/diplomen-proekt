@@ -23,6 +23,8 @@ export const FindTeacher = () => {
         filteredTeachers,
         sortedTeachers,
         hasActiveFilters,
+        activeFiltersCount,
+        activeFilterChips,
         clearFilters,
     } = useTeacherFilters(teachers);
 
@@ -55,6 +57,8 @@ export const FindTeacher = () => {
                     isOnlineOnly={filters.isOnlineOnly}
                     onOnlineOnlyChange={setIsOnlineOnly}
                     hasActiveFilters={hasActiveFilters}
+                    activeFiltersCount={activeFiltersCount}
+                    activeFilterChips={activeFilterChips}
                     onClearFilters={clearFilters}
                 />
 
