@@ -3,8 +3,10 @@ import { supabase, ensureValidSession } from "../supabase-client";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import type { Message, Conversation, ChatRole } from "../types/chat";
 import { getMyMessagesColumn, getOtherUserId, isUnreadForMe } from "../types/chat";
+import { useToast } from "../context/ToastContext";
 
 export function useConversations(user: { id: string } | null, role: string | null) {
+    const showToast = useToast();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
     const [loadingConversations, setLoadingConversations] = useState(true);
@@ -36,8 +38,9 @@ export function useConversations(user: { id: string } | null, role: string | nul
             const { data, error } = messagesRes;
 
             if (error) {
-                console.error("Error loading conversations:", error);
+                console.error("[useConversations] Error loading conversations:", error);
                 setConversations([]);
+                if (!silent) showToast("Разговорите не можаха да се заредят. Моля, опитайте отново.");
                 setLoadingConversations(false);
                 return;
             }
@@ -151,12 +154,13 @@ export function useConversations(user: { id: string } | null, role: string | nul
                 return convs[0];
             });
         } catch (error) {
-            console.error("Failed to load conversations:", error);
+            console.error("[useConversations] Failed to load conversations:", error);
             setConversations([]);
+            if (!silent) showToast("Разговорите не можаха да се заредят. Моля, опитайте отново.");
         } finally {
             if (!silent) setLoadingConversations(false);
         }
-    }, [user, role]);
+    }, [user, role, showToast]);
 
     useEffect(() => {
         if (!selectedConv || !role) return;

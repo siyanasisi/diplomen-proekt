@@ -124,7 +124,8 @@ export function MessageList(props: MessageListProps) {
                                         await navigator.clipboard.writeText(msg.message ?? "");
                                         showToast("Копирано");
                                         setMessageMenuOpenId(null);
-                                    } catch {
+                                    } catch (err) {
+                                        console.error("[MessageList] Copy failed:", err);
                                         showToast("Копирането не успя.");
                                     }
                                 }}

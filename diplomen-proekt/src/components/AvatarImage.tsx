@@ -8,7 +8,8 @@ function getStoragePathFromPublicUrl(url: string): string | null {
     if (!url.includes(BUCKET + "/")) return null;
     const after = url.split(BUCKET + "/")[1];
     return after?.split("?")[0] ?? null;
-  } catch {
+  } catch (err) {
+    console.error("[AvatarImage] getStoragePathFromPublicUrl:", err);
     return null;
   }
 }
@@ -31,9 +32,19 @@ export function AvatarImage({ url, fallback, className, imgClassName, alt = "" }
   const trySignedUrl = useCallback(async (originalUrl: string) => {
     const path = getStoragePathFromPublicUrl(originalUrl);
     if (!path) return;
-    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
-    if (data?.signedUrl) setSignedUrl(data.signedUrl);
-    else setFailed(true);
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+      if (error) {
+        console.error("[AvatarImage] createSignedUrl failed:", error);
+        setFailed(true);
+        return;
+      }
+      if (data?.signedUrl) setSignedUrl(data.signedUrl);
+      else setFailed(true);
+    } catch (err) {
+      console.error("[AvatarImage] trySignedUrl:", err);
+      setFailed(true);
+    }
   }, []);
 
   const handleError = useCallback(() => {

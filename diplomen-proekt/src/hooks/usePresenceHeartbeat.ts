@@ -20,7 +20,8 @@ export function usePresenceHeartbeat(userId: string | null) {
                         is_online: true,
                     })
                     .eq("id", userId);
-            } catch {
+            } catch (err) {
+                console.error("[usePresenceHeartbeat] Failed to update presence:", err);
             }
         };
 
@@ -32,7 +33,14 @@ export function usePresenceHeartbeat(userId: string | null) {
             if (document.visibilityState === "visible") {
                 tick();
             } else {
-                supabase.from("profiles").update({ is_online: false }).eq("id", userId).then(() => {}).catch(() => {});
+                void supabase
+                    .from("profiles")
+                    .update({ is_online: false })
+                    .eq("id", userId)
+                    .then(
+                        () => {},
+                        (err: unknown) => console.error("[usePresenceHeartbeat] Failed to set is_online false:", err)
+                    );
             }
         };
         document.addEventListener("visibilitychange", onVisibility);

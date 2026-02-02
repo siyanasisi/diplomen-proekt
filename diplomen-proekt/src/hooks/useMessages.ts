@@ -53,7 +53,7 @@ export function useMessages(
                 if (loadingForRef.current !== otherUserId) return;
 
                 if (error) {
-                    console.error("Error loading messages:", error);
+                    console.error("[useMessages] Error loading messages:", error);
                     setMessages([]);
                     setMessagesLoadError(true);
                     showToast("Съобщенията не можаха да се заредят.");
@@ -71,7 +71,8 @@ export function useMessages(
                             .eq("user_id", user.id)
                             .in("message_id", msgIds);
                         hiddenIds = (hiddenData ?? []).map((r: { message_id: string }) => r.message_id);
-                    } catch {
+                    } catch (err) {
+                        console.error("[useMessages] Failed to load hidden message ids:", err);
                     }
                 }
                 const visible = raw.filter((m) => !hiddenIds.includes(m.id));
@@ -102,12 +103,12 @@ export function useMessages(
                             setMessages((prev) => prev.map((m) => (unreadIds.includes(m.id) ? { ...m, ...readUpdate } : m)));
                         });
                     } else if (updateError) {
-                        console.error("Failed to mark messages as read:", updateError);
+                        console.error("[useMessages] Failed to mark messages as read:", updateError);
                     }
                 }
                 window.dispatchEvent(new CustomEvent("chat-unread-updated"));
             } catch (error) {
-                console.error("Failed to load messages:", error);
+                console.error("[useMessages] Failed to load messages:", error);
                 setMessages([]);
                 setMessagesLoadError(true);
                 showToast("Съобщенията не можаха да се заредят.");
@@ -160,7 +161,8 @@ export function useMessages(
                         .eq("user_id", user.id)
                         .in("message_id", olderIds);
                     hiddenOlderIds = (hiddenData ?? []).map((r: { message_id: string }) => r.message_id);
-                } catch {
+                } catch (err) {
+                    console.error("[useMessages] Failed to load hidden ids for older messages:", err);
                 }
             }
             const olderVisible = raw.filter((m) => !hiddenOlderIds.includes(m.id));
@@ -173,7 +175,8 @@ export function useMessages(
             } else {
                 setHasMoreOlderMessages(false);
             }
-        } catch {
+        } catch (err) {
+            console.error("[useMessages] Failed to load older messages:", err);
             setOlderMessagesLoadError(true);
             showToast("По-старите съобщения не можаха да се заредят.");
         } finally {

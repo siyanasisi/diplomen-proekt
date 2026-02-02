@@ -87,7 +87,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               last_seen_at: new Date().toISOString(),
               is_online: true,
            }).eq('id', user.id);
-        } catch {
+        } catch (err) {
+           console.error("[AuthContext] Failed to update presence on login:", err);
         }
      })();
    }, [user?.id, loadProfile]);
@@ -98,11 +99,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
      if (user?.id) {
         try {
            await supabase.from('profiles').update({ is_online: false }).eq('id', user.id);
-        } catch {
+        } catch (err) {
+           console.error("[AuthContext] Failed to set is_online false on sign out:", err);
         }
      }
      const { error } = await supabase.auth.signOut();
-     if (error) console.error('Error signing out:', error);
+     if (error) console.error("[AuthContext] Error signing out:", error);
      else {
         setUser(null);
         setRole(null);

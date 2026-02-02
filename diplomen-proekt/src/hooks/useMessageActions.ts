@@ -44,8 +44,9 @@ export function useMessageActions(
             setEditingMessageId(null);
             setEditingDraft("");
             showToast("Редакцията е запазена.");
-        } catch {
-            showToast("Грешка при запазване.");
+        } catch (err: unknown) {
+            console.error("[useMessageActions] Failed to save edit:", err);
+            showToast(err instanceof Error ? `Грешка при запазване: ${err.message}` : "Грешка при запазване.");
         }
     }, [editingMessageId, editingDraft, setMessages, showToast]);
 
@@ -93,8 +94,9 @@ export function useMessageActions(
                     setMessages((prev) => prev.filter((m) => m.id !== msg.id));
                     showToast("Съобщението е скрито за вас.");
                 }
-            } catch {
-                showToast("Грешка при изтриване.");
+            } catch (err: unknown) {
+                console.error("[useMessageActions] Failed to delete message:", err);
+                showToast(err instanceof Error ? `Грешка при изтриване: ${err.message}` : "Грешка при изтриване.");
             }
         },
         [setMessages, loadConversations, showToast, userId]

@@ -45,7 +45,8 @@ export default function Login() {
         };
         setTimeout(checkSession, 100);
       }
-    } catch {
+    } catch (err) {
+      console.error("[Login] signIn error:", err);
       setMessage('Нещо се обърка!');
       setMessageType('error');
       showToast('Нещо се обърка!');
