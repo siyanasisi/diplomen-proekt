@@ -1,6 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Teacher, TeacherSortOption } from "../types/teacher";
 import { RATING_FILTER_OPTIONS } from "../constants/teachers";
+import { useDebounce } from "./useDebounce";
+
+const SEARCH_DEBOUNCE_MS = 280;
 
 export interface ActiveFilterChip {
     key: string;
@@ -72,10 +75,19 @@ function sortTeachers(list: Teacher[], sortBy: TeacherSortOption): Teacher[] {
 
 export function useTeacherFilters(teachers: Teacher[]) {
     const [filters, setFilters] = useState<TeacherFiltersState>(defaultFilters);
+    const debouncedSearchQuery = useDebounce(filters.searchQuery, SEARCH_DEBOUNCE_MS);
+    // when the field is cleared we immediately use "" without waiting for debounce
+    const effectiveSearchQuery =
+        filters.searchQuery === "" ? "" : debouncedSearchQuery;
+
+    const filtersForFiltering = useMemo(
+        () => ({ ...filters, searchQuery: effectiveSearchQuery }),
+        [filters, effectiveSearchQuery]
+    );
 
     const filteredTeachers = useMemo(
-        () => filterTeachers(teachers, filters),
-        [teachers, filters]
+        () => filterTeachers(teachers, filtersForFiltering),
+        [teachers, filtersForFiltering]
     );
 
     const sortedTeachers = useMemo(
@@ -84,7 +96,7 @@ export function useTeacherFilters(teachers: Teacher[]) {
     );
 
     const hasActiveFilters = Boolean(
-        filters.searchQuery ||
+        effectiveSearchQuery ||
         filters.selectedSubject ||
         filters.selectedCity ||
         filters.selectedRating > 0 ||
@@ -93,20 +105,20 @@ export function useTeacherFilters(teachers: Teacher[]) {
 
     const activeFiltersCount = useMemo(() => {
         let n = 0;
-        if (filters.searchQuery) n++;
+        if (effectiveSearchQuery) n++;
         if (filters.selectedSubject) n++;
         if (filters.selectedCity) n++;
         if (filters.selectedRating > 0) n++;
         if (filters.isOnlineOnly) n++;
         return n;
-    }, [filters.searchQuery, filters.selectedSubject, filters.selectedCity, filters.selectedRating, filters.isOnlineOnly]);
+    }, [effectiveSearchQuery, filters.selectedSubject, filters.selectedCity, filters.selectedRating, filters.isOnlineOnly]);
 
     const activeFilterChips = useMemo((): ActiveFilterChip[] => {
         const chips: ActiveFilterChip[] = [];
-        if (filters.searchQuery) {
+        if (effectiveSearchQuery) {
             chips.push({
                 key: "search",
-                label: filters.searchQuery,
+                label: effectiveSearchQuery,
                 onRemove: () => setFilters((prev) => ({ ...prev, searchQuery: "" })),
             });
         }
@@ -141,7 +153,7 @@ export function useTeacherFilters(teachers: Teacher[]) {
         }
         return chips;
     }, [
-        filters.searchQuery,
+        effectiveSearchQuery,
         filters.selectedSubject,
         filters.selectedCity,
         filters.selectedRating,
