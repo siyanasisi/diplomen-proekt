@@ -309,6 +309,8 @@ nav[aria-label="Main navigation"]::-webkit-scrollbar {
 }
 
 .chat-header-bar {
+  position: relative;
+  z-index: 30;
   background: #ffffff;
   border-bottom: 1px solid rgba(147, 51, 234, 0.12);
 }
@@ -342,6 +344,7 @@ nav[aria-label="Main navigation"]::-webkit-scrollbar {
 }
 
 .chat-header-more-dropdown {
+  z-index: 50;
   animation: chat-dropdown-in 0.15s ease-out;
 }
 

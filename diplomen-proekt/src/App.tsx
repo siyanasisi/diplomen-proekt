@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
+import { usePresenceHeartbeat } from './hooks/usePresenceHeartbeat'
 import { Home } from './pages/Home'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
@@ -10,7 +12,10 @@ import { Chat } from './pages/Chat'
 import { Navbar } from './components/Navbar'
 
 
-function App() { 
+function App() {
+  const { user } = useAuth()
+  usePresenceHeartbeat(user?.id ?? null)
+
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />

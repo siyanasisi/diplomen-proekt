@@ -1,6 +1,6 @@
 import { AvatarImage } from "../AvatarImage";
 import type { Conversation } from "../../types/chat";
-import { getDisplayName } from "../../types/chat";
+import { getDisplayName, isConversationUserOnline, formatLastSeen } from "../../types/chat";
 
 interface ChatHeaderProps {
     selectedConv: Conversation;
@@ -29,6 +29,8 @@ export function ChatHeader({
     onOpenBlock,
     onOpenDeleteChat,
 }: ChatHeaderProps) {
+    const isOnline = isConversationUserOnline(selectedConv);
+    const statusLabel = isOnline ? "Онлайн" : `Последна активност: ${formatLastSeen(selectedConv.otherUserLastSeenAt ?? null)}`;
     return (
         <header className="chat-header-bar flex-none px-4 py-3 flex items-center gap-3 min-h-[56px]">
             <button
@@ -51,13 +53,19 @@ export function ChatHeader({
                     }
                     imgClassName="chat-header-avatar w-9 h-9 rounded-full object-cover"
                 />
-                <span className="chat-header-status-dot absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-white" title="Онлайн" />
+                <span
+                    className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-white ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`}
+                    title={statusLabel}
+                    aria-hidden
+                />
             </div>
             <div className="flex-1 min-w-0">
                 <h2 className="text-[15px] font-semibold text-slate-900 truncate">
                     {getDisplayName(selectedConv)}
                 </h2>
-                <p className="text-[12px] text-slate-500 truncate mt-0.5">Онлайн</p>
+                <p className="text-[12px] text-slate-500 truncate mt-0.5" title={statusLabel}>
+                    {statusLabel}
+                </p>
             </div>
             <div className="flex items-center gap-2 shrink-0 mr-6">
                 <button

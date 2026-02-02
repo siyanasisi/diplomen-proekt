@@ -56,6 +56,7 @@ export function useConversations(user: { id: string } | null, role: string | nul
 
             const allOtherUserIds = Array.from(groups.keys());
             const userNamesMap = new Map<string, { name: string; email?: string; avatarUrl?: string }>();
+            const presenceMap = new Map<string, { last_seen_at: string | null; is_online: boolean }>();
             const defaultName = role === "student" ? "Учител" : "Ученик";
 
             if (allOtherUserIds.length > 0) {
@@ -64,7 +65,7 @@ export function useConversations(user: { id: string } | null, role: string | nul
                         role === "student"
                             ? supabase.from("teacher_profiles").select("user_id, full_name, email, profile_picture").in("user_id", allOtherUserIds)
                             : Promise.resolve({ data: [] as { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }[] }),
-                        supabase.from("profiles").select("id, first_name, last_name, email, avatar_url").in("id", allOtherUserIds),
+                        supabase.from("profiles").select("id, first_name, last_name, email, avatar_url, last_seen_at, is_online").in("id", allOtherUserIds),
                     ]);
 
                     (teacherRes.data ?? []).forEach((t: { user_id: string; full_name?: string | null; email?: string | null; profile_picture?: string | null }) => {
@@ -76,23 +77,26 @@ export function useConversations(user: { id: string } | null, role: string | nul
                             });
                     });
 
-                    const profileRows = profilesRes.data ?? [];
+                    type ProfileRow = { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null; last_seen_at?: string | null; is_online?: boolean };
+                    const profileRows = (profilesRes.data ?? []) as ProfileRow[];
                     if (profilesRes.error && profileRows.length === 0) {
-                        const fallback = await supabase.from("profiles").select("id, first_name, last_name, email").in("id", allOtherUserIds);
-                        (fallback.data ?? []).forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null }) => {
+                        const fallback = await supabase.from("profiles").select("id, first_name, last_name, email, last_seen_at, is_online").in("id", allOtherUserIds);
+                        (fallback.data ?? []).forEach((row: ProfileRow) => {
                             if (row?.id) {
                                 const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
                                 const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
                                 userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl: undefined });
+                                presenceMap.set(row.id, { last_seen_at: row.last_seen_at ?? null, is_online: !!row.is_online });
                             }
                         });
                     } else {
-                        profileRows.forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }) => {
+                        profileRows.forEach((row: ProfileRow) => {
                             if (row?.id) {
                                 const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
                                 const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
                                 const avatarUrl = row.avatar_url ?? undefined;
                                 if (!userNamesMap.has(row.id)) userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl });
+                                presenceMap.set(row.id, { last_seen_at: row.last_seen_at ?? null, is_online: !!row.is_online });
                             }
                         });
                     }
@@ -101,14 +105,15 @@ export function useConversations(user: { id: string } | null, role: string | nul
                     if (stillMissing.length > 0) {
                         const { data: missingData } = await supabase
                             .from("profiles")
-                            .select("id, first_name, last_name, email, avatar_url")
+                            .select("id, first_name, last_name, email, avatar_url, last_seen_at, is_online")
                             .in("id", stillMissing);
-                        (missingData ?? []).forEach((row: { id: string; first_name?: string | null; last_name?: string | null; email?: string | null; avatar_url?: string | null }) => {
+                        (missingData ?? []).forEach((row: ProfileRow) => {
                             if (row?.id) {
                                 const fromParts = `${row.first_name || ""} ${row.last_name || ""}`.trim();
                                 const name = fromParts || (row.email?.split("@")[0] ?? null) || defaultName;
                                 const avatarUrl = row.avatar_url ?? undefined;
                                 userNamesMap.set(row.id, { name, email: row.email ?? undefined, avatarUrl });
+                                presenceMap.set(row.id, { last_seen_at: row.last_seen_at ?? null, is_online: !!row.is_online });
                             }
                         });
                     }
@@ -125,6 +130,7 @@ export function useConversations(user: { id: string } | null, role: string | nul
                 const lastMsg = nonDeleted[nonDeleted.length - 1] ?? msgs[msgs.length - 1];
                 const unreadCount = msgs.filter((m) => !m.deleted_at && isUnreadForMe(m, role as ChatRole)).length;
                 const userInfo = userNamesMap.get(otherUserId) || { name: defaultName, email: undefined, avatarUrl: undefined };
+                const presence = presenceMap.get(otherUserId);
                 convs.push({
                     otherUserId,
                     otherUserName: userInfo.name,
@@ -133,6 +139,8 @@ export function useConversations(user: { id: string } | null, role: string | nul
                     lastMessage: lastMsg?.deleted_at ? "Съобщението е изтрито" : (lastMsg?.message?.trim() || (lastMsg?.attachment_url ? "📎 Прикачен файл" : "")),
                     lastTime: lastMsg?.created_at ?? "",
                     unreadCount,
+                    otherUserLastSeenAt: presence?.last_seen_at ?? null,
+                    otherUserIsOnline: presence?.is_online ?? false,
                 });
             }
             convs.sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());

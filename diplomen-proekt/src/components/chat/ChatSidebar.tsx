@@ -2,7 +2,7 @@
 
 import { AvatarImage } from "../AvatarImage";
 import type { Conversation } from "../../types/chat";
-import { getDisplayName, formatDateShort } from "../../types/chat";
+import { getDisplayName, formatDateShort, isConversationUserOnline } from "../../types/chat";
 
 interface ChatSidebarProps {
     conversations: Conversation[];
@@ -115,6 +115,7 @@ export function ChatSidebar({
                         {filteredConversations.map((conv) => {
                             const isActive = selectedConv?.otherUserId === conv.otherUserId;
                             const hasUnread = conv.unreadCount > 0;
+                            const isOnline = isConversationUserOnline(conv);
                             return (
                                 <button
                                     key={conv.otherUserId}
@@ -130,6 +131,11 @@ export function ChatSidebar({
                                                 </div>
                                             }
                                             imgClassName="chat-avatar w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover"
+                                        />
+                                        <span
+                                            className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`}
+                                            title={isOnline ? "Онлайн" : "Офлайн"}
+                                            aria-hidden
                                         />
                                         {hasUnread && conv.unreadCount === 1 && (
                                             <span className="chat-unread-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full" title="1 непрочетено" />

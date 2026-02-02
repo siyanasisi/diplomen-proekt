@@ -81,13 +81,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
      }
      loadProfile();
+     (async () => {
+        try {
+           await supabase.from('profiles').update({
+              last_seen_at: new Date().toISOString(),
+              is_online: true,
+           }).eq('id', user.id);
+        } catch {
+        }
+     })();
    }, [user?.id, loadProfile]);
 
    const refreshProfile = useCallback(() => loadProfile(), [loadProfile]);
 
    const signOut = async () => {
-     const { error } = await supabase.auth.signOut()
-     if (error) console.error('Error signing out:', error)
+     if (user?.id) {
+        try {
+           await supabase.from('profiles').update({ is_online: false }).eq('id', user.id);
+        } catch {
+        }
+     }
+     const { error } = await supabase.auth.signOut();
+     if (error) console.error('Error signing out:', error);
      else {
         setUser(null);
         setRole(null);

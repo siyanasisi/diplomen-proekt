@@ -205,11 +205,15 @@ export function useChat() {
     }, [scrollToBottom, setShowScrollFAB]);
 
     useEffect(() => {
+        if (!chatHeaderMoreOpen) return;
         const handleClickOutside = (e: MouseEvent) => {
             if (chatHeaderMoreRef.current && !chatHeaderMoreRef.current.contains(e.target as Node)) setChatHeaderMoreOpen(false);
         };
-        if (chatHeaderMoreOpen) document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        const id = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 0);
+        return () => {
+            clearTimeout(id);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
     }, [chatHeaderMoreOpen]);
 
     useEffect(() => {

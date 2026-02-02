@@ -36,6 +36,8 @@ export interface Conversation {
     lastMessage: string;
     lastTime: string;
     unreadCount: number;
+    otherUserLastSeenAt?: string | null;
+    otherUserIsOnline?: boolean;
 }
 
 export type ChatRole = "student" | "teacher";
@@ -232,6 +234,33 @@ export function formatFullDate(iso: string): string {
         hour: "2-digit",
         minute: "2-digit",
     });
+}
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+
+
+export function isConversationUserOnline(conv: Conversation): boolean {
+    if (conv.otherUserLastSeenAt) {
+        const seen = new Date(conv.otherUserLastSeenAt).getTime();
+        return Date.now() - seen < ONLINE_THRESHOLD_MS;
+    }
+    return conv.otherUserIsOnline === true;
+}
+
+export function formatLastSeen(iso: string | null | undefined): string {
+    if (!iso) return "Никога";
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMin < 1) return "Току-що";
+    if (diffMin < 60) return `Преди ${diffMin} мин.`;
+    if (diffHours < 24) return `Преди ${diffHours} ч.`;
+    if (diffDays === 1) return "Вчера";
+    if (diffDays < 7) return `Преди ${diffDays} дни`;
+    return d.toLocaleDateString("bg-BG", { day: "numeric", month: "short" });
 }
 
 // emojis for quick access
