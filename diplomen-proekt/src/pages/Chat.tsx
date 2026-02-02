@@ -41,6 +41,10 @@ export const Chat = () => {
         setAttachmentFile,
         emojiPickerOpen,
         setEmojiPickerOpen,
+        replyingTo,
+        setReplyingTo,
+        reactionsMap,
+        toggleReaction,
         fileInputRef,
         emojiPickerRef,
         inputRef,
@@ -118,6 +122,7 @@ export const Chat = () => {
                             onConfirmBlock={handleBlockUser}
                             onConfirmDeleteChat={handleDeleteChat}
                             onConfirmDeleteMessage={handleDeleteMessage}
+                            role={role}
                         />
 
                         {chatHeaderInfoOpen && (
@@ -159,6 +164,9 @@ export const Chat = () => {
                                 setDeleteMessageConfirm={setDeleteMessageConfirm}
                                 handleRetrySend={handleRetrySend}
                                 showScrollFAB={showScrollFAB}
+                                setReplyingTo={setReplyingTo}
+                                reactionsMap={reactionsMap}
+                                toggleReaction={toggleReaction}
                                 handleScrollToBottomClick={handleScrollToBottomClick}
                             />
                             </ChatErrorBoundary>
@@ -172,6 +180,8 @@ export const Chat = () => {
                             setAttachmentFile={setAttachmentFile}
                             emojiPickerOpen={emojiPickerOpen}
                             setEmojiPickerOpen={setEmojiPickerOpen}
+                            replyingTo={replyingTo}
+                            setReplyingTo={setReplyingTo}
                             fileInputRef={fileInputRef}
                             emojiPickerRef={emojiPickerRef}
                             inputRef={inputRef}

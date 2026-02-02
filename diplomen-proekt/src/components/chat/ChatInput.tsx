@@ -1,5 +1,6 @@
 // text input, attach file, emoji picker, send button
 
+import type { Message } from "../../types/chat";
 import { formatFileNameForDisplay, MAX_ATTACHMENT_SIZE_BYTES, EMOJI_LIST } from "../../types/chat";
 
 interface ChatInputProps {
@@ -10,6 +11,8 @@ interface ChatInputProps {
     setAttachmentFile: (f: File | null) => void;
     emojiPickerOpen: boolean;
     setEmojiPickerOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
+    replyingTo: Message | null;
+    setReplyingTo: (m: Message | null) => void;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
     emojiPickerRef: React.RefObject<HTMLDivElement | null>;
     inputRef: React.RefObject<HTMLInputElement | null>;
@@ -28,6 +31,8 @@ export function ChatInput({
     setAttachmentFile,
     emojiPickerOpen,
     setEmojiPickerOpen,
+    replyingTo,
+    setReplyingTo,
     fileInputRef,
     emojiPickerRef,
     inputRef,
@@ -50,6 +55,23 @@ export function ChatInput({
                     onChange={handleFileChange}
                     aria-hidden
                 />
+                {replyingTo && (
+                    <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-slate-100 border border-slate-200">
+                        <p className="text-[13px] text-slate-600 truncate flex-1">
+                            <span className="font-medium text-slate-700">Отговор на:</span> {replyingTo.message?.trim() || "Прикачен файл"}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setReplyingTo(null)}
+                            className="shrink-0 p-1 rounded text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                            aria-label="Отмени отговора"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
                 <div className="chat-input-row flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200">
                     <button
                         type="button"

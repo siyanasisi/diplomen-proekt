@@ -1,6 +1,6 @@
-import { memo } from "react";
-import type { Message, ChatRole } from "../../types/chat";
-import { getReadAtForMyMessage, formatTime, formatFullDate } from "../../types/chat";
+import { memo, useState } from "react";
+import type { Message, ChatRole, MessageReaction } from "../../types/chat";
+import { getReadAtForMyMessage, formatTime, formatFullDate, REACTION_EMOJIS } from "../../types/chat";
 import { isFromMe } from "../../types/chat";
 
 function linkifyText(text: string): React.ReactNode {
@@ -58,6 +58,7 @@ function MessageStatus({ message, role }: { message: Message; role: ChatRole }) 
 
 export interface MessageBubbleProps {
     message: Message;
+    allMessages?: Message[];
     isMine: boolean;
     isLast: boolean;
     role: ChatRole;
@@ -69,7 +70,10 @@ export interface MessageBubbleProps {
     onEditCancel: () => void;
     onDeleteClick: () => void;
     onRetrySend: () => void;
+    onReplyClick?: () => void;
     onCopyText: () => void;
+    reactions?: MessageReaction[];
+    toggleReaction?: (messageId: string, emoji: string) => Promise<boolean>;
     messageMenuOpenId: string | null;
     setMessageMenuOpenId: (id: string | null) => void;
     messageMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -77,6 +81,7 @@ export interface MessageBubbleProps {
 
 function MessageBubbleInner({
     message,
+    allMessages = [],
     isMine,
     isLast,
     role,
@@ -88,14 +93,19 @@ function MessageBubbleInner({
     onEditCancel,
     onDeleteClick,
     onRetrySend,
+    onReplyClick,
     onCopyText,
+    reactions = [],
+    toggleReaction,
     messageMenuOpenId,
     setMessageMenuOpenId,
     messageMenuRef,
 }: MessageBubbleProps) {
+    const [showReactions, setShowReactions] = useState(false);
     const isDeleted = !!message.deleted_at;
-    const showMenu = isMine && !isDeleted && !isEditing && !message.optimistic && !message.sendFailed;
+    const showMenu = !isDeleted && !isEditing && !message.optimistic && !message.sendFailed;
     const isMenuOpen = messageMenuOpenId === message.id;
+    const replyToMsg = message.reply_to ?? (message.reply_to_id ? allMessages.find((m) => m.id === message.reply_to_id) : null);
 
     return (
         <div
@@ -119,16 +129,30 @@ function MessageBubbleInner({
                     </button>
                     {isMenuOpen && (
                         <div className="absolute right-full top-0 mr-1 py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-                            <button
-                                type="button"
-                                onClick={onEditStart}
-                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Редактирай
-                            </button>
+                            {onReplyClick && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setMessageMenuOpenId(null); onReplyClick(); }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                    </svg>
+                                    Отговори
+                                </button>
+                            )}
+                            {isMine && (
+                                <button
+                                    type="button"
+                                    onClick={onEditStart}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Редактирай
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={onCopyText}
@@ -154,7 +178,7 @@ function MessageBubbleInner({
                 </div>
             )}
             <div
-                className={`shrink-0 max-w-full px-5 py-4 text-[17px] leading-[1.5] relative ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
+                className={`shrink-0 max-w-full px-5 py-3.5 text-[16px] leading-[1.5] relative ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
             >
                 {isDeleted ? (
                     <p className="text-[15px] italic opacity-80">Съобщението е изтрито</p>
@@ -178,6 +202,13 @@ function MessageBubbleInner({
                     </div>
                 ) : (
                     <>
+                        {replyToMsg && (
+                            <div className={`mb-2.5 pl-3 py-2 border-l-2 rounded-r-md ${isMine ? "border-white/45 bg-white/12" : "border-slate-300 bg-slate-50"}`}>
+                                <p className="text-[12px] font-medium opacity-90 truncate max-w-[220px] text-inherit">
+                                    {replyToMsg.message?.trim() || "Прикачен файл"}
+                                </p>
+                            </div>
+                        )}
                         {message.message ? (
                             <p className="whitespace-pre-wrap break-words">{linkifyText(message.message)}</p>
                         ) : null}
@@ -214,10 +245,70 @@ function MessageBubbleInner({
                                 )}
                             </div>
                         )}
+                        {reactions.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {Object.entries(
+                                    reactions.reduce<Record<string, number>>((acc, r) => {
+                                        acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+                                        return acc;
+                                    }, {})
+                                ).map(([emoji, count]) => (
+                                    <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => toggleReaction?.(message.id, emoji)}
+                                        className={`inline-flex items-center gap-1 min-w-[2rem] justify-center ${isMine ? "chat-reaction-chip-mine" : "chat-reaction-chip-other"}`}
+                                    >
+                                        <span className="text-[15px] leading-none">{emoji}</span>
+                                        {count > 1 && (
+                                            <span className={`text-[11px] font-medium tabular-nums ${isMine ? "text-white/90" : "text-slate-500"}`}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {toggleReaction && (
+                            <div className="relative mt-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReactions((v) => !v)}
+                                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isMine ? "text-white/85 hover:bg-white/18" : "text-slate-500 hover:bg-slate-100/80"}`}
+                                    aria-label="Добави реакция"
+                                >
+                                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="9" />
+                                        <path d="M8 10h.01M16 10h.01M9.5 14.5a3.5 3.5 0 005 0" />
+                                    </svg>
+                                </button>
+                                {showReactions && (
+                                    <>
+                                        <div className="absolute left-0 bottom-full mb-2 py-2.5 px-3 rounded-2xl bg-white border border-slate-200 shadow-xl z-40 flex gap-1">
+                                            {REACTION_EMOJIS.map((e) => (
+                                                <button
+                                                    key={e}
+                                                    type="button"
+                                                    onClick={() => { toggleReaction(message.id, e); setShowReactions(false); }}
+                                                    className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 text-xl transition-colors active:scale-95"
+                                                >
+                                                    {e}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div
+                                            className="fixed inset-0 z-30"
+                                            aria-hidden
+                                            onClick={() => setShowReactions(false)}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
                 {isLast && !isEditing && (
-                    <div className={`mt-2.5 flex items-center justify-end gap-2 min-h-[22px] ${isMine ? "text-white/90" : "text-slate-400"}`}>
+                    <div className={`mt-2 flex items-center justify-end gap-2 min-h-[20px] ${isMine ? "text-white/88" : "text-slate-400"}`}>
                         {message.optimistic ? (
                             <span className="text-[12px] opacity-90 inline-flex items-center gap-1">
                                 <svg className="w-3.5 h-3.5 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden>
@@ -250,6 +341,11 @@ function MessageBubbleInner({
 }
 
 function arePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): boolean {
+    const prevReactions = prev.reactions ?? [];
+    const nextReactions = next.reactions ?? [];
+    const reactionsEqual =
+        prevReactions.length === nextReactions.length &&
+        prevReactions.every((r, i) => r.id === nextReactions[i]?.id);
     return (
         prev.message === next.message &&
         prev.isMine === next.isMine &&
@@ -257,7 +353,8 @@ function arePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): bool
         prev.role === next.role &&
         prev.isEditing === next.isEditing &&
         prev.editingDraft === next.editingDraft &&
-        prev.messageMenuOpenId === next.messageMenuOpenId
+        prev.messageMenuOpenId === next.messageMenuOpenId &&
+        reactionsEqual
     );
 }
 

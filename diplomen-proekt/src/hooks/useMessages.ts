@@ -61,7 +61,21 @@ export function useMessages(
                 }
 
                 const raw = (data as Message[]) || [];
-                const msgs = [...raw].reverse();
+                const msgIds = raw.map((m) => m.id);
+                let hiddenIds: string[] = [];
+                if (msgIds.length > 0) {
+                    try {
+                        const { data: hiddenData } = await supabase
+                            .from("user_hidden_messages")
+                            .select("message_id")
+                            .eq("user_id", user.id)
+                            .in("message_id", msgIds);
+                        hiddenIds = (hiddenData ?? []).map((r: { message_id: string }) => r.message_id);
+                    } catch {
+                    }
+                }
+                const visible = raw.filter((m) => !hiddenIds.includes(m.id));
+                const msgs = [...visible].reverse();
                 setMessages(msgs);
                 setHasMoreOlderMessages(raw.length === MESSAGES_PAGE_SIZE);
 
@@ -75,17 +89,14 @@ export function useMessages(
                 if (unreadIds.length > 0) {
                     const readUpdate = getReadAtUpdate(role as ChatRole, readAt);
                     const myCol = getMyMessagesColumn(role as ChatRole);
-                    console.log('[useMessages] Marking as read:', unreadIds, 'update:', readUpdate, 'myCol:', myCol, 'userId:', user.id);
-              
+
                     const { error: updateError, data: updateData } = await supabase
                         .from("messages")
                         .update(readUpdate)
                         .in("id", unreadIds)
                         .eq(myCol, user.id)
                         .select();
-                    
-                    console.log('[useMessages] Update result:', { error: updateError, dataCount: updateData?.length });
-                    
+
                     if (!updateError && updateData && updateData.length > 0) {
                         startTransition(() => {
                             setMessages((prev) => prev.map((m) => (unreadIds.includes(m.id) ? { ...m, ...readUpdate } : m)));
@@ -139,7 +150,21 @@ export function useMessages(
                 return;
             }
             const raw = (data as Message[]) || [];
-            const older = [...raw].reverse();
+            const olderIds = raw.map((m) => m.id);
+            let hiddenOlderIds: string[] = [];
+            if (olderIds.length > 0) {
+                try {
+                    const { data: hiddenData } = await supabase
+                        .from("user_hidden_messages")
+                        .select("message_id")
+                        .eq("user_id", user.id)
+                        .in("message_id", olderIds);
+                    hiddenOlderIds = (hiddenData ?? []).map((r: { message_id: string }) => r.message_id);
+                } catch {
+                }
+            }
+            const olderVisible = raw.filter((m) => !hiddenOlderIds.includes(m.id));
+            const older = [...olderVisible].reverse();
             setHasMoreOlderMessages(raw.length === MESSAGES_PAGE_SIZE);
             if (older.length > 0) {
                 pendingScrollRestoreRef.current = { oldScrollHeight, oldScrollTop };

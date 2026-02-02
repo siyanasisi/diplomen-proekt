@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { AvatarImage } from "../AvatarImage";
 import { useToast } from "../../context/ToastContext";
 import { MessageBubble } from "./MessageBubble";
-import type { Message, Conversation, ChatRole } from "../../types/chat";
+import type { Message, Conversation, ChatRole, MessageReaction } from "../../types/chat";
 import {
     getDisplayName,
     groupMessagesByDate,
@@ -37,6 +37,9 @@ interface MessageListProps {
     handleRetrySend: (msg: Message) => void;
     showScrollFAB: boolean;
     handleScrollToBottomClick: () => void;
+    setReplyingTo: (m: Message | null) => void;
+    reactionsMap: Record<string, MessageReaction[]>;
+    toggleReaction: (messageId: string, emoji: string) => Promise<boolean>;
 }
 
 export function MessageList(props: MessageListProps) {
@@ -68,6 +71,9 @@ export function MessageList(props: MessageListProps) {
         handleRetrySend,
         showScrollFAB,
         handleScrollToBottomClick,
+        setReplyingTo,
+        reactionsMap,
+        toggleReaction,
     } = props;
 
     const r = role as ChatRole;
@@ -98,6 +104,7 @@ export function MessageList(props: MessageListProps) {
                         <div key={msg.id} className={mIdx > 0 ? "mt-2.5" : ""}>
                             <MessageBubble
                                 message={msg}
+                                allMessages={messages}
                                 isMine={group.isMine}
                                 isLast={isLast}
                                 role={r}
@@ -109,6 +116,9 @@ export function MessageList(props: MessageListProps) {
                                 onEditCancel={handleEditCancel}
                                 onDeleteClick={() => { setMessageMenuOpenId(null); setDeleteMessageConfirm(msg); }}
                                 onRetrySend={() => handleRetrySend(msg)}
+                                onReplyClick={() => setReplyingTo(msg)}
+                                reactions={reactionsMap[msg.id] ?? []}
+                                toggleReaction={toggleReaction}
                                 onCopyText={async () => {
                                     try {
                                         await navigator.clipboard.writeText(msg.message ?? "");

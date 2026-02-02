@@ -16,6 +16,7 @@ export function useSendMessage(
     const [sending, setSending] = useState(false);
     const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +50,7 @@ export function useSendMessage(
                 ...buildMessagePayload(role as ChatRole, user.id, selectedConv.otherUserId),
                 message: newMessage.trim() || "",
                 ...(attachmentUrl && { attachment_url: attachmentUrl }),
+                ...(replyingTo?.id && { reply_to_id: replyingTo.id }),
             };
             const now = new Date().toISOString();
             const optimisticMsg: Message = {
@@ -62,11 +64,13 @@ export function useSendMessage(
                 read_by_teacher_at: null,
                 is_from_student: payload.is_from_student,
                 ...(attachmentUrl && { attachment_url: attachmentUrl }),
+                ...(replyingTo && { reply_to_id: replyingTo.id, reply_to: replyingTo as Message }),
                 optimistic: true,
             };
 
             setNewMessage("");
             setAttachmentFile(null);
+            setReplyingTo(null);
             setMessages((prev) => [...prev, optimisticMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
 
             await ensureValidSession();
@@ -182,6 +186,8 @@ export function useSendMessage(
         setAttachmentFile,
         emojiPickerOpen,
         setEmojiPickerOpen,
+        replyingTo,
+        setReplyingTo,
         fileInputRef,
         inputRef,
         emojiPickerRef,

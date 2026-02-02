@@ -16,6 +16,16 @@ export interface Message {
     deleted_at?: string | null;
     optimistic?: boolean;
     sendFailed?: boolean;
+    reply_to_id?: string | null;
+    reply_to?: Message | null;
+}
+
+export interface MessageReaction {
+    id: string;
+    message_id: string;
+    user_id: string;
+    emoji: string;
+    created_at: string;
 }
 
 export interface Conversation {
@@ -223,6 +233,9 @@ export function formatFullDate(iso: string): string {
         minute: "2-digit",
     });
 }
+
+// emojis for quick access
+export const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
 
 // emoji picker list
 export const EMOJI_LIST = [

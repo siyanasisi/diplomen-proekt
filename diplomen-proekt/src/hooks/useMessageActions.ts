@@ -6,7 +6,8 @@ export function useMessageActions(
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>,
     loadConversations: () => void,
     showToast: (msg: string) => void,
-    selectedConvOtherUserId: string | undefined
+    selectedConvOtherUserId: string | undefined,
+    userId: string | null
 ) {
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editingDraft, setEditingDraft] = useState("");
@@ -53,24 +54,50 @@ export function useMessageActions(
         setEditingDraft("");
     }, []);
 
+    const DELETE_FOR_EVERYONE_MINUTES = 2;
+
     const handleDeleteMessage = useCallback(
-        async (msg: Message) => {
+        async (msg: Message, mode: "for_everyone" | "for_me") => {
             setDeleteMessageConfirm(null);
             setMessageMenuOpenId(null);
             try {
-                const { error } = await supabase.from("messages").update({ deleted_at: new Date().toISOString() }).eq("id", msg.id);
-                if (error) {
-                    showToast(`Грешка при изтриване: ${error.message}`);
-                    return;
+                if (mode === "for_everyone") {
+                    const msgAge = (Date.now() - new Date(msg.created_at).getTime()) / (60 * 1000);
+                    if (msgAge > DELETE_FOR_EVERYONE_MINUTES) {
+                        showToast(`Може да изтриете за всички само в рамките на ${DELETE_FOR_EVERYONE_MINUTES} минути.`);
+                        return;
+                    }
+                    const { error } = await supabase
+                        .from("messages")
+                        .update({ deleted_at: new Date().toISOString() })
+                        .eq("id", msg.id);
+                    if (error) {
+                        showToast(`Грешка при изтриване: ${error.message}`);
+                        return;
+                    }
+                    setMessages((prev) =>
+                        prev.map((m) => (m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m))
+                    );
+                    loadConversations();
+                    showToast("Съобщението е изтрито за всички.");
+                } else {
+                    if (!userId) return;
+                    const { error } = await supabase.from("user_hidden_messages").insert({
+                        user_id: userId,
+                        message_id: msg.id,
+                    });
+                    if (error) {
+                        showToast(`Грешка при изтриване: ${error.message}`);
+                        return;
+                    }
+                    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                    showToast("Съобщението е скрито за вас.");
                 }
-                setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m)));
-                loadConversations();
-                showToast("Съобщението е изтрито.");
             } catch {
                 showToast("Грешка при изтриване.");
             }
         },
-        [setMessages, loadConversations, showToast]
+        [setMessages, loadConversations, showToast, userId]
     );
 
     useEffect(() => {

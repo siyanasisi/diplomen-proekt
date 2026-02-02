@@ -9,6 +9,7 @@ import { useMessages } from "./useMessages";
 import { useRealtime } from "./useRealtime";
 import { useSendMessage } from "./useSendMessage";
 import { useMessageActions } from "./useMessageActions";
+import { useReactions } from "./useReactions";
 
 export function useChat() {
     const { user, role, currentUserProfile } = useAuth();
@@ -59,6 +60,8 @@ export function useChat() {
         setAttachmentFile,
         emojiPickerOpen,
         setEmojiPickerOpen,
+        replyingTo,
+        setReplyingTo,
         fileInputRef,
         inputRef,
         emojiPickerRef,
@@ -70,7 +73,10 @@ export function useChat() {
         handleEmojiSelect,
     } = sendMessage;
 
-    const messageActions = useMessageActions(setMessages, loadConversations, showToast, selectedConv?.otherUserId);
+    const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
+    const { reactionsMap, toggleReaction } = useReactions(messageIds, user?.id ?? null);
+
+    const messageActions = useMessageActions(setMessages, loadConversations, showToast, selectedConv?.otherUserId, user?.id ?? null);
     const {
         editingMessageId,
         editingDraft,
@@ -217,7 +223,8 @@ export function useChat() {
     useEffect(() => {
         setAttachmentFile(null);
         setEmojiPickerOpen(false);
-    }, [selectedConv?.otherUserId, setAttachmentFile, setEmojiPickerOpen]);
+        setReplyingTo(null);
+    }, [selectedConv?.otherUserId, setAttachmentFile, setEmojiPickerOpen, setReplyingTo]);
 
     const currentUserAvatarUrl = currentUserProfile?.avatar_url ?? (user?.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ?? null;
 
@@ -251,6 +258,10 @@ export function useChat() {
         setAttachmentFile,
         emojiPickerOpen,
         setEmojiPickerOpen,
+        replyingTo,
+        setReplyingTo,
+        reactionsMap,
+        toggleReaction,
         fileInputRef,
         emojiPickerRef,
         inputRef,
