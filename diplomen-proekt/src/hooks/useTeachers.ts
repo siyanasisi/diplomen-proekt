@@ -1,0 +1,63 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase, ensureValidSession } from "../supabase-client";
+import { useToast } from "../context/ToastContext";
+import type { Teacher } from "../types/teacher";
+
+export function useTeachers(userId: string | null) {
+    const showToast = useToast();
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadTeachers = useCallback(async () => {
+        try {
+            if (userId) {
+                await ensureValidSession();
+            }
+
+            let blockedUserIds = new Set<string>();
+            if (userId) {
+                const { data: blockedData } = await supabase
+                    .from("blocked_users")
+                    .select("blocked_id")
+                    .eq("blocker_id", userId);
+                if (blockedData) {
+                    blockedUserIds = new Set(blockedData.map((r: { blocked_id: string }) => r.blocked_id));
+                }
+            }
+
+            const { data, error } = await supabase
+                .from("teacher_profiles")
+                .select("*")
+                .order("rating", { ascending: false });
+
+            if (error) {
+                console.error("[useTeachers] Error loading teachers:", error);
+                showToast("Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.");
+                setTeachers([]);
+                return;
+            }
+
+            const list = userId
+                ? (data ?? []).filter((t: Teacher) => !blockedUserIds.has(t.user_id))
+                : data ?? [];
+            setTeachers(list);
+        } catch (err) {
+            console.error("[useTeachers] Failed to load teachers:", err);
+            showToast("Списъкът с учители не можа да се зареди. Моля, опитайте отново по-късно.");
+            setTeachers([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, showToast]);
+
+    useEffect(() => {
+        loadTeachers();
+    }, [loadTeachers]);
+
+    const refresh = useCallback(() => {
+        setLoading(true);
+        loadTeachers();
+    }, [loadTeachers]);
+
+    return { teachers, loading, refresh };
+}

@@ -13,3 +13,5 @@ export interface Teacher {
     available_schedule?: string;
     email?: string;
 }
+
+export type TeacherSortOption = "rating" | "name" | "online_first";
