@@ -26,8 +26,11 @@ export function TeacherResultsBar({
             role="region"
             aria-label="Резултати и сортиране"
         >
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+                Показани {filteredCount} учители
+            </div>
             <p className="text-sm font-medium text-slate-600 flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center min-h-[32px] px-3 py-1 rounded-lg bg-purple-50 text-purple-700 font-semibold">
+                <span className="inline-flex items-center min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-0 justify-center px-3 py-1 rounded-lg bg-purple-50 text-purple-700 font-semibold">
                     {filteredCount}
                 </span>
                 <span>учители</span>
@@ -56,7 +59,7 @@ export function TeacherResultsBar({
                     type="button"
                     onClick={onRefresh}
                     disabled={refreshing}
-                    className="min-h-[44px] sm:min-h-[40px] inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="min-h-[44px] min-w-[44px] sm:min-h-[40px] sm:min-w-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none touch-manipulation"
                     aria-label="Обнови списъка"
                 >
                     <svg

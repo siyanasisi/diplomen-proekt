@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 type EmptyVariant = "no_teachers" | "no_results";
 
 interface FindTeacherEmptyProps {
@@ -52,6 +54,14 @@ export function FindTeacherEmpty({ variant, onClearFilters }: FindTeacherEmptyPr
             <p className="text-slate-600 mb-4 max-w-sm mx-auto">{config.description}</p>
             {config.hint && (
                 <p className="text-sm text-slate-500 mb-6">{config.hint}</p>
+            )}
+            {variant === "no_teachers" && (
+                <Link
+                    to="/signup"
+                    className="min-h-[44px] inline-flex items-center justify-center px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                >
+                    Регистрирайте се като учител
+                </Link>
             )}
             {config.showButton && onClearFilters && (
                 <button

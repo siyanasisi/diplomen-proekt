@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { TEACHER_SUBJECTS, RATING_FILTER_OPTIONS, TEACHER_CITIES } from "../../constants/teachers";
 import type { ActiveFilterChip } from "../../hooks/useTeacherFilters";
 
@@ -37,7 +37,7 @@ function ToggleSwitch({
     return (
         <label
             htmlFor={id}
-            className="flex items-center gap-3 cursor-pointer select-none"
+            className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] sm:min-h-0 py-1 sm:py-0 touch-manipulation"
         >
             <button
                 id={id}
@@ -45,7 +45,7 @@ function ToggleSwitch({
                 role="switch"
                 aria-checked={checked}
                 onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center ${
                     checked ? "bg-purple-600" : "bg-slate-200"
                 }`}
             >
@@ -77,6 +77,20 @@ export function TeacherFilters({
     onClearFilters,
 }: TeacherFiltersProps) {
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const firstFilterRef = useRef<HTMLSelectElement>(null);
+
+    useEffect(() => {
+        if (filtersOpen && panelRef.current && window.matchMedia("(max-width: 767px)").matches) {
+            panelRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    }, [filtersOpen]);
+
+    useEffect(() => {
+        if (filtersOpen) {
+            firstFilterRef.current?.focus({ preventScroll: true });
+        }
+    }, [filtersOpen]);
 
     return (
         <section className="mb-6 sm:mb-8" aria-label="Филтри за учители">
@@ -123,7 +137,7 @@ export function TeacherFilters({
                     {activeFilterChips.map((chip) => (
                         <span
                             key={chip.key}
-                            className="inline-flex items-center gap-1.5 min-h-[32px] pl-3 pr-1.5 py-1.5 rounded-lg bg-purple-100 text-purple-800 text-sm font-medium"
+                            className="inline-flex items-center gap-1.5 min-h-[44px] pl-3 pr-1 sm:pr-1.5 py-2 sm:py-1.5 rounded-lg bg-purple-100 text-purple-800 text-sm font-medium"
                         >
                             <span className="max-w-[180px] truncate" title={chip.label}>
                                 {chip.label}
@@ -131,7 +145,7 @@ export function TeacherFilters({
                             <button
                                 type="button"
                                 onClick={chip.onRemove}
-                                className="flex-shrink-0 p-1 rounded-md hover:bg-purple-200/80 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+                                className="flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2.5 sm:p-1 flex items-center justify-center rounded-md hover:bg-purple-200/80 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
                                 aria-label={`Премахни филтър: ${chip.label}`}
                             >
                                 <span className="sr-only">Премахни</span>
@@ -150,7 +164,7 @@ export function TeacherFilters({
                 <button
                     type="button"
                     onClick={() => setFiltersOpen((o) => !o)}
-                    className="md:hidden w-full flex items-center justify-between gap-2 min-h-[48px] px-4 py-3 text-slate-700 font-medium hover:bg-slate-100/80 transition-colors"
+                    className="md:hidden w-full flex items-center justify-between gap-2 min-h-[44px] min-w-[44px] px-4 py-3 text-slate-700 font-medium hover:bg-slate-100/80 transition-colors touch-manipulation"
                     aria-expanded={filtersOpen}
                     aria-controls="teacher-filters-panel"
                 >
@@ -174,16 +188,21 @@ export function TeacherFilters({
 
                 {/* filters panel */}
                 <div
+                    ref={panelRef}
                     id="teacher-filters-panel"
                     className={`overflow-hidden transition-all duration-200 md:max-h-none ${
                         filtersOpen ? "max-h-[1200px]" : "max-h-0"
                     }`}
                 >
-                    <div className="p-4 sm:p-5 lg:p-6">
+                    <div className="p-4 sm:p-5 lg:p-6" role="group" aria-label="Настройки на филтри">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                             <div>
-                                <label className={labelClass}>Предмет</label>
+                                <label className={labelClass} htmlFor="filter-subject">
+                                    Предмет
+                                </label>
                                 <select
+                                    ref={firstFilterRef}
+                                    id="filter-subject"
                                     value={selectedSubject}
                                     onChange={(e) => onSubjectChange(e.target.value)}
                                     className={filterInputClass}
@@ -217,8 +236,11 @@ export function TeacherFilters({
                             </div>
 
                             <div>
-                                <label className={labelClass}>Минимален рейтинг</label>
+                                <label className={labelClass} htmlFor="filter-rating">
+                                    Минимален рейтинг
+                                </label>
                                 <select
+                                    id="filter-rating"
                                     value={selectedRating}
                                     onChange={(e) => onRatingChange(Number(e.target.value))}
                                     className={filterInputClass}

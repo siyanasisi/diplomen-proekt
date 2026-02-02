@@ -61,11 +61,19 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
             className="find-teacher-card group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-400 transition-all duration-300 ease-out"
             data-testid="teacher-card"
         >
-            {/* badges row: предмет = цветен, локация = неутрален */}
+            {/* badges row */}
             <div className="px-5 pt-5 sm:px-6 sm:pt-6 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-md">
                     {teacher.subject}
                 </span>
+                {teacher.rating >= 4.5 && teacher.rating > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-md" title="Висок рейтинг">
+                        <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                        Популярен
+                    </span>
+                )}
                 {teacher.city && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-100 rounded-md">
                         <svg className="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -126,13 +134,18 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                                 </span>
                             </div>
                         ) : (
-                            <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 leading-none">
-                                <span className="shrink-0 text-amber-400" aria-hidden>
-                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                    </svg>
+                            <p className="mt-2 inline-flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 leading-none">
+                                <span className="inline-flex items-center gap-1">
+                                    <span className="shrink-0 text-amber-400" aria-hidden>
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                        </svg>
+                                    </span>
+                                    Бъди първият, който ще оцени
                                 </span>
-                                Бъди първият, който ще оцени
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-700" title="Скоро добавен профил">
+                                    Нов
+                                </span>
                             </p>
                         )}
                     </div>

@@ -7,9 +7,15 @@ export function useTeachers(userId: string | null) {
     const showToast = useToast();
     const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
-    const loadTeachers = useCallback(async () => {
+    const loadTeachers = useCallback(async (isRefresh = false) => {
         try {
+            if (isRefresh) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
+            }
             if (userId) {
                 await ensureValidSession();
             }
@@ -63,6 +69,7 @@ export function useTeachers(userId: string | null) {
             setTeachers([]);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }, [userId, showToast]);
 
@@ -71,9 +78,8 @@ export function useTeachers(userId: string | null) {
     }, [loadTeachers]);
 
     const refresh = useCallback(() => {
-        setLoading(true);
-        loadTeachers();
+        loadTeachers(true);
     }, [loadTeachers]);
 
-    return { teachers, loading, refresh };
+    return { teachers, loading, refreshing, refresh };
 }
