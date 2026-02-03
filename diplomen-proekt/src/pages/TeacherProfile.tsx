@@ -254,21 +254,7 @@ export const TeacherProfile = () => {
                 return;
             }
 
-            // add to calendar
-            const dateKey = bookingForm.date; 
-            const eventText = `Урок с ${teacher.full_name} - ${teacher.subject} в ${bookingForm.time}`;
-
-            const { error: calendarError } = await supabase
-                .from('calendar_events')
-                .insert({
-                    user_id: user.id,
-                    date: dateKey,
-                    event_text: eventText
-                });
-
-            if (calendarError) {
-                console.error('Error adding to calendar:', calendarError);
-            }
+            
 
             setSuccess(true);
             setShowBookingModal(false);

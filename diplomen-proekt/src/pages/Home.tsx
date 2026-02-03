@@ -5,11 +5,14 @@ import { useNavigate } from "react-router-dom";
 
 export const Home = () => {
 
+    type CalendarEventRow = { id: string; date: string; event_text: string };
     const { user, role } = useAuth();
     const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [events, setEvents] = useState<{ [key: string]: string }>({});
+    const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
+    const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
     const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'messages'>('dashboard');
@@ -23,10 +26,11 @@ export const Home = () => {
         }
     }, [user, navigate]);
 
-    // Load events from Supabase when user changes
+    // Load events and booked lesson dates from Supabase when user changes
     useEffect(() => {
         if (user) {
             loadEvents();
+            loadBookedLessonDates();
             loadUserStats();
             if (role === 'teacher') {
                 loadMessages();
@@ -44,7 +48,9 @@ export const Home = () => {
             const { data, error } = await supabase
                 .from('calendar_events')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .order('date', { ascending: true })
+                .order('created_at', { ascending: true });
 
             if (error) {
                 // if auth error persists-  sign out
@@ -56,16 +62,38 @@ export const Home = () => {
                 }
                 console.error('Error loading events:', error);
             } else if (data) {
-                const eventsMap: { [key: string]: string } = {};
-                data.forEach(event => {
-                    eventsMap[event.date] = event.event_text;
-                });
-                setEvents(eventsMap);
+                setEventsList((data as CalendarEventRow[]).map(e => ({ id: e.id, date: e.date, event_text: e.event_text })));
             }
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
             navigate('/login');
+        }
+    };
+
+    const loadBookedLessonDates = async () => {
+        if (!user) return;
+        try {
+            await ensureValidSession();
+            const { data: asStudent } = await supabase
+                .from('bookings')
+                .select('lesson_date')
+                .eq('student_id', user.id);
+            const { data: asTeacher } = await supabase
+                .from('bookings')
+                .select('lesson_date')
+                .eq('teacher_id', user.id);
+            const allDates = [...(asStudent ?? []), ...(asTeacher ?? [])]
+                .map((r: { lesson_date: string }) => r.lesson_date)
+                .filter(Boolean);
+            const toDateKey = (iso: string) => {
+                const [y, m, d] = iso.split('T')[0].split('-').map(Number);
+                return `${y}-${m}-${d}`;
+            };
+            const keys = [...new Set(allDates.map(toDateKey))];
+            setBookedLessonDates(keys);
+        } catch (e) {
+            console.error('Failed to load booked lesson dates:', e);
         }
     };
 
@@ -184,10 +212,18 @@ export const Home = () => {
         return `${year}-${month + 1}-${day}`;
     };
 
+    const eventsForDate = (dateKey: string) => eventsList.filter(e => e.date === dateKey);
+    const hasEventOnDate = (dateKey: string) => eventsForDate(dateKey).length > 0;
+    const hasBookedLessonOnDate = (dateKey: string) => bookedLessonDates.includes(dateKey);
+    const hasDotOnDate = (dateKey: string) => hasBookedLessonOnDate(dateKey) || hasEventOnDate(dateKey);
+
     const handleDayClick = (day: number) => {
         const dateKey = formatDateKey(day);
         setSelectedDay(dateKey);
-        setEventText(events[dateKey] || "");
+        const dayEvents = eventsForDate(dateKey);
+        const first = dayEvents[0];
+        setSelectedEventId(first?.id ?? null);
+        setEventText(first?.event_text ?? "");
     };
 
     const handleSaveEvent = async () => {
@@ -198,31 +234,21 @@ export const Home = () => {
             await ensureValidSession();
 
             if (eventText.trim()) {
-                // check if event already exists
-                const { data: existingEvent } = await supabase
-                    .from('calendar_events')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('date', selectedDay)
-                    .single();
-
                 let error;
-                if (existingEvent) {
-                    // update existing event
+                if (selectedEventId) {
                     const result = await supabase
                         .from('calendar_events')
                         .update({ event_text: eventText })
-                        .eq('user_id', user.id)
-                        .eq('date', selectedDay);
+                        .eq('id', selectedEventId)
+                        .eq('user_id', user.id);
                     error = result.error;
                 } else {
-                    // insert new event
                     const result = await supabase
                         .from('calendar_events')
-                        .insert({ 
-                            user_id: user.id, 
-                            date: selectedDay, 
-                            event_text: eventText 
+                        .insert({
+                            user_id: user.id,
+                            date: selectedDay!,
+                            event_text: eventText
                         });
                     error = result.error;
                 }
@@ -231,13 +257,13 @@ export const Home = () => {
                     console.error('Error saving event:', error);
                     alert('Failed to save event. Check console for details.');
                 } else {
-                    setEvents({ ...events, [selectedDay]: eventText });
+                    loadEvents();
                 }
             } else {
-                // delete event if text is empty
                 await handleDeleteEvent();
             }
             setSelectedDay(null);
+            setSelectedEventId(null);
             setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
@@ -250,24 +276,28 @@ export const Home = () => {
         if (!selectedDay || !user) return;
 
         try {
-            // ensure we have a valid access token before making request
             await ensureValidSession();
 
-            const { error } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('user_id', user.id)
-                .eq('date', selectedDay);
-
-            if (error) {
-                console.error('Error deleting event:', error);
+            if (selectedEventId) {
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('id', selectedEventId)
+                    .eq('user_id', user.id);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             } else {
-                const newEvents = { ...events };
-                delete newEvents[selectedDay];
-                setEvents(newEvents);
-                setSelectedDay(null);
-                setEventText("");
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('date', selectedDay);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             }
+            setSelectedDay(null);
+            setSelectedEventId(null);
+            setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
@@ -279,24 +309,25 @@ export const Home = () => {
 
     const getUpcomingEvents = () => {
         const today = new Date();
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+        today.setHours(0, 0, 0, 0);
+        return eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                return { id: e.id, date: new Date(y, m - 1, d), dateStr: e.date, event: e.event_text };
             })
             .filter(item => item.date >= today)
             .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .slice(0, 5);
+            .slice(0, 8);
     };
 
     const getAllEvents = () => {
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+        return eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                return { id: e.id, date: new Date(y, m - 1, d), dateStr: e.date, event: e.event_text };
             })
             .sort((a, b) => b.date.getTime() - a.date.getTime())
-            .slice(0, 10);
+            .slice(0, 15);
     };
 
 
@@ -459,7 +490,7 @@ export const Home = () => {
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl border border-purple-100/50">
                                     <span className="text-xs font-medium text-slate-600">Общо събития</span>
-                                    <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                    <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                                 </div>
                             </div>
                         </div>
@@ -495,7 +526,7 @@ export const Home = () => {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{eventsList.length}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -574,17 +605,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().slice(0, 5).map(({ date, dateStr, event }) => (
+                                            getAllEvents().slice(0, 5).map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -661,7 +694,7 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
                                             return (
@@ -675,9 +708,9 @@ export const Home = () => {
                                                     }`}
                                                 >
                                                     {day}
-                                                    {hasEvent && !isToday && (
+                                                    {hasDot && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                            <span className={`w-2 h-2 rounded-full block ${isToday ? 'bg-white/90' : 'bg-purple-600'}`} aria-hidden />
                                                         </div>
                                                     )}
                                                 </button>
@@ -728,16 +761,18 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event }) => (
                                                             <div 
-                                                                key={dateStr} 
+                                                                key={id} 
                                                                 className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
+                                                                    setSelectedEventId(id);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
+                                                                    <span className="flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-purple-600" aria-hidden />
                                                                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -787,17 +822,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().map(({ date, dateStr, event }) => (
+                                            getAllEvents().map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -983,11 +1020,12 @@ export const Home = () => {
                             <div className="mb-6">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                        {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                        {selectedEventId || eventsForDate(selectedDay).length > 0 ? 'Редактирай събитие' : 'Ново събитие'}
                                     </h3>
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="p-2 hover:bg-slate-50 rounded-xl transition-all duration-300 hover:scale-110"
@@ -1012,7 +1050,7 @@ export const Home = () => {
                                 autoFocus
                             />
                             <div className="flex items-center justify-between gap-3">
-                                {events[selectedDay] && (
+                                {(selectedEventId || eventsForDate(selectedDay).length > 0) && (
                                     <button
                                         onClick={handleDeleteEvent}
                                         className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
@@ -1027,6 +1065,7 @@ export const Home = () => {
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
@@ -1181,7 +1220,7 @@ export const Home = () => {
                             </div>
                             <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
                                 <span className="text-xs font-bold text-purple-700">Събития</span>
-                                <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                             </div>
                         </div>
                     </div>
@@ -1243,7 +1282,7 @@ export const Home = () => {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                                <p className="text-3xl font-bold text-purple-900">{Object.keys(events).length}</p>
+                                                <p className="text-3xl font-bold text-purple-900">{eventsList.length}</p>
                                             </div>
                                         </div>
                                         
@@ -1344,7 +1383,7 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
                                             return (
@@ -1358,9 +1397,9 @@ export const Home = () => {
                                                     }`}
                                                 >
                                                     {day}
-                                                    {hasEvent && !isToday && (
+                                                    {hasDot && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                            <span className={`w-2 h-2 rounded-full block ${isToday ? 'bg-white/90' : 'bg-purple-600'}`} aria-hidden />
                                                         </div>
                                                     )}
                                                 </button>
@@ -1411,16 +1450,18 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event }) => (
                                                             <div 
-                                                                key={dateStr} 
+                                                                key={id} 
                                                                 className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
+                                                                    setSelectedEventId(id);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
+                                                                    <span className="flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-purple-600" aria-hidden />
                                                                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -1473,17 +1514,19 @@ export const Home = () => {
                                             <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                         </div>
                                     ) : (
-                                        getAllEvents().map(({ date, dateStr, event }) => (
+                                        getAllEvents().map(({ id, date, dateStr, event }) => (
                                             <div 
-                                                key={dateStr} 
+                                                key={id} 
                                                 className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                 onClick={() => {
                                                     setActiveMenu('calendar');
                                                     setSelectedDay(dateStr);
+                                                    setSelectedEventId(id);
                                                     setEventText(event);
                                                 }}
                                             >
                                                 <div className="flex items-center gap-4">
+                                                    <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                     <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                         <span className="uppercase leading-tight">
                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -1538,11 +1581,12 @@ export const Home = () => {
 
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                    {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                    {selectedEventId || eventsForDate(selectedDay).length > 0 ? 'Редактирай събитие' : 'Ново събитие'}
                                 </h3>
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
+                                        setSelectedEventId(null);
                                         setEventText("");
                                     }}
 
@@ -1572,7 +1616,7 @@ export const Home = () => {
                             autoFocus
                         />
                         <div className="flex items-center justify-between gap-3">
-                            {events[selectedDay] && (
+                            {(selectedEventId || eventsForDate(selectedDay).length > 0) && (
                                 <button
                                     onClick={handleDeleteEvent}
 
@@ -1589,6 +1633,7 @@ export const Home = () => {
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
+                                        setSelectedEventId(null);
                                         setEventText("");
                                     }}
 
