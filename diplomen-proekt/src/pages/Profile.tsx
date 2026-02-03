@@ -36,6 +36,15 @@ export const Profile = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
+    const [teacherProfile, setTeacherProfile] = useState<{
+        hourly_rate: number | null;
+        price_note: string | null;
+        offers_online_lessons: boolean;
+    } | null>(null);
+    const [editedHourlyRate, setEditedHourlyRate] = useState('');
+    const [editedPriceNote, setEditedPriceNote] = useState('');
+    const [editedOffersOnline, setEditedOffersOnline] = useState(false);
+    const [priceNegotiable, setPriceNegotiable] = useState(false);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -119,6 +128,25 @@ export const Profile = () => {
 
                 setRecentActivity(recent);
             }
+        }
+
+        if (role === 'teacher') {
+            const { data: tp } = await supabase
+                .from('teacher_profiles')
+                .select('hourly_rate, price_note, offers_online_lessons')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (tp) {
+                setTeacherProfile({
+                    hourly_rate: tp.hourly_rate ?? null,
+                    price_note: tp.price_note ?? null,
+                    offers_online_lessons: tp.offers_online_lessons ?? false,
+                });
+            } else {
+                setTeacherProfile(null);
+            }
+        } else {
+            setTeacherProfile(null);
         }
         } catch (error) {
             console.error('Error in loadUserData:', error);
@@ -294,14 +322,31 @@ export const Profile = () => {
             if (error) {
                 console.error('Error updating profile:', error);
                 showToast('Грешка при обновяване на профила');
-            } else {
-                // wait for auth state change to propagate (onAuthStateChange in AuthContext will update user)
-                // then reload our local data without full page reload
-                await new Promise(resolve => setTimeout(resolve, 300));
-                await loadUserData();
-                setEditMode(false);
-                showToast('Профилът е обновен успешно!');
+                setLoadingUpdate(false);
+                return;
             }
+
+            if (role === 'teacher') {
+                const hourlyRateNum = priceNegotiable ? null : (editedHourlyRate.trim() ? Number(editedHourlyRate.trim()) : null);
+                const priceNoteVal = priceNegotiable ? 'По договаряне' : (editedPriceNote.trim() || null);
+                const { error: tpError } = await supabase
+                    .from('teacher_profiles')
+                    .update({
+                        hourly_rate: hourlyRateNum,
+                        price_note: priceNoteVal,
+                        offers_online_lessons: editedOffersOnline,
+                    })
+                    .eq('user_id', user.id);
+                if (tpError) {
+                    console.error('Error updating teacher profile:', tpError);
+                    showToast('Профилът е обновен, но данните за цена/онлайн не са запазени.');
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await loadUserData();
+            setEditMode(false);
+            showToast('Профилът е обновен успешно!');
         } catch (error) {
             console.error('Error:', error);
             showToast('Грешка при обновяване на профила');
@@ -741,6 +786,17 @@ export const Profile = () => {
                                                     setEditedLastName(lastName || '');
                                                     setEditedCity(city || '');
                                                     setEditedQualifications(qualifications || '');
+                                                    if (role === 'teacher' && teacherProfile) {
+                                                        setEditedHourlyRate(teacherProfile.hourly_rate != null ? String(teacherProfile.hourly_rate) : '');
+                                                        setEditedPriceNote(teacherProfile.price_note || '');
+                                                        setEditedOffersOnline(teacherProfile.offers_online_lessons);
+                                                        setPriceNegotiable(teacherProfile.price_note === 'По договаряне');
+                                                    } else if (role === 'teacher') {
+                                                        setEditedHourlyRate('');
+                                                        setEditedPriceNote('');
+                                                        setEditedOffersOnline(false);
+                                                        setPriceNegotiable(false);
+                                                    }
                                                 }}
                                                 className="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-purple-600 hover:from-purple-700 hover:via-purple-800 hover:to-purple-700 text-white rounded-2xl font-bold transition-all duration-500 flex items-center gap-3 border-2 border-purple-500/50 hover:border-purple-400/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/40 hover:scale-105 shadow-xl shadow-purple-900/30 group"
                                             >
@@ -773,6 +829,23 @@ export const Profile = () => {
                                                     <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                                                     <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Квалификации</p>
                                                     <p className="text-lg font-bold text-slate-900 relative z-10">{qualifications}</p>
+                                                </div>
+                                            )}
+                                            {role === 'teacher' && teacherProfile && (teacherProfile.hourly_rate != null || teacherProfile.price_note || teacherProfile.offers_online_lessons) && (
+                                                <div className="sm:col-span-2 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 border-2 border-purple-200/40 hover:border-purple-300/60 transition-all duration-500 hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 group relative overflow-hidden">
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                                    <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Цена и онлайн уроци</p>
+                                                    <div className="relative z-10 space-y-1">
+                                                        {teacherProfile.hourly_rate != null && (
+                                                            <p className="text-lg font-bold text-slate-900">Цена за час: {teacherProfile.hourly_rate} €</p>
+                                                        )}
+                                                        {teacherProfile.price_note && (
+                                                            <p className="text-slate-700">{teacherProfile.price_note}</p>
+                                                        )}
+                                                        {teacherProfile.offers_online_lessons && (
+                                                            <p className="text-sm font-semibold text-emerald-700">Предлага онлайн уроци</p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -1365,6 +1438,63 @@ export const Profile = () => {
                                         placeholder="Математика, Физика..."
                                     />
                                 </div>
+                            )}
+
+                            {role === 'teacher' && (
+                                <>
+                                    <div className="border-t border-slate-200 pt-5 mt-2">
+                                        <p className="text-sm font-bold text-purple-700 mb-3">Цена и онлайн уроци</p>
+                                        <div className="space-y-4">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={priceNegotiable}
+                                                    onChange={(e) => {
+                                                        setPriceNegotiable(e.target.checked);
+                                                        if (e.target.checked) setEditedHourlyRate('');
+                                                    }}
+                                                    className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <span className="text-slate-700 font-medium">По договаряне</span>
+                                            </label>
+                                            {!priceNegotiable && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Цена за час (€)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={editedHourlyRate}
+                                                        onChange={(e) => setEditedHourlyRate(e.target.value)}
+                                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                        placeholder="напр. 25"
+                                                    />
+                                                </div>
+                                            )}
+                                            {!priceNegotiable && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Бележка за цената (по избор)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editedPriceNote}
+                                                        onChange={(e) => setEditedPriceNote(e.target.value)}
+                                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                        placeholder="напр. При пакет 10 урока - отстъпка"
+                                                    />
+                                                </div>
+                                            )}
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editedOffersOnline}
+                                                    onChange={(e) => setEditedOffersOnline(e.target.checked)}
+                                                    className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <span className="text-slate-700 font-medium">Предлагам онлайн уроци</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <div className="flex gap-3 pt-4">

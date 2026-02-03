@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useModalFocus } from "../hooks/useModalFocus";
 import { RatingStars } from "../components/RatingStars";
-import type { Teacher } from "../types/teacher";
+import type { Teacher, TeacherReview } from "../types/teacher";
 
 interface BookingForm {
     date: string;
@@ -14,7 +14,7 @@ interface BookingForm {
 
 export const TeacherProfile = () => {
     const { id } = useParams<{ id: string }>();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const [teacher, setTeacher] = useState<Teacher | null>(null);
     const [loading, setLoading] = useState(true);
@@ -30,6 +30,12 @@ export const TeacherProfile = () => {
     const [success, setSuccess] = useState(false);
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [loadingChat, setLoadingChat] = useState(false);
+    const [reviews, setReviews] = useState<TeacherReview[]>([]);
+    const [loadingReviews, setLoadingReviews] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState("");
+    const [submittingReview, setSubmittingReview] = useState(false);
 
     const closeBookingModal = () => {
         setShowBookingModal(false);
@@ -41,24 +47,18 @@ export const TeacherProfile = () => {
     };
     const { modalRef: bookingModalRef } = useModalFocus(showBookingModal, closeBookingModal);
     const { modalRef: contactModalRef } = useModalFocus(showContactModal, closeContactModal);
+    const closeReviewModal = () => {
+        setShowReviewModal(false);
+        setReviewRating(0);
+        setReviewComment("");
+    };
+    const { modalRef: reviewModalRef } = useModalFocus(showReviewModal, closeReviewModal);
 
-    useEffect(() => {
-        if (!user) {
-            navigate('/login', { replace: true });
-            return;
-        }
-        if (id) {
-            loadTeacher();
-        }
-    }, [user, id, navigate]);
-
-    const loadTeacher = async () => {
+    const loadTeacher = useCallback(async () => {
         if (!id || !user) return;
-        
+        setLoading(true);
         try {
             await ensureValidSession();
-            
-            // Try by teacher_profiles.id first (from FindTeacher), then by user_id (from Chat)
             const first = await supabase
                 .from('teacher_profiles')
                 .select('*')
@@ -96,7 +96,16 @@ export const TeacherProfile = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id, user, navigate]);
+
+    useEffect(() => {
+        if (authLoading) return;
+        if (!user) {
+            navigate('/login', { replace: true });
+            return;
+        }
+        if (id) loadTeacher();
+    }, [authLoading, user, id, navigate, loadTeacher]);
 
     const loadChatMessages = async () => {
         if (!user || !teacher) return;
@@ -129,6 +138,92 @@ export const TeacherProfile = () => {
             loadChatMessages();
         }
     }, [user, teacher]);
+
+    const loadReviews = useCallback(async (): Promise<TeacherReview[]> => {
+        if (!teacher?.id) return [];
+        const teacherId = teacher.id;
+        try {
+            const { data: reviewsData, error } = await supabase
+                .from("teacher_reviews")
+                .select("id, teacher_id, author_id, rating, comment, created_at")
+                .eq("teacher_id", teacherId)
+                .order("created_at", { ascending: false });
+            if (error) {
+                console.error("Error loading reviews:", error);
+                return [];
+            }
+            const list = (reviewsData ?? []) as (TeacherReview & { author_id: string })[];
+            const authorIds = [...new Set(list.map((r) => r.author_id))];
+            const nameByUserId = new Map<string, string>();
+            if (authorIds.length > 0) {
+                const { data: profilesData } = await supabase
+                    .from("profiles")
+                    .select("id, first_name, last_name")
+                    .in("id", authorIds);
+                (profilesData ?? []).forEach((p: { id: string; first_name: string | null; last_name: string | null }) => {
+                    const name = [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || "Анонимен";
+                    nameByUserId.set(p.id, name);
+                });
+            }
+            return list.map((r) => ({
+                id: r.id,
+                teacher_id: r.teacher_id,
+                author_id: r.author_id,
+                rating: r.rating,
+                comment: r.comment,
+                created_at: r.created_at,
+                author_name: nameByUserId.get(r.author_id) ?? "Анонимен",
+            }));
+        } catch (err) {
+            console.error("Failed to load reviews:", err);
+            return [];
+        }
+    }, [teacher?.id]);
+
+    useEffect(() => {
+        if (!teacher?.id) return;
+        let cancelled = false;
+        setLoadingReviews(true);
+        loadReviews()
+            .then((list) => {
+                if (!cancelled) setReviews(list);
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingReviews(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [teacher?.id, loadReviews]);
+
+    const handleSubmitReview = async () => {
+        if (!teacher || !user || reviewRating < 1 || reviewRating > 5) return;
+        setSubmittingReview(true);
+        try {
+            await ensureValidSession();
+            const { error } = await supabase.from("teacher_reviews").insert({
+                teacher_id: teacher.id,
+                author_id: user.id,
+                rating: reviewRating,
+                comment: reviewComment.trim() || null,
+            });
+            if (error) {
+                console.error("Error submitting review:", error);
+                alert("Грешка при изпращане на ревюто. Моля, опитайте отново.");
+                return;
+            }
+            closeReviewModal();
+            setLoadingReviews(true);
+            loadReviews().then((list) => {
+                setReviews(list);
+            }).finally(() => setLoadingReviews(false));
+        } catch (err) {
+            console.error("Failed to submit review:", err);
+            alert("Грешка при изпращане на ревюто. Моля, опитайте отново.");
+        } finally {
+            setSubmittingReview(false);
+        }
+    };
 
     const handleBookLesson = async () => {
         if (!teacher || !user || !bookingForm.date || !bookingForm.time) {
@@ -251,7 +346,7 @@ export const TeacherProfile = () => {
         return today.toISOString().split('T')[0];
     };
 
-    if (loading) {
+    if (authLoading || loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center">
                 <div className="text-center">
@@ -329,15 +424,20 @@ export const TeacherProfile = () => {
                                 {teacher.subject}
                             </p>
                             <div className="flex items-center gap-2 mb-4">
-                                <RatingStars rating={Math.round(teacher.rating)} size="md" />
+                                <RatingStars rating={Math.round(teacher.rating ?? 0)} size="md" />
                                 <span className="text-lg font-semibold text-slate-700">
-                                    {teacher.rating.toFixed(1)}
+                                    {(teacher.rating ?? 0).toFixed(1)}
                                 </span>
                             </div>
                             <div className="flex flex-wrap gap-2 mb-4">
                                 {teacher.is_online && (
                                     <span className="px-4 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-                                        Онлайн уроци
+                                        Онлайн в момента
+                                    </span>
+                                )}
+                                {teacher.offers_online_lessons && (
+                                    <span className="px-4 py-2 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full">
+                                        Предлага онлайн уроци
                                     </span>
                                 )}
                                 {teacher.city && (
@@ -357,6 +457,19 @@ export const TeacherProfile = () => {
                         {teacher.description}
                     </p>
                 </div>
+
+                {/* price */}
+                {(teacher.hourly_rate != null || teacher.price_note) && (
+                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
+                        <h2 className="text-xl font-bold text-slate-900 mb-4">Цена</h2>
+                        {teacher.hourly_rate != null && (
+                            <p className="text-lg font-bold text-slate-900">Цена за час: {teacher.hourly_rate} €</p>
+                        )}
+                        {teacher.price_note && (
+                            <p className="text-slate-700 mt-1">{teacher.price_note}</p>
+                        )}
+                    </div>
+                )}
 
                 {/* education and qualifications */}
                 {(teacher.education || teacher.qualifications) && (
@@ -384,6 +497,51 @@ export const TeacherProfile = () => {
                         <p className="text-slate-700 whitespace-pre-line">{teacher.available_schedule}</p>
                     </div>
                 )}
+
+                {/* reviews */}
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                        <h2 className="text-xl font-bold text-slate-900">Коментари от ученици</h2>
+                        {user && user.id !== teacher.user_id && (
+                            <button
+                                type="button"
+                                onClick={() => setShowReviewModal(true)}
+                                className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition-colors"
+                            >
+                                Напиши ревю
+                            </button>
+                        )}
+                    </div>
+                    {loadingReviews ? (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="w-8 h-8 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : reviews.length === 0 ? (
+                        <p className="text-slate-600">Все още няма коментари. Бъдете първият, който ще оцени!</p>
+                    ) : (
+                        <ul className="space-y-4">
+                            {reviews.map((r) => (
+                                <li
+                                    key={r.id}
+                                    className="border border-slate-200 rounded-xl p-4 bg-slate-50/50"
+                                >
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <RatingStars rating={r.rating} size="sm" />
+                                        <span className="text-sm font-semibold text-slate-700">{r.author_name}</span>
+                                        <span className="text-xs text-slate-500">
+                                            {new Date(r.created_at).toLocaleDateString("bg-BG", {
+                                                day: "numeric",
+                                                month: "long",
+                                                year: "numeric",
+                                            })}
+                                        </span>
+                                    </div>
+                                    {r.comment && <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.comment}</p>}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
 
                 {/* chat section */}
                 <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
@@ -617,6 +775,87 @@ export const TeacherProfile = () => {
                                     className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submitting ? "Изпращане..." : "Изпрати"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* review modal */}
+                {showReviewModal && (
+                    <div
+                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="review-title"
+                        aria-describedby="review-desc"
+                    >
+                        <div
+                            ref={reviewModalRef}
+                            className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 id="review-title" className="text-2xl font-bold text-slate-900">Напиши ревю</h2>
+                                <button
+                                    type="button"
+                                    onClick={closeReviewModal}
+                                    className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
+                                    aria-label="Затвори"
+                                >
+                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="review-desc" className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Рейтинг (1–5)</label>
+                                    <div className="flex gap-2">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button
+                                                key={star}
+                                                type="button"
+                                                onClick={() => setReviewRating(star)}
+                                                className={`p-2 rounded-lg transition-colors ${
+                                                    reviewRating >= star
+                                                        ? "text-amber-400"
+                                                        : "text-slate-300 hover:text-slate-400"
+                                                }`}
+                                                aria-label={`${star} звезди`}
+                                            >
+                                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Коментар (по избор)</label>
+                                    <textarea
+                                        value={reviewComment}
+                                        onChange={(e) => setReviewComment(e.target.value)}
+                                        placeholder="Оставете коментар..."
+                                        rows={4}
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={closeReviewModal}
+                                    className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors"
+                                >
+                                    Откажи
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmitReview}
+                                    disabled={submittingReview || reviewRating < 1}
+                                    className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {submittingReview ? "Изпращане..." : "Изпрати ревю"}
                                 </button>
                             </div>
                         </div>
