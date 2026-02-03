@@ -49,6 +49,7 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
 
     const handleContact = (e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!isLoggedIn) {
             navigate("/login");
         } else {
@@ -56,10 +57,22 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
         }
     };
 
+    const handleCardKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleViewProfile(e as unknown as React.MouseEvent);
+        }
+    };
+
     return (
         <article
-            className="find-teacher-card group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-400 transition-all duration-300 ease-out"
+            role="button"
+            tabIndex={0}
+            onClick={handleViewProfile}
+            onKeyDown={handleCardKeyDown}
+            className="find-teacher-card group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-slate-400 transition-all duration-300 ease-out cursor-pointer"
             data-testid="teacher-card"
+            aria-label={`Виж профил на ${teacher.full_name}`}
         >
             {/* badges row */}
             <div className="px-5 pt-5 sm:px-6 sm:pt-6 flex flex-wrap items-center gap-2">
@@ -168,16 +181,12 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
 
                 {/* cta */}
                 <div className="mt-auto pt-3 flex flex-wrap items-center gap-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">
-                    <button
-                        type="button"
-                        onClick={handleViewProfile}
-                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-lg px-3 py-2 transition-colors"
-                    >
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-purple-600 group-hover:bg-purple-700 rounded-lg px-3 py-2 transition-colors pointer-events-none">
                         Виж профил
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                    </button>
+                    </span>
                     <button
                         type="button"
                         onClick={handleContact}
