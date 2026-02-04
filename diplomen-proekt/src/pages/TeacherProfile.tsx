@@ -622,7 +622,14 @@ export const TeacherProfile = () => {
                                             </svg>
                                         </div>
                                         <p className="text-xl font-bold text-slate-900 mb-1">Готово!</p>
-                                        <p className="text-slate-600">Пренасочваме...</p>
+                                        <p className="text-slate-600 mb-4">Пренасочваме...</p>
+                                        <button
+                                            type="button"
+                                            onClick={booking.stayOnPage}
+                                            className="text-sm font-medium text-purple-700 hover:text-purple-800 underline focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
+                                        >
+                                            Остани на страницата
+                                        </button>
                                     </div>
                                 ) : booking.loadingSlots ? (
                                     <div className="flex items-center justify-center py-12">
@@ -700,7 +707,7 @@ export const TeacherProfile = () => {
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
-                                            <button type="button" onClick={booking.goPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Предишна седмица">
+                                            <button type="button" onClick={booking.goPrevWeek} disabled={!booking.canGoPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Предишна седмица">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                             </button>
                                             <div className="flex items-center gap-3">
@@ -722,7 +729,7 @@ export const TeacherProfile = () => {
                                                     Избор на друга дата
                                                 </button>
                                             </div>
-                                            <button type="button" onClick={booking.goNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Следваща седмица">
+                                            <button type="button" onClick={booking.goNextWeek} disabled={!booking.canGoNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Следваща седмица">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                             </button>
                                         </div>

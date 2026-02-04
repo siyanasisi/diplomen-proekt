@@ -21,6 +21,7 @@ import {
 } from "../utils/teacherSlots";
 const REDIRECT_AFTER_BOOKING_MS = 2000;
 const INITIAL_SLOTS_PER_DAY = 8;
+const MAX_WEEKS_AHEAD = 12;
 
 export type UseTeacherBookingOptions = {
     showToast?: (message: string) => void;
@@ -31,6 +32,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     const { user } = useAuth();
     const navigate = useNavigate();
     const submittingRef = useRef(false);
+    const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const formRef = useRef<BookingFormState>({ date: "", time: "", message: "" });
 
     const [showBookingModal, setShowBookingModal] = useState(false);
@@ -158,6 +160,18 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         return dates;
     }, [weekStart]);
 
+    const canGoPrevWeek = useMemo(() => {
+        const thisWeekStart = getStartOfWeekMonday(new Date());
+        return weekStart.getTime() > thisWeekStart.getTime();
+    }, [weekStart]);
+
+    const canGoNextWeek = useMemo(() => {
+        const thisWeekStart = getStartOfWeekMonday(new Date());
+        const maxWeekStart = new Date(thisWeekStart);
+        maxWeekStart.setDate(maxWeekStart.getDate() + (MAX_WEEKS_AHEAD - 1) * 7);
+        return weekStart.getTime() < maxWeekStart.getTime();
+    }, [weekStart]);
+
     const slotsByDay = useMemo(() => {
         const map = new Map<string, SlotInfo[]>();
         weekDates.forEach((d) => {
@@ -172,6 +186,22 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
 
     const openBookingModal = useCallback(() => setShowBookingModal(true), []);
     const closeBookingModal = useCallback(() => {
+        if (redirectTimeoutRef.current) {
+            clearTimeout(redirectTimeoutRef.current);
+            redirectTimeoutRef.current = null;
+        }
+        setShowBookingModal(false);
+        setBookingForm({ date: "", time: "", message: "" });
+        setBookingSuccess(false);
+        setBookingNetworkError(false);
+    }, []);
+
+    const stayOnPage = useCallback(() => {
+        if (redirectTimeoutRef.current) {
+            clearTimeout(redirectTimeoutRef.current);
+            redirectTimeoutRef.current = null;
+        }
+        setBookingSuccess(false);
         setShowBookingModal(false);
         setBookingForm({ date: "", time: "", message: "" });
         setBookingNetworkError(false);
@@ -254,7 +284,8 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
 
             notify(settings?.auto_accept_bookings ? "Часът е записан и потвърден." : "Заявката е изпратена. Чакайте потвърждение от учителя.");
             setBookingSuccess(true);
-            setTimeout(() => {
+            redirectTimeoutRef.current = window.setTimeout(() => {
+                redirectTimeoutRef.current = null;
                 closeBookingModal();
                 setBookingSuccess(false);
                 navigate("/home");
@@ -281,6 +312,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         showBookingModal,
         openBookingModal,
         closeBookingModal,
+        stayOnPage,
         bookingForm,
         setBookingForm,
         submitting,
@@ -298,6 +330,8 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         slotsByDay,
         expandedDays,
         setExpandedDays,
+        canGoPrevWeek,
+        canGoNextWeek,
         goPrevWeek,
         goNextWeek,
         goToDate,
