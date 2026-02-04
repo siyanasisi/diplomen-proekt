@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate, Link } from "react-router-dom";
 import type { StudyPlan as StudyPlanType } from "../lib/topics";
+import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
 import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
 
 export const Home = () => {
@@ -158,6 +159,7 @@ export const Home = () => {
                     id: data.id,
                     user_id: data.user_id,
                     preferences: {
+                        examSubject: normalizeExamSubject(data.preferences.exam_subject),
                         examDate: new Date(data.preferences.exam_date),
                         studyDaysPerWeek: data.preferences.study_days_per_week,
                         topicsPerDay: data.preferences.topics_per_day,
@@ -233,6 +235,8 @@ export const Home = () => {
             topicsCompletionPercentage: totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
         };
     };
+
+    const studyPlanHasContent = studyPlan && hasPlanContent(studyPlan.preferences.examSubject) && studyPlan.plan.length > 0;
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -395,7 +399,23 @@ export const Home = () => {
     const handleMarkStudyDayMissed = async (date: string) => {
         if (!user || !studyPlan) return;
 
-        if (!confirm('Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени.')) {
+        // find the day to check its current state
+        const dayToMark = studyPlan.plan.find(d => d.date === date);
+        if (!dayToMark) return;
+
+        // don't allow marking completed days as missed
+        if (dayToMark.completed) {
+            alert('Не можете да маркирате завършен ден като пропускан.');
+            return;
+        }
+
+        // don't allow marking already missed days 
+        if (dayToMark.missed) {
+            alert('Този ден вече е маркиран като пропускан.');
+            return;
+        }
+
+        if (!confirm('Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени автоматично.')) {
             return;
         }
 
@@ -403,6 +423,13 @@ export const Home = () => {
             await ensureValidSession();
 
             const updatedPlan = rescheduleMissedDay(studyPlan, date);
+
+            // verify that the rescheduling worked
+            const missedDay = updatedPlan.plan.find(d => d.date === date);
+            if (!missedDay || !missedDay.missed) {
+                alert('Възникна грешка при маркирането на деня като пропускан.');
+                return;
+            }
 
             const { error } = await supabase
                 .from('study_plans')
@@ -722,42 +749,42 @@ export const Home = () => {
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
-                                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-2xl"></div>
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-7 shadow-xl shadow-slate-900/10 border border-slate-200/80 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
                                         <div className="relative flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-xs font-black text-slate-600 mb-1.5 uppercase tracking-wider">Общо събития</p>
+                                                <p className="text-4xl font-black text-slate-900 tracking-tight tabular-nums">{Object.keys(events).length}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Upcoming events card */}
-                                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl hover:shadow-purple-900/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-2xl"></div>
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-7 shadow-xl shadow-slate-900/10 border border-slate-200/80 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
                                         <div className="relative flex items-center gap-5">
-                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
+                                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600">
                                                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Предстоящи</p>
-                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{getUpcomingEvents().length}</p>
+                                                <p className="text-xs font-black text-slate-600 mb-1.5 uppercase tracking-wider">Предстоящи</p>
+                                                <p className="text-4xl font-black text-slate-900 tracking-tight tabular-nums">{getUpcomingEvents().length}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Quick Actions */}
-                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
-                                    <h3 className="text-xl font-bold text-slate-900 mb-5 tracking-tight relative bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Бързи действия</h3>
+                                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-7 shadow-xl shadow-slate-900/10 border border-slate-200/80 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+                                    <h3 className="text-xl font-black text-slate-900 mb-5 tracking-tight relative">Бързи действия</h3>
                                     <div className="flex flex-wrap gap-4">
                                         <button 
                                             onClick={() => {
@@ -788,10 +815,10 @@ export const Home = () => {
                                 </div>
 
                                 {/* recent events */}
-                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-7 shadow-xl shadow-slate-900/10 border border-slate-200/80 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
                                     <div className="flex items-center justify-between mb-6 relative">
-                                        <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Последни събития</h3>
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Последни събития</h3>
                                         <button 
                                             onClick={() => setActiveMenu('calendar')}
                                             className="text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
@@ -850,42 +877,57 @@ export const Home = () => {
 
                         {/* calendar view */}
                         {activeMenu === 'calendar' && (
-                            <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-12 overflow-y-auto overflow-x-hidden w-full">
+                            <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-8 sm:py-12 overflow-y-auto overflow-x-hidden w-full">
                                 <div className="max-w-7xl w-full overflow-x-hidden">
                                     {/* Study Plan Stats - Only for students with study plan */}
-                                    {(role as string) === 'student' && studyPlan && (
-                                        <div className="mb-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
-                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Дни до изпита</div>
-                                                    <div className="text-2xl font-bold text-slate-900">
+                                    {(role as string) === 'student' && studyPlan && !studyPlanHasContent && (
+                                        <div className="mb-8 p-6 sm:p-8 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+                                            <p className="text-amber-900 font-bold text-lg sm:text-xl">
+                                                За предмет „{studyPlan.preferences.examSubject}" все още няма готово съдържание.
+                                            </p>
+                                            <p className="text-amber-800 text-sm sm:text-base mt-2 leading-relaxed">
+                                                Ще активираме плана, когато има теми за учене. До тогава можеш да използваш календара и останалите функции.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {(role as string) === 'student' && studyPlan && studyPlanHasContent && (
+                                        <div className="mb-8">
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-purple-200/60 shadow-lg shadow-purple-100/10 hover:shadow-xl hover:shadow-purple-200/20 transition-all duration-300">
+                                                    <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Дни до изпита</div>
+                                                    <div className="text-3xl font-black text-slate-900 tabular-nums">
                                                         {Math.ceil((studyPlan.preferences.examDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
                                                     </div>
                                                 </div>
-                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
-                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Учебни дни</div>
-                                                    <div className="text-2xl font-bold text-slate-900">
+                                                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-purple-200/60 shadow-lg shadow-purple-100/10 hover:shadow-xl hover:shadow-purple-200/20 transition-all duration-300">
+                                                    <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Учебни дни</div>
+                                                    <div className="text-3xl font-black text-slate-900 tabular-nums">
                                                         {studyPlan.plan.filter(d => !d.completed && !d.missed).length}
                                                     </div>
                                                 </div>
-                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
-                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Завършени</div>
-                                                    <div className="text-2xl font-bold text-emerald-600">
+                                                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-emerald-200/60 shadow-lg shadow-emerald-100/10 hover:shadow-xl hover:shadow-emerald-200/20 transition-all duration-300">
+                                                    <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Завършени</div>
+                                                    <div className="text-3xl font-black text-emerald-600 tabular-nums">
                                                         {studyPlan.plan.filter(d => d.completed).length}
                                                     </div>
                                                 </div>
-                                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-xl p-4 border border-purple-200/40 shadow-md">
-                                                    <div className="text-sm text-slate-600 mb-1 font-medium">Теми на ден</div>
-                                                    <div className="text-2xl font-bold text-slate-900">
+                                                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-purple-200/60 shadow-lg shadow-purple-100/10 hover:shadow-xl hover:shadow-purple-200/20 transition-all duration-300">
+                                                    <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Теми на ден</div>
+                                                    <div className="text-3xl font-black text-slate-900 tabular-nums">
                                                         {studyPlan.preferences.topicsPerDay}
                                                     </div>
                                                 </div>
                                             </div>
                                             {/* Reminder note */}
-                                            <div className="mt-4 p-4 bg-purple-50/50 border border-purple-200/40 rounded-xl">
-                                                <p className="text-sm text-purple-800">
-                                                    <strong>Напомняне:</strong> Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
-                                                </p>
+                                            <div className="mt-6 p-5 bg-blue-50 border border-blue-200/60 rounded-2xl">
+                                                <div className="flex items-start gap-3">
+                                                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <p className="text-sm text-blue-900 font-medium leading-relaxed">
+                                                        <strong className="font-bold">Напомняне:</strong> Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -893,28 +935,29 @@ export const Home = () => {
                                     {/* two column layout */}
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                         {/* calendar */}
-                                        <div className="lg:col-span-2 bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-10 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                        <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm rounded-3xl p-8 sm:p-10 shadow-xl shadow-slate-900/10 border border-slate-200/80 relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+                                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
 
                                     {/* month navigation */}
                                     <div className="flex items-center justify-center gap-8 mb-10">
                                         <button 
                                             onClick={goToPreviousMonth}
-                                            className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
+                                            className="p-3 hover:bg-slate-100 rounded-xl transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-200/60 hover:border-purple-300/80 hover:shadow-md"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                            <svg className="w-5 h-5 text-slate-700 hover:text-purple-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                                             </svg>
                                         </button>
-                                        <h3 className="text-xl font-semibold text-slate-900 tracking-tight">
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">
                                             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                                         </h3>
                                         <button 
                                             onClick={goToNextMonth}
-                                            className="p-2.5 hover:bg-slate-50 rounded-xl transition-all duration-200"
+                                            className="p-3 hover:bg-slate-100 rounded-xl transition-all duration-300 hover:scale-110 active:scale-95 border border-slate-200/60 hover:border-purple-300/80 hover:shadow-md"
                                         >
-                                            <svg className="w-5 h-5 text-slate-600 hover:text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            <svg className="w-5 h-5 text-slate-700 hover:text-purple-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                                             </svg>
                                         </button>
                                     </div>
@@ -922,7 +965,7 @@ export const Home = () => {
                                     {/* day names */}
                                     <div className="grid grid-cols-7 gap-2 mb-4">
                                         {dayNames.map(day => (
-                                            <div key={day} className="text-center text-xs font-semibold text-slate-500 py-2 uppercase tracking-wide">
+                                            <div key={day} className="text-center text-xs font-black text-slate-600 py-2 uppercase tracking-wider">
                                                 {day}
                                             </div>
                                         ))}
@@ -948,16 +991,16 @@ export const Home = () => {
                                                 <button
                                                     key={day}
                                                     onClick={() => handleDayClick(day)}
-                                                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 p-1 ${
+                                                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-semibold transition-all duration-300 p-1 hover:scale-105 active:scale-95 ${
                                                         isToday
-                                                            ? 'bg-purple-900 text-white shadow-sm'
+                                                            ? 'bg-gradient-to-br from-purple-700 to-purple-900 text-white shadow-lg shadow-purple-500/30'
                                                             : studyDay?.completed
-                                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:shadow-md border border-emerald-200/60'
                                                             : studyDay?.missed
-                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100 hover:shadow-md border border-red-200/60'
                                                             : hasStudyTopics
-                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                                            : 'text-slate-700 hover:bg-slate-50'
+                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 hover:shadow-md border border-blue-200/60'
+                                                            : 'text-slate-700 hover:bg-slate-100 hover:shadow-sm border border-transparent hover:border-slate-200/60'
                                                     }`}
                                                 >
                                                     <span>{day}</span>
@@ -1053,24 +1096,24 @@ export const Home = () => {
                                                             return (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className={`group ${isStudyPlan ? 'bg-gradient-to-br from-blue-50/50 to-white hover:from-blue-100/60 hover:to-white border-2 border-blue-200/40 hover:border-blue-300/60' : 'bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 hover:border-purple-300/60'} rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md`}
+                                                                className={`group ${isStudyPlan ? 'bg-white/60 backdrop-blur-sm hover:bg-white/80 border border-blue-200/60 hover:border-blue-300/80' : 'bg-white/60 backdrop-blur-sm hover:bg-white/80 border border-purple-200/60 hover:border-purple-300/80'} rounded-2xl p-4 transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.02]`}
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className={`flex-shrink-0 w-10 h-10 ${isStudyPlan ? 'bg-gradient-to-br from-blue-900 to-blue-800' : 'bg-gradient-to-br from-purple-900 to-purple-800'} rounded-lg flex flex-col items-center justify-center text-white shadow-md`}>
-                                                                        <span className="text-[9px] font-bold uppercase leading-tight">
+                                                                    <div className={`flex-shrink-0 w-12 h-12 ${isStudyPlan ? 'bg-gradient-to-br from-blue-600 to-blue-500' : 'bg-gradient-to-br from-purple-600 to-purple-500'} rounded-xl flex flex-col items-center justify-center text-white shadow-lg`}>
+                                                                        <span className="text-[10px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
-                                                                        <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                                        <span className="text-base font-black leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className={`text-[10px] font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1 uppercase`}>
+                                                                        <p className={`text-xs font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1.5 uppercase tracking-wider`}>
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
-                                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
+                                                                        <p className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">
                                                                             {event}
                                                                         </p>
                                                                     </div>
@@ -1091,13 +1134,13 @@ export const Home = () => {
                         {activeMenu === 'events' && (
                             <div className="space-y-8">
                                 <div className="mb-10">
-                                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Събития</h2>
-                                    <p className="text-base font-semibold text-slate-600">Прегледайте всички ваши събития</p>
+                                    <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-3">Събития</h2>
+                                    <p className="text-base sm:text-lg font-semibold text-slate-600">Прегледайте всички ваши събития</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
-                                    <div className="flex items-center justify-between mb-6 relative">
-                                        <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Всички събития</h3>
+                                <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 sm:p-10 shadow-xl shadow-slate-900/10 border border-slate-200/80 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+                                    <div className="flex items-center justify-between mb-8 relative">
+                                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">Всички събития</h3>
                                     </div>
                                     <div className="space-y-3">
                                         {getAllEvents().length === 0 ? (
@@ -1113,7 +1156,7 @@ export const Home = () => {
                                             getAllEvents().map(({ date, dateStr, event }) => (
                                                 <div 
                                                     key={dateStr} 
-                                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
+                                                    className="group bg-white/60 backdrop-blur-sm hover:bg-white/80 border border-slate-200/60 rounded-2xl p-5 transition-all duration-300 cursor-pointer hover:shadow-lg hover:border-slate-300/80 hover:scale-[1.02]"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
@@ -1121,17 +1164,17 @@ export const Home = () => {
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
-                                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
+                                                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl flex flex-col items-center justify-center text-white text-xs font-bold shadow-lg bg-gradient-to-br from-purple-600 via-purple-500 to-purple-600">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                             </span>
-                                                            <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                            <span className="text-lg font-black leading-none mt-0.5">{date.getDate()}</span>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wide">
+                                                            <p className="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                                                                 {date.toLocaleDateString('bg-BG', { weekday: 'long' })}
                                                             </p>
-                                                            <p className="text-base font-medium text-slate-900 line-clamp-1">
+                                                            <p className="text-base font-semibold text-slate-900 line-clamp-1">
                                                                 {event}
                                                             </p>
                                                         </div>
@@ -1148,18 +1191,19 @@ export const Home = () => {
                         {activeMenu === 'settings' && (
                             <div className="space-y-8">
                                 <div className="mb-10">
-                                    <h2 className="text-5xl font-bold text-slate-800 tracking-tight mb-3 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Настройки</h2>
-                                    <p className="text-lg text-slate-600 font-bold">Персонализирайте вашите настройки</p>
+                                    <h2 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight mb-3">Настройки</h2>
+                                    <p className="text-base sm:text-lg text-slate-600 font-semibold">Персонализирайте вашите настройки</p>
                                 </div>
-                                <div className="bg-white rounded-3xl p-12 shadow-lg shadow-slate-900/5 border border-purple-900/20 text-center">
-                                    <div className="w-20 h-20 bg-purple-900/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                        <svg className="w-10 h-10 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 sm:p-16 shadow-xl shadow-slate-900/10 border border-slate-200/80 text-center relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+                                    <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-purple-50 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                                        <svg className="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-3">Функционалността скоро ще бъде достъпна</h3>
-                                    <p className="text-lg text-slate-500 font-medium">Работим по добавянето на настройки</p>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Функционалността скоро ще бъде достъпна</h3>
+                                    <p className="text-lg text-slate-600 font-medium">Работим по добавянето на настройки</p>
                                 </div>
                             </div>
                         )}
@@ -1169,10 +1213,11 @@ export const Home = () => {
                 {/* event modal */}
                 {selectedDay && (
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                        <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20">
+                        <div className="bg-white rounded-3xl p-8 sm:p-10 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-slate-200/80 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-100/20 via-pink-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
                             <div className="mb-6">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                                         {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
                                     </h3>
                                     <button
@@ -1187,25 +1232,25 @@ export const Home = () => {
                                         </svg>
                                     </button>
                                 </div>
-                                <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-900/10 px-4 py-2.5 rounded-xl border border-purple-900/20">
-                                    <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 px-5 py-3 rounded-xl border border-slate-200/60">
+                                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
-                                    <span className="font-semibold text-slate-700">{selectedDay}</span>
+                                    <span className="font-bold text-slate-900">{selectedDay}</span>
                                 </div>
                             </div>
                             <textarea
                                 value={eventText}
                                 onChange={(e) => setEventText(e.target.value)}
                                 placeholder="Напр: Урок, Консултация, Среща, Подготовка..."
-                                className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
+                                className="w-full border-2 border-slate-200 focus:border-purple-500 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-500/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400 hover:border-slate-300"
                                 autoFocus
                             />
                             <div className="flex items-center justify-between gap-3">
                                 {events[selectedDay] && (
                                     <button
                                         onClick={handleDeleteEvent}
-                                        className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                                        className="px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105 border border-red-200/60 hover:border-red-300/80"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1219,16 +1264,16 @@ export const Home = () => {
                                             setSelectedDay(null);
                                             setEventText("");
                                         }}
-                                        className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
+                                        className="px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-all duration-300 border border-slate-200/60 hover:border-slate-300/80"
                                     >
                                         Откажи
                                     </button>
                                     <button
                                         onClick={handleSaveEvent}
-                                        className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
+                                        className="px-6 py-3 text-sm font-bold bg-gradient-to-r from-purple-600 via-purple-500 to-purple-600 hover:from-purple-500 hover:via-purple-400 hover:to-purple-500 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 flex items-center gap-2"
                                     >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                         </svg>
                                         Запази
                                     </button>
@@ -1473,8 +1518,16 @@ export const Home = () => {
                                     </div>
                                 )}
 
+                                {/* plan exists, no content for this subject */}
+                                {role === 'student' && studyPlan && !studyPlanHasContent && (
+                                    <div className="p-6 sm:p-8 bg-amber-50 border-2 border-amber-200 rounded-3xl">
+                                        <p className="text-amber-900 font-bold text-lg sm:text-xl">За предмет „{studyPlan.preferences.examSubject}" все още няма готово съдържание.</p>
+                                        <p className="text-amber-800 text-sm sm:text-base mt-2 leading-relaxed">Ще активираме плана, когато има теми за учене. До тогава можеш да използваш календара и останалите функции.</p>
+                                    </div>
+                                )}
+
                                 {/* todays study tasks widget */}
-                                {role === 'student' && studyPlan && getTodayStudyTasks() && getTodayStudyTasks()!.topics.length > 0 && (
+                                {role === 'student' && studyPlanHasContent && getTodayStudyTasks() && getTodayStudyTasks()!.topics.length > 0 && (
                                     <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-bottom duration-700 delay-300 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 group border border-purple-100/60">
                                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
                                         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 via-violet-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
@@ -1584,9 +1637,10 @@ export const Home = () => {
 
                                 {/* upcoming study topics */}
                                 {role === 'student' && studyPlan && getUpcomingStudyTopics().length > 0 && (
-                                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-400 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 border border-purple-200/60 hover:border-purple-300/80 group">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/25 via-violet-100/15 to-transparent rounded-full blur-3xl animate-pulse -z-10"></div>
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-14 sm:p-16 lg:p-24 shadow-xl shadow-slate-900/10 relative overflow-visible animate-in slide-in-from-right duration-700 delay-400 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 border border-slate-200/80 group">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/20 to-transparent rounded-3xl -z-10"></div>
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-100/30 via-pink-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
+                                        <div className="absolute bottom-0 left-0 w-56 h-56 bg-gradient-to-tr from-blue-100/20 to-transparent rounded-full blur-3xl -z-10"></div>
                                         <div className="relative space-y-14">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-7">
@@ -1597,7 +1651,7 @@ export const Home = () => {
                                                             </svg>
                                                         </div>
                                                     </div>
-                                                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
                                                         Предстоящи теми
                                                     </h3>
                                                 </div>
@@ -1630,23 +1684,24 @@ export const Home = () => {
                                                             onClick={() => {
                                                                 setActiveMenu('calendar');
                                                             }}
-                                                            className="block w-full text-left p-12 lg:p-14 rounded-3xl bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-200/30 group/item relative overflow-visible border border-purple-200/60 hover:border-purple-300/80 shadow-lg shadow-purple-100/10 overflow-wrap-anywhere"
+                                                            className="block w-full text-left p-12 lg:p-14 rounded-3xl bg-white/90 backdrop-blur-sm hover:bg-white transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-200/30 group/item relative overflow-visible border border-slate-200/80 hover:border-purple-300/80 shadow-xl shadow-slate-900/10 overflow-wrap-anywhere"
                                                         >
-                                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 to-transparent rounded-3xl -z-10"></div>
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-purple-50/20 to-transparent rounded-3xl -z-10"></div>
+                                                            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-100/20 via-pink-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
                                                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent translate-x-[-100%] group-hover/item:translate-x-[100%] transition-transform duration-1000 rounded-3xl"></div>
                                                             <div className="relative flex items-start justify-between gap-8 mb-10">
                                                                 <div>
-                                                                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-2">
+                                                                    <p className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
                                                                         {isTomorrow ? 'Утре' : (() => {
                                                                             const dayNames = ['неделя', 'понеделник', 'вторник', 'сряда', 'четвъртък', 'петък', 'събота'];
                                                                             const monthNames = ['яну', 'фев', 'мар', 'апр', 'май', 'юни', 'юли', 'авг', 'сеп', 'окт', 'ное', 'дек'];
                                                                             const weekday = dayNames[studyDate.getDay()];
                                                                             const day = studyDate.getDate();
                                                                             const month = monthNames[studyDate.getMonth()];
-                                                                            return `${weekday}, ${day} ${month}`;
+                                                                            return `${weekday.toUpperCase()}, ${day} ${month.toUpperCase()}`;
                                                                         })()}
                                                                     </p>
-                                                                    <p className="text-sm font-semibold text-slate-600">
+                                                                    <p className="text-sm font-bold text-slate-600">
                                                                         {studyDay.topics.length} {studyDay.topics.length === 1 ? 'тема' : 'теми'}
                                                                     </p>
                                                                 </div>
@@ -1661,7 +1716,7 @@ export const Home = () => {
                                                                         />
                                                                     ))}
                                                                     {studyDay.topics.length > 3 && (
-                                                                        <span className="text-xs text-slate-500 ml-1 font-medium">+{studyDay.topics.length - 3}</span>
+                                                                        <span className="text-xs text-slate-500 ml-1 font-bold">+{studyDay.topics.length - 3}</span>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -1672,7 +1727,7 @@ export const Home = () => {
                                                                             topic.subject === 'Български език' ? 'bg-purple-500' : 'bg-amber-500'
                                                                         }`}></span>
                                                                         <p className="text-base lg:text-lg font-semibold text-slate-800 leading-relaxed break-words flex-1 min-w-0 overflow-wrap-anywhere">
-                                                                            <span className={`font-bold ${
+                                                                            <span className={`font-black ${
                                                                                 topic.subject === 'Български език' ? 'text-purple-600' : 'text-amber-600'
                                                                             }`}>
                                                                                 {topic.subject}:
@@ -1681,7 +1736,7 @@ export const Home = () => {
                                                                     </div>
                                                                 ))}
                                                                 {studyDay.topics.length > 2 && (
-                                                                    <p className="text-sm text-slate-500 pl-10 leading-relaxed font-medium">
+                                                                    <p className="text-sm text-slate-500 pl-10 leading-relaxed font-bold">
                                                                         +{studyDay.topics.length - 2} още {studyDay.topics.length - 2 === 1 ? 'тема' : 'теми'}
                                                                     </p>
                                                                 )}
@@ -1699,7 +1754,13 @@ export const Home = () => {
                                 {/* right sidebar */}
                                 <div className="lg:col-span-1 space-y-20 lg:space-y-24 w-full min-w-0 overflow-x-hidden">
                                     {/* study progress card */}
-                                    {studyPlan && getStudyPlanProgress() && (
+                                    {studyPlan && !studyPlanHasContent && (
+                                        <div className="bg-amber-50/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-amber-200">
+                                            <p className="text-amber-900 font-bold text-base">За „{studyPlan.preferences.examSubject}" все още няма готово съдържание.</p>
+                                            <p className="text-amber-800 text-sm mt-2 leading-relaxed">Ще активираме плана, когато има теми за учене.</p>
+                                        </div>
+                                    )}
+                                    {studyPlanHasContent && getStudyPlanProgress() && (
                                         <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-12 lg:p-14 shadow-2xl shadow-emerald-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-300 hover:shadow-3xl hover:shadow-emerald-300/30 transition-all duration-500 border border-emerald-200/60 hover:border-emerald-300/80 group">
                                             <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/40 via-emerald-50/20 to-transparent rounded-3xl -z-10"></div>
                                             <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-200/30 via-emerald-100/20 to-transparent rounded-full blur-3xl animate-pulse -z-10"></div>
@@ -1730,7 +1791,7 @@ export const Home = () => {
                                                             </div>
                                             </div>
                                         </div>
-                                    
+                                        
                                                     <div className="h-6 sm:h-8 md:h-10"></div>
 
                                                     <div className="grid grid-cols-2 gap-8">
@@ -1768,7 +1829,7 @@ export const Home = () => {
                                         </div>
                                     )}
 
-                                    {studyPlan && getStudyPlanProgress() && (
+                                    {studyPlanHasContent && getStudyPlanProgress() && (
                                         <div className="h-6 sm:h-8 md:h-10"></div>
                                     )}
 
@@ -1975,24 +2036,24 @@ export const Home = () => {
                                                             return (
                                                             <div 
                                                                 key={dateStr} 
-                                                                className={`group ${isStudyPlan ? 'bg-gradient-to-br from-blue-50/50 to-white hover:from-blue-100/60 hover:to-white border-2 border-blue-200/40 hover:border-blue-300/60' : 'bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 hover:border-purple-300/60'} rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md`}
+                                                                className={`group ${isStudyPlan ? 'bg-white/60 backdrop-blur-sm hover:bg-white/80 border border-blue-200/60 hover:border-blue-300/80' : 'bg-white/60 backdrop-blur-sm hover:bg-white/80 border border-purple-200/60 hover:border-purple-300/80'} rounded-2xl p-4 transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.02]`}
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className={`flex-shrink-0 w-10 h-10 ${isStudyPlan ? 'bg-gradient-to-br from-blue-900 to-blue-800' : 'bg-gradient-to-br from-purple-900 to-purple-800'} rounded-lg flex flex-col items-center justify-center text-white shadow-md`}>
-                                                                        <span className="text-[9px] font-bold uppercase leading-tight">
+                                                                    <div className={`flex-shrink-0 w-12 h-12 ${isStudyPlan ? 'bg-gradient-to-br from-blue-600 to-blue-500' : 'bg-gradient-to-br from-purple-600 to-purple-500'} rounded-xl flex flex-col items-center justify-center text-white shadow-lg`}>
+                                                                        <span className="text-[10px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
-                                                                        <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                                                        <span className="text-base font-black leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className={`text-[10px] font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1 uppercase`}>
+                                                                        <p className={`text-xs font-bold ${isStudyPlan ? 'text-blue-700' : 'text-purple-700'} mb-1.5 uppercase tracking-wider`}>
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
-                                                                        <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
+                                                                        <p className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">
                                                                             {event}
                                                                         </p>
                                                                     </div>

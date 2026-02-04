@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import type { KnowledgeLevel, StudyPlanPreferences } from "../lib/topics";
+import type { KnowledgeLevel, StudyPlanPreferences, ExamSubject } from "../lib/topics";
+import { SCHOOL_SUBJECTS, hasPlanContent, normalizeExamSubject } from "../lib/topics";
 import { generateStudyPlan, calculateDaysUntilExam } from "../lib/studyPlanGenerator";
 import { useAuth } from "../context/AuthContext";
 import { supabase, ensureValidSession } from "../supabase-client";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
+
+const TOTAL_STEPS = 5;
 
 export const StudyPlanQuestionnaire = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>(1);
+
+  const [examSubject, setExamSubject] = useState<ExamSubject>("БЕЛ");
 
   const [examDate, setExamDate] = useState<string>("");
   const [daysUntilExam, setDaysUntilExam] = useState<number>(0);
@@ -24,6 +29,24 @@ export const StudyPlanQuestionnaire = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("exam_subject")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!cancelled && data?.exam_subject) {
+        setExamSubject(normalizeExamSubject(data.exam_subject));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const handleExamDateChange = (date: string) => {
     setExamDate(date);
     if (date) {
@@ -33,8 +56,8 @@ export const StudyPlanQuestionnaire = () => {
   };
 
   const handleNext = () => {
-    if (currentStep < 4) {
-      if (currentStep === 1 && !examDate) {
+    if (currentStep < TOTAL_STEPS) {
+      if (currentStep === 2 && !examDate) {
         alert("Моля, изберете дата на изпита");
         return;
       }
@@ -60,6 +83,7 @@ export const StudyPlanQuestionnaire = () => {
       await ensureValidSession();
 
       const preferences: StudyPlanPreferences = {
+        examSubject,
         examDate: new Date(examDate),
         studyDaysPerWeek,
         topicsPerDay,
@@ -74,6 +98,7 @@ export const StudyPlanQuestionnaire = () => {
         .insert({
           user_id: user.id,
           preferences: {
+            exam_subject: examSubject,
             exam_date: examDate,
             study_days_per_week: studyDaysPerWeek,
             topics_per_day: topicsPerDay,
@@ -91,6 +116,11 @@ export const StudyPlanQuestionnaire = () => {
         setIsSubmitting(false);
         return;
       }
+
+      await supabase
+        .from("profiles")
+        .update({ exam_subject: examSubject })
+        .eq("id", user.id);
 
       navigate('/home', { replace: true });
     } catch (error) {
@@ -112,19 +142,55 @@ export const StudyPlanQuestionnaire = () => {
           {/* progress bar */}
           <div className="mb-10 sm:mb-12 md:mb-14">
             <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <span className="text-sm sm:text-base font-bold text-slate-700">Стъпка {currentStep} от 4</span>
-              <span className="text-sm sm:text-base font-semibold text-slate-500">{Math.round((currentStep / 4) * 100)}%</span>
+              <span className="text-sm sm:text-base font-bold text-slate-700">Стъпка {currentStep} от {TOTAL_STEPS}</span>
+              <span className="text-sm sm:text-base font-semibold text-slate-500">{Math.round((currentStep / TOTAL_STEPS) * 100)}%</span>
             </div>
             <div className="w-full bg-slate-200/60 rounded-full h-3 sm:h-3.5 shadow-inner">
               <div
                 className="bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 h-3 sm:h-3.5 rounded-full transition-all duration-500 shadow-lg shadow-pink-500/30"
-                style={{ width: `${(currentStep / 4) * 100}%` }}
+                style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
               ></div>
             </div>
           </div>
 
           {/* question 1 */}
           {currentStep === 1 && (
+            <div className="space-y-8 sm:space-y-10">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">По какъв предмет ще е матурата?</h2>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Избери предмета, по който ще се явяваш на изпита.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 max-h-[60vh] overflow-y-auto pr-1">
+                {SCHOOL_SUBJECTS.map((subject) => (
+                  <button
+                    key={subject}
+                    type="button"
+                    onClick={() => setExamSubject(subject)}
+                    className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base text-left ${
+                      examSubject === subject
+                        ? "border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-[1.02] shadow-md shadow-purple-500/20"
+                        : "border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {subject}
+                  </button>
+                ))}
+              </div>
+              {!hasPlanContent(examSubject) && (
+                <div className="p-5 sm:p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+                  <p className="text-amber-900 font-semibold text-base sm:text-lg">
+                    За предмет „{examSubject}" все още няма готово съдържание.
+                  </p>
+                  <p className="text-amber-800 text-sm sm:text-base mt-2 leading-relaxed">
+                    Ще запазим избора ти и ще го активираме, когато има план за учене. Можеш да продължиш с останалите стъпки.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* question 2 */}
+          {currentStep === 2 && (
             <div className="space-y-8 sm:space-y-10">
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Кога е твоята матура?</h2>
@@ -151,8 +217,8 @@ export const StudyPlanQuestionnaire = () => {
             </div>
           )}
 
-          {/* question 2 */}
-          {currentStep === 2 && (
+          {/* question 3 */}
+          {currentStep === 3 && (
             <div className="space-y-8 sm:space-y-10">
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Колко дни в седмицата можеш да учиш?</h2>
@@ -187,8 +253,8 @@ export const StudyPlanQuestionnaire = () => {
             </div>
           )}
 
-          {/* question 3 */}
-          {currentStep === 3 && (
+          {/* question 4 */}
+          {currentStep === 4 && (
             <div className="space-y-8 sm:space-y-10">
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">По колко теми на ден искаш да учиш?</h2>
@@ -233,59 +299,72 @@ export const StudyPlanQuestionnaire = () => {
             </div>
           )}
 
-          {/* question 4 */}
-          {currentStep === 4 && (
+          {/* question 5 */}
+          {currentStep === 5 && (
             <div className="space-y-10 sm:space-y-12">
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 leading-tight">Какво е твоето ниво?</h2>
-                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">Оцени своето текущо ниво по всеки предмет.</p>
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
+                  {examSubject === "БЕЛ" ? "Оцени своето текущо ниво по Български език и по Литература." : "Оцени своето текущо ниво по избрания предмет."}
+                </p>
               </div>
               
+              {!hasPlanContent(examSubject) ? (
+                <div className="p-6 sm:p-8 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <p className="text-slate-700 font-medium text-center">
+                    За предмет „{examSubject}" все още няма учебно съдържание. Ще запазим избора ти и ще те уведомим, когато има план за учене.
+                  </p>
+                </div>
+              ) : (
               <div className="space-y-8 sm:space-y-10">
-                {/* Български език */}
-                <div className="space-y-5 sm:space-y-6">
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Български език</h3>
-                  <div className="grid grid-cols-3 gap-4 sm:gap-5">
-                    {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
-                      <button
-                        key={level}
-                        onClick={() => setBelLevel(level)}
-                        className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
-                          belLevel === level
-                            ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
-                            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        {level === 'beginner' && 'Начинаещ'}
-                        {level === 'intermediate' && 'Средно ниво'}
-                        {level === 'advanced' && 'Добро ниво'}
-                      </button>
-                    ))}
+                {/* БЕЛ */}
+                {examSubject === "БЕЛ" && (
+                  <div className="space-y-5 sm:space-y-6">
+                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Български език</h3>
+                    <div className="grid grid-cols-3 gap-4 sm:gap-5">
+                      {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setBelLevel(level)}
+                          className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
+                            belLevel === level
+                              ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          {level === 'beginner' && 'Начинаещ'}
+                          {level === 'intermediate' && 'Средно ниво'}
+                          {level === 'advanced' && 'Добро ниво'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Литература */}
-                <div className="space-y-5 sm:space-y-6">
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Литература</h3>
-                  <div className="grid grid-cols-3 gap-4 sm:gap-5">
-                    {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
-                      <button
-                        key={level}
-                        onClick={() => setLiteratureLevel(level)}
-                        className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
-                          literatureLevel === level
-                            ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
-                            : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        {level === 'beginner' && 'Начинаещ'}
-                        {level === 'intermediate' && 'Средно ниво'}
-                        {level === 'advanced' && 'Добро ниво'}
-                      </button>
-                    ))}
+                {examSubject === "БЕЛ" && (
+                  <div className="space-y-5 sm:space-y-6">
+                    <h3 className="text-xl sm:text-2xl font-bold text-slate-900">Литература</h3>
+                    <div className="grid grid-cols-3 gap-4 sm:gap-5">
+                      {(['beginner', 'intermediate', 'advanced'] as KnowledgeLevel[]).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setLiteratureLevel(level)}
+                          className={`px-4 sm:px-5 py-4 sm:py-5 rounded-2xl border-2 transition-all duration-200 font-bold text-sm sm:text-base ${
+                            literatureLevel === level
+                              ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 text-purple-700 scale-105 shadow-md shadow-purple-500/20'
+                              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          {level === 'beginner' && 'Начинаещ'}
+                          {level === 'intermediate' && 'Средно ниво'}
+                          {level === 'advanced' && 'Добро ниво'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
+              )}
             </div>
           )}
 
@@ -299,7 +378,7 @@ export const StudyPlanQuestionnaire = () => {
               Назад
             </button>
 
-            {currentStep < 4 ? (
+            {currentStep < TOTAL_STEPS ? (
               <button
                 onClick={handleNext}
                 className="px-8 sm:px-10 py-3 sm:py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 hover:from-pink-400 hover:via-pink-300 hover:to-purple-400 text-white font-bold text-base sm:text-lg rounded-2xl shadow-lg shadow-pink-500/30 hover:shadow-xl hover:shadow-pink-500/40 transition-all duration-300 hover:scale-105 active:scale-95"
@@ -308,6 +387,7 @@ export const StudyPlanQuestionnaire = () => {
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="px-8 sm:px-10 py-3 sm:py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-purple-500 hover:from-pink-400 hover:via-pink-300 hover:to-purple-400 text-white font-bold text-base sm:text-lg rounded-2xl shadow-lg shadow-pink-500/30 hover:shadow-xl hover:shadow-pink-500/40 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"

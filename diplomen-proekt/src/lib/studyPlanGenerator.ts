@@ -5,9 +5,8 @@ export function generateStudyPlan(
   preferences: StudyPlanPreferences,
   userId: string
 ): StudyPlan {
-  const { examDate, studyDaysPerWeek, topicsPerDay, belLevel, literatureLevel } = preferences;
+  const { examSubject, examDate, studyDaysPerWeek, topicsPerDay, belLevel, literatureLevel } = preferences;
 
-  //days until exam
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const exam = new Date(examDate);
@@ -19,10 +18,8 @@ export function generateStudyPlan(
     throw new Error('Датата на изпита трябва да бъде в бъдещето');
   }
 
-
-  const filteredTopics = filterTopicsByLevel(ALL_TOPICS, belLevel, literatureLevel);
-
-  // generate study days
+  const topicsBySubject = filterTopicsByExamSubject(ALL_TOPICS, examSubject);
+  const filteredTopics = filterTopicsByLevel(topicsBySubject, belLevel, literatureLevel, examSubject);
   const studyDays = generateStudyDays(
     today,
     exam,
@@ -39,34 +36,90 @@ export function generateStudyPlan(
 }
 
 
- // filters topics based on knowledge levels
+function filterTopicsByExamSubject(topics: Topic[], examSubject: StudyPlanPreferences['examSubject']): Topic[] {
+  if (examSubject === 'БЕЛ') return topics;
+  return []; 
+}
 
 function filterTopicsByLevel(
   topics: Topic[],
   belLevel: KnowledgeLevel,
-  literatureLevel: KnowledgeLevel
+  literatureLevel: KnowledgeLevel,
+  examSubject: StudyPlanPreferences['examSubject']
 ): Topic[] {
   const levelPriorityMap: Record<KnowledgeLevel, number> = {
-    beginner: 4,     
-    intermediate: 6, 
-    advanced: 8,     
+    beginner: 4,
+    intermediate: 6,
+    advanced: 8,
   };
 
   const belMinPriority = levelPriorityMap[belLevel];
   const litMinPriority = levelPriorityMap[literatureLevel];
+  const includeBel = examSubject === 'БЕЛ';
+  const includeLit = examSubject === 'БЕЛ';
 
   return topics.filter(topic => {
     if (topic.subject === 'Български език') {
-      return topic.priority >= belMinPriority;
-    } else {
-      return topic.priority >= litMinPriority;
+      return includeBel && topic.priority >= belMinPriority;
     }
+    return includeLit && topic.priority >= litMinPriority;
   });
 }
 
+function getStudyDaysOfWeek(studyDaysPerWeek: number): number[] {
+  if (studyDaysPerWeek === 7) {
+    return [0, 1, 2, 3, 4, 5, 6];
+  }
 
-// generates study days with assigned topics
- 
+  // 5 days -> Monday-Friday (1,2,3,4,5)
+  // 4 days -> Monday, Wednesday, Friday + one extra day
+  // 3 days -> Monday, Wednesday, Friday
+  // 2 days -> Tuesday, Thursday
+  const presets: Record<number, number[]> = {
+    5: [1, 2, 3, 4, 5],
+    4: [1, 3, 5, 4],
+    3: [1, 3, 5],
+    2: [2, 4],
+  };
+  return presets[studyDaysPerWeek] ?? [1, 3, 5];
+}
+
+// number of study days
+function countStudyDaysBetween(start: Date, end: Date, studyDaysOfWeek: number[]): number {
+  let count = 0;
+  const current = new Date(start);
+  const endCopy = new Date(end);
+  
+  while (current <= endCopy) {
+    if (studyDaysOfWeek.includes(current.getDay())) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+// create a list of topics
+function interleaveTopicsByPriority(belTopics: Topic[], litTopics: Topic[]): Topic[] {
+  const result: Topic[] = [];
+  let belIdx = 0;
+  let litIdx = 0;
+  let preferBel = belTopics.length >= litTopics.length;
+  
+  while (belIdx < belTopics.length || litIdx < litTopics.length) {
+    if (preferBel && belIdx < belTopics.length) {
+      result.push(belTopics[belIdx++]);
+      preferBel = false;
+    } else if (litIdx < litTopics.length) {
+      result.push(litTopics[litIdx++]);
+      preferBel = true;
+    } else {
+      result.push(belTopics[belIdx++]);
+    }
+  }
+  return result;
+}
+
 function generateStudyDays(
   startDate: Date,
   endDate: Date,
@@ -74,59 +127,43 @@ function generateStudyDays(
   topicsPerDay: number,
   topics: Topic[]
 ): StudyDay[] {
-  const studyDays: StudyDay[] = [];
-  const currentDate = new Date(startDate);
+  const studyDaysOfWeek = getStudyDaysOfWeek(studyDaysPerWeek);
+  const availableStudyDays = countStudyDaysBetween(startDate, endDate, studyDaysOfWeek);
+
+  if (availableStudyDays === 0) {
+    return [];
+  }
 
   const belTopics = topics.filter(t => t.subject === 'Български език');
   const litTopics = topics.filter(t => t.subject === 'Литература');
-  
-  let belIndex = 0;
-  let litIndex = 0;
+  const allTopics = belTopics.length > 0 && litTopics.length > 0
+    ? interleaveTopicsByPriority(belTopics, litTopics)
+    : [...belTopics, ...litTopics];
+  const totalTopics = allTopics.length;
 
-  const studyDaysOfWeek: number[] = [];
-  if (studyDaysPerWeek === 7) {
-    for (let i = 0; i < 7; i++) studyDaysOfWeek.push(i);
-  } else {
-    // distribute study days evenly across the week
-    // Use better distribution algorithm
-    const spacing = Math.floor(7 / studyDaysPerWeek);
-    const remainder = 7 % studyDaysPerWeek;
-    let currentDay = 0;
-    
-    for (let i = 0; i < studyDaysPerWeek; i++) {
-      studyDaysOfWeek.push(currentDay);
-      currentDay += spacing;
-      if (i < remainder) currentDay += 1;
-      if (currentDay >= 7) currentDay -= 7;
-    }
-    
-    // Sort to ensure proper order
-    studyDaysOfWeek.sort((a, b) => a - b);
+
+  const basePerDay = Math.floor(totalTopics / availableStudyDays);
+  const remainder = totalTopics % availableStudyDays;
+  const dayCapacities: number[] = [];
+  for (let i = 0; i < availableStudyDays; i++) {
+    const ideal = basePerDay + (i < remainder ? 1 : 0);
+    dayCapacities.push(Math.min(topicsPerDay, Math.max(1, ideal)));
   }
 
-  while (currentDate <= endDate && (belIndex < belTopics.length || litIndex < litTopics.length)) {
+  const studyDays: StudyDay[] = [];
+  const currentDate = new Date(startDate);
+  let topicIndex = 0;
+  let dayIndex = 0;
+
+  while (currentDate <= endDate && dayIndex < availableStudyDays && topicIndex < totalTopics) {
     const dayOfWeek = currentDate.getDay();
     
-    // check if this day is a study day
     if (studyDaysOfWeek.includes(dayOfWeek)) {
+      const capacity = dayCapacities[dayIndex] ?? topicsPerDay;
       const dayTopics: Topic[] = [];
       
-      // assign topics for this day 
-      for (let i = 0; i < topicsPerDay && (belIndex < belTopics.length || litIndex < litTopics.length); i++) {
-        const preferBel = i % 2 === 0 || litIndex >= litTopics.length;
-        
-        if (preferBel && belIndex < belTopics.length) {
-          dayTopics.push(belTopics[belIndex]);
-          belIndex++;
-        } else if (litIndex < litTopics.length) {
-          dayTopics.push(litTopics[litIndex]);
-          litIndex++;
-        } else if (belIndex < belTopics.length) {
-          dayTopics.push(belTopics[belIndex]);
-          belIndex++;
-        } else {
-          break; 
-        }
+      for (let i = 0; i < capacity && topicIndex < totalTopics; i++) {
+        dayTopics.push(allTopics[topicIndex++]);
       }
 
       if (dayTopics.length > 0) {
@@ -137,6 +174,7 @@ function generateStudyDays(
           missed: false,
         });
       }
+      dayIndex++;
     }
 
     currentDate.setDate(currentDate.getDate() + 1);
@@ -146,8 +184,6 @@ function generateStudyDays(
 }
 
 
- // reschedule topic when missed
- 
 export function rescheduleMissedDay(
   plan: StudyPlan,
   missedDate: string
@@ -157,42 +193,65 @@ export function rescheduleMissedDay(
 
   if (missedDayIndex === -1) return plan;
 
-  updatedPlan.plan[missedDayIndex].missed = true;
-  const missedTopics = [...updatedPlan.plan[missedDayIndex].topics];
+  const missedDay = updatedPlan.plan[missedDayIndex];
+  
+  if (missedDay.missed || missedDay.completed) return plan;
+  if (missedDay.topics.length === 0) {
+    missedDay.missed = true;
+    return updatedPlan;
+  }
 
-  let topicIndex = 0;
-  for (let i = missedDayIndex + 1; i < updatedPlan.plan.length && topicIndex < missedTopics.length; i++) {
+  missedDay.missed = true;
+  const missedTopics = [...missedDay.topics];
+
+  const availableDays: number[] = [];
+  for (let i = missedDayIndex + 1; i < updatedPlan.plan.length; i++) {
     const day = updatedPlan.plan[i];
-    
-    if (day.missed || day.completed) continue;
-
-    const remainingCapacity = updatedPlan.preferences.topicsPerDay - day.topics.length;
-    if (remainingCapacity > 0) {
-      const topicsToAdd = missedTopics.slice(topicIndex, topicIndex + remainingCapacity);
-      day.topics.push(...topicsToAdd);
-      topicIndex += topicsToAdd.length;
+    if (!day.missed && !day.completed) {
+      availableDays.push(i);
     }
   }
 
-  // if there are still topics left add them to the end
-  if (topicIndex < missedTopics.length) {
-    const remainingTopics = missedTopics.slice(topicIndex);
-    // find the last day and add remaining topics
-    for (let i = updatedPlan.plan.length - 1; i >= 0; i--) {
-      const day = updatedPlan.plan[i];
-      if (!day.missed && !day.completed) {
-        const remainingCapacity = updatedPlan.preferences.topicsPerDay - day.topics.length;
-        if (remainingCapacity > 0) {
-          const topicsToAdd = remainingTopics.slice(0, remainingCapacity);
-          day.topics.push(...topicsToAdd);
-        }
-        break;
-      }
-    }
+  if (availableDays.length === 0) {
+    missedDay.topics = [];
+    return updatedPlan;
   }
 
-  updatedPlan.plan[missedDayIndex].topics = []; 
+  // collect all topics (missed + from subsequent days)
+  const allTopics: Topic[] = [...missedTopics];
+  for (const dayIndex of availableDays) {
+    allTopics.push(...updatedPlan.plan[dayIndex].topics);
+    updatedPlan.plan[dayIndex].topics = [];
+  }
 
+  // distribute topics sequentially across all subsequent days
+  const limit = updatedPlan.preferences.topicsPerDay;
+  let topicIdx = 0;
+  
+  for (let i = 0; i < availableDays.length && topicIdx < allTopics.length; i++) {
+    const dayIndex = availableDays[i];
+    const day = updatedPlan.plan[dayIndex];
+    const topicsToAdd = Math.min(limit, allTopics.length - topicIdx);
+    if (topicsToAdd > 0) {
+      day.topics = allTopics.slice(topicIdx, topicIdx + topicsToAdd);
+      topicIdx += topicsToAdd;
+    }
+  }
+  
+  // distribute remainder evenly
+  if (topicIdx < allTopics.length) {
+    let dayCounter = 0;
+    while (topicIdx < allTopics.length) {
+      const dayIndex = availableDays[dayCounter % availableDays.length];
+      const day = updatedPlan.plan[dayIndex];
+      day.topics.push(allTopics[topicIdx]);
+      topicIdx++;
+      dayCounter++;
+    }
+  }
+  
+
+  missedDay.topics = [];
   return updatedPlan;
 }
 

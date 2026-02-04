@@ -57,9 +57,48 @@ export const ALL_TOPICS: Topic[] = [
 
 export type KnowledgeLevel = "beginner" | "intermediate" | "advanced";
 
+export const SCHOOL_SUBJECTS = [
+  "БЕЛ",
+  "Математика",
+  "История и цивилизации",
+  "География и икономика",
+  "Философия",
+  "Физика и астрономия",
+  "Химия и опазване на околната среда",
+  "Биология и здравно образование",
+  "Английски език",
+  "Немски език",
+  "Френски език",
+  "Испански език",
+  "Италиански език",
+  "Руски език",
+  "Информационни технологии",
+] as const;
+
+export type SchoolSubjectName = (typeof SCHOOL_SUBJECTS)[number];
+
+export type ExamSubject = SchoolSubjectName;
+
+export const SUBJECTS_WITH_PLAN_CONTENT: string[] = ["БЕЛ"];
+
+export function hasPlanContent(examSubject: string): boolean {
+  return SUBJECTS_WITH_PLAN_CONTENT.includes(examSubject);
+}
+
+export function normalizeExamSubject(value: unknown): ExamSubject {
+  if (typeof value === "string" && SCHOOL_SUBJECTS.includes(value as ExamSubject)) return value as ExamSubject;
+  if (value === "bel" || value === "literature" || value === "both") return "БЕЛ";
+  if (value === "Български език" || value === "Литература" || value === "Български език и Литература") return "БЕЛ";
+  if (value === "Физика") return "Физика и астрономия";
+  if (value === "Химия") return "Химия и опазване на околната среда";
+  if (value === "Биология") return "Биология и здравно образование";
+  return "БЕЛ";
+}
+
 export const KnowledgeLevelValues = ["beginner", "intermediate", "advanced"] as const;
 
 export interface StudyPlanPreferences {
+  examSubject: ExamSubject;
   examDate: Date;
   studyDaysPerWeek: number;
   topicsPerDay: number;
