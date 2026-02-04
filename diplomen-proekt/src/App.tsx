@@ -5,9 +5,11 @@ import Login from './pages/Login'
 import { LandingPage } from './pages/LandingPage'
 import { Profile } from './pages/Profile'
 import { Navbar } from './components/Navbar'
+import { StudyEntry } from './pages/StudyEntry'
+import { Learning } from './pages/Learning'
+import { TopicTest } from './pages/TopicTest'
 
-
-function App() { 
+function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
@@ -15,9 +17,12 @@ function App() {
         path="/*"
         element={
           <div>
-    <Navbar />
+            <Navbar />
             <Routes>
               <Route path="home" element={<Home />} />
+              <Route path="study" element={<StudyEntry />} />
+              <Route path="study/learn/:subjectId/:topicId" element={<Learning />} />
+              <Route path="study/test/:topicId" element={<TopicTest />} />
               <Route path="profile" element={<Profile />} />
               <Route path="signup" element={<SignUp />} />
               <Route path="login" element={<Login />} />
