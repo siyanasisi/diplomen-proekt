@@ -321,6 +321,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         loadSlotsError,
         retryLoadSlots,
         hasAvailability,
+        hasBookingSettings: settings !== null,
         generatedSlots,
         generatedSlotsFourWeeks,
         futureSlots,

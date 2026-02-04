@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
@@ -38,6 +38,7 @@ export const TeacherProfile = () => {
     const { modalRef: bookingModalRef } = useModalFocus(booking.showBookingModal, booking.closeBookingModal, {
         canClose: () => !booking.submitting,
     });
+    const bookingSelectedRef = useRef<HTMLDivElement | null>(null);
     const { modalRef: contactModalRef } = useModalFocus(showContactModal, closeContactModal);
     const closeReviewModal = () => {
         setShowReviewModal(false);
@@ -648,6 +649,15 @@ export const TeacherProfile = () => {
                                             Опитай отново
                                         </button>
                                     </div>
+                                ) : !booking.hasBookingSettings ? (
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <p className="text-slate-700 font-medium mb-2">
+                                            Учителят не е настроил записване.
+                                        </p>
+                                        <p className="text-slate-600 text-sm">
+                                            Свържете се с него чрез бутона „Свържи се с учителя“ по-долу на страницата.
+                                        </p>
+                                    </div>
                                 ) : !booking.hasAvailability ? (
                                     <>
                                         <p className="text-slate-600 text-sm">
@@ -676,7 +686,7 @@ export const TeacherProfile = () => {
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">Съобщение (по избор)</label>
                                             <textarea
                                                 value={booking.bookingForm.message}
-                                                onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, message: e.target.value })}
+                                                onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                 placeholder="Добавете допълнителна информация..."
                                                 rows={3}
                                                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
@@ -803,7 +813,7 @@ export const TeacherProfile = () => {
                                             })}
                                         </div>
                                         {booking.bookingForm.date && booking.bookingForm.time && (
-                                            <div className="pt-4 border-t border-slate-200 space-y-3">
+                                            <div ref={bookingSelectedRef} className="pt-4 border-t border-slate-200 space-y-3">
                                                 <p className="text-sm font-semibold text-slate-700">
                                                     Избрахте: {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {booking.bookingForm.time}
                                                 </p>
