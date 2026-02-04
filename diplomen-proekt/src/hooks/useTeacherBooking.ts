@@ -49,6 +49,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     const [existingBookings, setExistingBookings] = useState<BookingSlotRow[]>([]);
     const [weekStart, setWeekStart] = useState<Date>(() => getStartOfWeekMonday(new Date()));
     const [loadingSlots, setLoadingSlots] = useState(false);
+    const [loadSlotsError, setLoadSlotsError] = useState(false);
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
     const [bookingNetworkError, setBookingNetworkError] = useState(false);
 
@@ -71,18 +72,35 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         if (!showBookingModal || !teacher) return;
         let cancelled = false;
         setLoadingSlots(true);
+        setLoadSlotsError(false);
         (async () => {
             try {
                 await ensureValidSession();
                 await loadSlots(teacher.user_id);
             } catch (e) {
                 console.error("Failed to load booking slots:", e);
+                if (!cancelled) setLoadSlotsError(true);
             } finally {
                 if (!cancelled) setLoadingSlots(false);
             }
         })();
         return () => { cancelled = true; };
     }, [showBookingModal, teacher, loadSlots]);
+
+    const retryLoadSlots = useCallback(async () => {
+        if (!teacher) return;
+        setLoadSlotsError(false);
+        setLoadingSlots(true);
+        try {
+            await ensureValidSession();
+            await loadSlots(teacher.user_id);
+        } catch (e) {
+            console.error("Failed to load booking slots:", e);
+            setLoadSlotsError(true);
+        } finally {
+            setLoadingSlots(false);
+        }
+    }, [teacher, loadSlots]);
 
     const hasAvailability = availability.length > 0 && settings;
 
@@ -268,6 +286,8 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         submitting,
         bookingSuccess,
         loadingSlots,
+        loadSlotsError,
+        retryLoadSlots,
         hasAvailability,
         generatedSlots,
         generatedSlotsFourWeeks,
@@ -285,5 +305,6 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         formatDateKey,
         INITIAL_SLOTS_PER_DAY,
         bookingNetworkError,
+        lessonDurationMinutes: settings?.lesson_duration_minutes ?? null,
     };
 }

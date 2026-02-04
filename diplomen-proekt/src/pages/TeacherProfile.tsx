@@ -35,7 +35,9 @@ export const TeacherProfile = () => {
         setShowContactModal(false);
         setContactMessage("");
     };
-    const { modalRef: bookingModalRef } = useModalFocus(booking.showBookingModal, booking.closeBookingModal);
+    const { modalRef: bookingModalRef } = useModalFocus(booking.showBookingModal, booking.closeBookingModal, {
+        canClose: () => !booking.submitting,
+    });
     const { modalRef: contactModalRef } = useModalFocus(showContactModal, closeContactModal);
     const closeReviewModal = () => {
         setShowReviewModal(false);
@@ -574,17 +576,28 @@ export const TeacherProfile = () => {
                         aria-modal="true"
                         aria-labelledby="booking-title"
                         aria-describedby="booking-desc"
+                        onClick={(e) => {
+                            if (e.target !== e.currentTarget || booking.submitting) return;
+                            booking.closeBookingModal();
+                        }}
                     >
                         <div
                             ref={bookingModalRef}
+                            onClick={(e) => e.stopPropagation()}
                             className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-purple-200/40"
                         >
                             <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                                <h2 id="booking-title" className="text-xl font-bold text-slate-900">Запази час</h2>
+                                <div>
+                                    <h2 id="booking-title" className="text-xl font-bold text-slate-900">Запази час</h2>
+                                    {booking.lessonDurationMinutes != null && (
+                                        <p className="text-sm text-slate-500 mt-0.5">Урокът е {booking.lessonDurationMinutes} мин</p>
+                                    )}
+                                </div>
                                 <button
                                     type="button"
                                     onClick={booking.closeBookingModal}
-                                    className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
+                                    disabled={booking.submitting}
+                                    className="p-2 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     aria-label="Затвори"
                                 >
                                     <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -613,7 +626,20 @@ export const TeacherProfile = () => {
                                     </div>
                                 ) : booking.loadingSlots ? (
                                     <div className="flex items-center justify-center py-12">
-                                        <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
+                                        <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                    </div>
+                                ) : booking.loadSlotsError ? (
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <p className="text-slate-700 font-medium mb-2">Наличието не можа да се зареди.</p>
+                                        <p className="text-slate-500 text-sm mb-4">Проверете връзката и опитайте отново.</p>
+                                        <button
+                                            type="button"
+                                            onClick={booking.retryLoadSlots}
+                                            disabled={booking.loadingSlots}
+                                            className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-semibold transition-colors disabled:opacity-50"
+                                        >
+                                            Опитай отново
+                                        </button>
                                     </div>
                                 ) : !booking.hasAvailability ? (
                                     <>
@@ -803,7 +829,7 @@ export const TeacherProfile = () => {
                                 </div>
                             )}
                             <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
-                                <button type="button" onClick={booking.closeBookingModal} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors">
+                                <button type="button" onClick={booking.closeBookingModal} disabled={booking.submitting} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none">
                                     Откажи
                                 </button>
                                 <button
