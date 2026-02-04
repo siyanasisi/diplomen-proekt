@@ -58,6 +58,14 @@ export const Profile = () => {
     const [teacherBlockedSlots, setTeacherBlockedSlots] = useState<TeacherBlockedSlotRow[]>([]);
     const [teacherExceptions, setTeacherExceptions] = useState<TeacherScheduleExceptionRow[]>([]);
     const [savingAvailability, setSavingAvailability] = useState(false);
+    const [pendingBookings, setPendingBookings] = useState<{
+        id: string;
+        lesson_date: string;
+        lesson_time: string;
+        message: string | null;
+        student_id: string;
+        student_name?: string;
+    }[]>([]);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -168,12 +176,29 @@ export const Profile = () => {
             setTeacherBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
             setTeacherBlockedSlots((blockRes.data as TeacherBlockedSlotRow[]) ?? []);
             setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
+            const { data: pendingData } = await supabase
+                .from('bookings')
+                .select('id, lesson_date, lesson_time, message, student_id')
+                .eq('teacher_id', user.id)
+                .eq('status', 'pending')
+                .order('lesson_date', { ascending: true })
+                .order('lesson_time', { ascending: true });
+            const list = (pendingData ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string }[];
+            if (list.length > 0) {
+                const ids = [...new Set(list.map((b) => b.student_id))];
+                const { data: profilesData } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+                const nameMap = new Map((profilesData ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? 'Ученик']));
+                setPendingBookings(list.map((b) => ({ ...b, student_name: nameMap.get(b.student_id) ?? 'Ученик' })));
+            } else {
+                setPendingBookings([]);
+            }
         } else {
             setTeacherProfile(null);
             setTeacherAvailability([]);
             setTeacherBookingSettings(null);
             setTeacherBlockedSlots([]);
             setTeacherExceptions([]);
+            setPendingBookings([]);
         }
         } catch (error) {
             console.error('Error in loadUserData:', error);
@@ -403,6 +428,7 @@ export const Profile = () => {
                     teacher_id: user.id,
                     lesson_duration_minutes: data.settings.lesson_duration_minutes,
                     buffer_minutes: data.settings.buffer_minutes,
+                    auto_accept_bookings: data.settings.auto_accept_bookings,
                 },
                 { onConflict: 'teacher_id' }
             );
@@ -438,6 +464,68 @@ export const Profile = () => {
             setSavingAvailability(false);
         }
     }, [user, role, loadUserData, showToast]);
+
+    const formatBookingDateTime = (lessonDate: string, lessonTime: string) => {
+        const timeStr = String(lessonTime).slice(0, 5);
+        try {
+            const d = new Date(lessonDate + 'T12:00:00');
+            return d.toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + timeStr + ' ч.';
+        } catch {
+            return lessonDate + ' в ' + timeStr + ' ч.';
+        }
+    };
+
+    const handleConfirmBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user) return;
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'confirmed' })
+                .eq('id', bookingId)
+                .eq('teacher_id', user.id);
+            if (error) throw error;
+
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            await supabase.from('messages').insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Вашият час на ${dateTimeText} е потвърден. До скоро!`,
+                is_from_student: false,
+            });
+
+            showToast('Часът е потвърден. Ученикът ще получи съобщение в чата.');
+            loadUserData();
+        } catch (e) {
+            console.error('Error confirming booking:', e);
+            showToast('Грешка при потвърждаване.');
+        }
+    }, [user, loadUserData, showToast]);
+
+    const handleCancelBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm('Сигурни ли сте, че искате да откажете този час?')) return;
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled' })
+                .eq('id', bookingId)
+                .eq('teacher_id', user.id);
+            if (error) throw error;
+
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            await supabase.from('messages').insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Съжалявам, часът на ${dateTimeText} е отменен. Можете да запишете друг час.`,
+                is_from_student: false,
+            });
+
+            showToast('Часът е отказен. Ученикът ще получи съобщение в чата.');
+            loadUserData();
+        } catch (e) {
+            console.error('Error cancelling booking:', e);
+            showToast('Грешка при отказ.');
+        }
+    }, [user, loadUserData, showToast]);
 
     const handleDeleteEvent = useCallback(async (eventId: string) => {
         if (!confirm('Сигурни ли сте, че искате да изтриете това събитие?')) return;
@@ -698,6 +786,14 @@ export const Profile = () => {
         }
     }, [user?.created_at]);
 
+    const futurePendingBookings = useMemo(
+        () =>
+            pendingBookings.filter(
+                (b) => new Date(b.lesson_date + 'T' + (b.lesson_time?.slice(0, 5) || '00:00')) > new Date()
+            ),
+        [pendingBookings]
+    );
+
     if (loading) {
         return (
             <div className={`min-h-screen flex items-center justify-center ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'}`}>
@@ -953,6 +1049,51 @@ export const Profile = () => {
                                         onSave={handleSaveAvailability}
                                         saving={savingAvailability}
                                     />
+                                </div>
+                            )}
+
+                            {role === 'teacher' && futurePendingBookings.length > 0 && (
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Чакащи часове за потвърждение
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-4">
+                                        Потвърдете или откажете записаните от учениците часове.
+                                    </p>
+                                    <ul className="space-y-3">
+                                        {futurePendingBookings.map((b) => (
+                                                <li
+                                                    key={b.id}
+                                                    className="flex flex-wrap items-center gap-3 rounded-xl border border-purple-200/60 bg-purple-50/40 p-4"
+                                                >
+                                                    <span className="font-semibold text-slate-800">
+                                                        {b.lesson_date} {String(b.lesson_time).slice(0, 5)}
+                                                    </span>
+                                                    <span className="text-slate-600">{b.student_name}</span>
+                                                    {b.message && (
+                                                        <span className="text-sm text-slate-500 truncate max-w-xs" title={b.message}>
+                                                            {b.message}
+                                                        </span>
+                                                    )}
+                                                    <div className="ml-auto flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-sm font-medium hover:bg-purple-800"
+                                                        >
+                                                            Потвърди
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100"
+                                                        >
+                                                            Откажи
+                                                        </button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                    </ul>
                                 </div>
                             )}
                             

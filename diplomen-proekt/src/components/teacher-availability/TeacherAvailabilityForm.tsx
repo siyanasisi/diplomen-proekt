@@ -13,7 +13,11 @@ const BUFFERS = [0, 5, 10, 15] as const;
 
 export interface TeacherAvailabilityFormData {
   availability: { day_of_week: number; start_time: string; end_time: string }[];
-  settings: { lesson_duration_minutes: 30 | 45 | 60; buffer_minutes: 0 | 5 | 10 | 15 };
+  settings: {
+    lesson_duration_minutes: 30 | 45 | 60;
+    buffer_minutes: 0 | 5 | 10 | 15;
+    auto_accept_bookings: boolean;
+  };
   blockedSlots: { day_of_week: number; start_time: string; end_time: string }[];
   exceptions: {
     exception_date: string;
@@ -59,6 +63,9 @@ export function TeacherAvailabilityForm({
   const [buffer, setBuffer] = useState<0 | 5 | 10 | 15>(
     initialSettings?.buffer_minutes ?? 0
   );
+  const [autoAcceptBookings, setAutoAcceptBookings] = useState<boolean>(
+    initialSettings?.auto_accept_bookings ?? false
+  );
   const [blockedSlots, setBlockedSlots] = useState<
     { day_of_week: number; start_time: string; end_time: string }[]
   >(
@@ -98,6 +105,7 @@ export function TeacherAvailabilityForm({
     );
     setDuration(initialSettings?.lesson_duration_minutes ?? 45);
     setBuffer(initialSettings?.buffer_minutes ?? 0);
+    setAutoAcceptBookings(initialSettings?.auto_accept_bookings ?? false);
     setBlockedSlots(
       initialBlocked.map((b) => ({
         day_of_week: b.day_of_week,
@@ -129,7 +137,11 @@ export function TeacherAvailabilityForm({
           start_time: a.start_time,
           end_time: a.end_time,
         })),
-      settings: { lesson_duration_minutes: duration, buffer_minutes: buffer },
+      settings: {
+        lesson_duration_minutes: duration,
+        buffer_minutes: buffer,
+        auto_accept_bookings: autoAcceptBookings,
+      },
       blockedSlots,
       exceptions,
     };
@@ -290,6 +302,26 @@ export function TeacherAvailabilityForm({
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-bold text-purple-700 mb-2 uppercase tracking-wide">
+          Автоматично приемане на часове
+        </h3>
+        <p className="text-xs text-slate-600 mb-2">
+          Ако е включено, записаните от учениците часове се приемат веднага. Ако е изключено, ще трябва да ги потвърдите от профила си.
+        </p>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoAcceptBookings}
+            onChange={(e) => setAutoAcceptBookings(e.target.checked)}
+            className="rounded border-slate-300 text-purple-700 focus:ring-purple-500"
+          />
+          <span className="text-sm font-medium text-slate-700">
+            Приемам автоматично нови записани часове
+          </span>
+        </label>
       </div>
 
       <div>

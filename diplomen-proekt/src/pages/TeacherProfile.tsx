@@ -35,6 +35,7 @@ export const TeacherProfile = () => {
     const [contactMessage, setContactMessage] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [bookingSuccessType, setBookingSuccessType] = useState<'confirmed' | 'pending' | null>(null);
     const [chatMessages, setChatMessages] = useState<any[]>([]);
     const [loadingChat, setLoadingChat] = useState(false);
     const [reviews, setReviews] = useState<TeacherReview[]>([]);
@@ -404,7 +405,7 @@ export const TeacherProfile = () => {
         try {
             await ensureValidSession();
 
-            // create booking
+            const autoAccept = teacherBookingSettings?.auto_accept_bookings === true;
             const { error: bookingError } = await supabase
                 .from('bookings')
                 .insert({
@@ -414,7 +415,7 @@ export const TeacherProfile = () => {
                     lesson_date: bookingForm.date,
                     lesson_time: bookingForm.time,
                     message: bookingForm.message,
-                    status: 'pending'
+                    status: autoAccept ? 'confirmed' : 'pending',
                 });
 
             if (bookingError) {
@@ -423,16 +424,16 @@ export const TeacherProfile = () => {
                 return;
             }
 
-            
-
+            setBookingSuccessType(autoAccept ? 'confirmed' : 'pending');
             setSuccess(true);
             setShowBookingModal(false);
             setBookingForm({ date: "", time: "", message: "" });
-            
+
             setTimeout(() => {
                 setSuccess(false);
+                setBookingSuccessType(null);
                 navigate('/home');
-            }, 2000);
+            }, 3500);
         } catch (error) {
             console.error('Failed to book lesson:', error);
             alert("Грешка при запазване на часа. Моля, опитайте отново.");
@@ -533,11 +534,33 @@ export const TeacherProfile = () => {
             <div className="max-w-5xl mx-auto">
                 {/* success message */}
                 {success && (
-                    <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-3">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`mb-6 rounded-xl p-4 flex items-start gap-3 border-2 ${
+                        bookingSuccessType === 'confirmed'
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : bookingSuccessType === 'pending'
+                            ? 'bg-amber-50 border-amber-200'
+                            : 'bg-green-50 border-green-200'
+                    }`}>
+                        <svg className="w-6 h-6 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <p className="text-green-800 font-semibold">Успешно изпълнено!</p>
+                        <div>
+                            {bookingSuccessType === 'confirmed' && (
+                                <>
+                                    <p className="font-semibold text-emerald-800">Часът е запазен и потвърден</p>
+                                    <p className="text-sm text-emerald-700 mt-1">Вижте го в календара си. До скоро!</p>
+                                </>
+                            )}
+                            {bookingSuccessType === 'pending' && (
+                                <>
+                                    <p className="font-semibold text-amber-800">Часът е запазен</p>
+                                    <p className="text-sm text-amber-700 mt-1">Изчаква потвърждение от учителя. Ще получите съобщение в чата с него, когато часът бъде потвърден.</p>
+                                </>
+                            )}
+                            {!bookingSuccessType && (
+                                <p className="text-green-800 font-semibold">Успешно изпълнено!</p>
+                            )}
+                        </div>
                     </div>
                 )}
 

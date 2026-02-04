@@ -44,6 +44,7 @@ export interface TeacherBookingSettingsRow {
   teacher_id: string;
   lesson_duration_minutes: 30 | 45 | 60;
   buffer_minutes: 0 | 5 | 10 | 15;
+  auto_accept_bookings: boolean;
   created_at?: string;
   updated_at?: string;
 }
