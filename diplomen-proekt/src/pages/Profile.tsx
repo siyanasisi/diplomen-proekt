@@ -73,7 +73,9 @@ export const Profile = () => {
         status: string;
         teacher_name: string;
         teacher_profile_id: string;
+        teacher_id: string;
     }[]>([]);
+    const [actingOnBookingId, setActingOnBookingId] = useState<string | null>(null);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -172,9 +174,12 @@ export const Profile = () => {
             const list = (myBookings ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
             if (list.length > 0) {
                 const profileIds = [...new Set(list.map((b) => b.teacher_profile_id))];
-                const { data: tpData } = await supabase.from('teacher_profiles').select('id, full_name').in('id', profileIds);
-                const nameMap = new Map((tpData ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? 'Учител']));
-                setStudentUpcomingBookings(list.map((b) => ({ ...b, teacher_name: nameMap.get(b.teacher_profile_id) ?? 'Учител' })));
+                const { data: tpData } = await supabase.from('teacher_profiles').select('id, full_name, user_id').in('id', profileIds);
+                const nameMap = new Map((tpData ?? []).map((p: { id: string; full_name: string | null; user_id: string }) => [p.id, { name: p.full_name ?? 'Учител', userId: p.user_id }]));
+                setStudentUpcomingBookings(list.map((b) => {
+                    const t = nameMap.get(b.teacher_profile_id);
+                    return { ...b, teacher_name: t?.name ?? 'Учител', teacher_id: t?.userId ?? '' };
+                }));
             } else {
                 setStudentUpcomingBookings([]);
             }
@@ -508,6 +513,7 @@ export const Profile = () => {
 
     const handleConfirmBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
         if (!user) return;
+        setActingOnBookingId(bookingId);
         try {
             const { error } = await supabase
                 .from('bookings')
@@ -525,15 +531,18 @@ export const Profile = () => {
             });
 
             showToast('Часът е потвърден. Ученикът ще получи съобщение в чата.');
-            loadUserData();
+            await loadUserData();
         } catch (e) {
             console.error('Error confirming booking:', e);
             showToast('Грешка при потвърждаване.');
+        } finally {
+            setActingOnBookingId(null);
         }
     }, [user, loadUserData, showToast]);
 
     const handleCancelBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
         if (!user || !confirm('Сигурни ли сте, че искате да откажете този час?')) return;
+        setActingOnBookingId(bookingId);
         try {
             const { error } = await supabase
                 .from('bookings')
@@ -551,7 +560,35 @@ export const Profile = () => {
             });
 
             showToast('Часът е отказен. Ученикът ще получи съобщение в чата.');
-            loadUserData();
+            await loadUserData();
+        } catch (e) {
+            console.error('Error cancelling booking:', e);
+            showToast('Грешка при отказ.');
+        } finally {
+            setActingOnBookingId(null);
+        }
+    }, [user, loadUserData, showToast]);
+
+    const handleCancelMyBooking = useCallback(async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm('Сигурни ли сте, че искате да откажете този час?')) return;
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled' })
+                .eq('id', bookingId)
+                .eq('student_id', user.id);
+            if (error) throw error;
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            if (teacherId) {
+                await supabase.from('messages').insert({
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    message: `Отмених записания час на ${dateTimeText}.`,
+                    is_from_student: true,
+                });
+            }
+            showToast('Часът е отменен.');
+            await loadUserData();
         } catch (e) {
             console.error('Error cancelling booking:', e);
             showToast('Грешка при отказ.');
@@ -824,6 +861,14 @@ export const Profile = () => {
             ),
         [pendingBookings]
     );
+
+    useEffect(() => {
+        if (loading || isLoadingData || !user) return;
+        if (window.location.hash === '#my-bookings') {
+            const el = document.getElementById('my-bookings');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [loading, isLoadingData, user, studentUpcomingBookings.length]);
 
     if (loading) {
         return (
@@ -1109,17 +1154,19 @@ export const Profile = () => {
                                                     <div className="ml-auto flex gap-2">
                                                         <button
                                                             type="button"
+                                                            disabled={actingOnBookingId !== null}
                                                             onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
-                                                            className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-sm font-medium hover:bg-purple-800"
+                                                            className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-sm font-medium hover:bg-purple-800 disabled:opacity-60 disabled:cursor-not-allowed"
                                                         >
-                                                            Потвърди
+                                                            {actingOnBookingId === b.id ? '...' : 'Потвърди'}
                                                         </button>
                                                         <button
                                                             type="button"
+                                                            disabled={actingOnBookingId !== null}
                                                             onClick={() => handleCancelBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
-                                                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100"
+                                                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
                                                         >
-                                                            Откажи
+                                                            {actingOnBookingId === b.id ? '...' : 'Откажи'}
                                                         </button>
                                                     </div>
                                                 </li>
@@ -1185,7 +1232,7 @@ export const Profile = () => {
                             )}
 
                             {role === 'student' && studentUpcomingBookings.length > 0 && (
-                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                <div id="my-bookings" className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 scroll-mt-6">
                                     <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
                                         Моите записани часове
                                     </h3>
@@ -1222,11 +1269,18 @@ export const Profile = () => {
                                                         }`}
                                                     >
                                                         {isPending ? (
-                                                            <> Чака потвърждение</>
+                                                            <>⏳ Чака потвърждение</>
                                                         ) : (
                                                             <>✓ Потвърден</>
                                                         )}
                                                     </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCancelMyBooking(b.id, b.teacher_id, b.lesson_date, b.lesson_time)}
+                                                        className="ml-auto px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-100 hover:border-red-200 hover:text-red-700"
+                                                    >
+                                                        Откажи час
+                                                    </button>
                                                 </li>
                                             );
                                         })}

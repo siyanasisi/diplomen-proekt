@@ -1254,7 +1254,7 @@ export const Home = () => {
                                             ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? 'час' : 'часа'}, който чака потвърждение от учителя.
                                         </p>
                                         <button
-                                            onClick={() => navigate('/profile')}
+                                            onClick={() => navigate('/profile#my-bookings')}
                                             className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors"
                                         >
                                             Виж в Профил
