@@ -61,7 +61,7 @@ export interface TeacherBlockedSlotRow {
 export interface TeacherScheduleExceptionRow {
   id: string;
   teacher_id: string;
-  exception_date: string; // "2026-02-10"
+  exception_date: string; // YYYY-MM-DD
   is_fully_unavailable: boolean;
   override_start_time: string | null;
   override_end_time: string | null;
@@ -74,4 +74,15 @@ export interface SlotInfo {
   date: string;   // YYYY-MM-DD
   time: string;  // HH:MM
   status: SlotStatus;
+}
+
+export interface BookingFormState {
+  date: string;
+  time: string;
+  message: string;
+}
+
+export interface BookingSlotRow {
+  lesson_date: string;
+  lesson_time: string;
 }

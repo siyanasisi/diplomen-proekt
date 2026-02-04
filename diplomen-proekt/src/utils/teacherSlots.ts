@@ -5,6 +5,7 @@ import type {
   TeacherScheduleExceptionRow,
   SlotInfo,
   SlotStatus,
+  BookingSlotRow,
 } from "../types/teacher";
 
 const DAY_NAMES_BG = ["Неделя", "Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък", "Събота"];
@@ -34,6 +35,33 @@ function toDateKey(date: Date): string {
   const m = (date.getMonth() + 1).toString().padStart(2, "0");
   const d = date.getDate().toString().padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+export function getStartOfWeekMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function formatDateKey(date: Date): string {
+  return toDateKey(date);
+}
+
+export function normalizeSlotFromApi(b: BookingSlotRow): BookingSlotRow {
+  return {
+    lesson_date: String(b.lesson_date).slice(0, 10),
+    lesson_time: String(b.lesson_time).slice(0, 5),
+  };
+}
+
+export function normalizeBookingSlotInput(date: string, time: string): { date: string; time: string } {
+  return {
+    date: String(date).slice(0, 10),
+    time: String(time).slice(0, 5),
+  };
 }
 
 function slotStartsInWindow(

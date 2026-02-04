@@ -1,23 +1,13 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useModalFocus } from "../hooks/useModalFocus";
+import { useTeacherBooking } from "../hooks/useTeacherBooking";
+import { useToast } from "../context/ToastContext";
 import { RatingStars } from "../components/RatingStars";
-import type { Teacher, TeacherReview } from "../types/teacher";
-import type {
-    TeacherAvailabilityRow,
-    TeacherBookingSettingsRow,
-    TeacherBlockedSlotRow,
-    TeacherScheduleExceptionRow,
-} from "../types/teacher";
-import { generateSlotsForWeek, getDayNameBg } from "../utils/teacherSlots";
-
-interface BookingForm {
-    date: string;
-    time: string;
-    message: string;
-}
+import type { Teacher, TeacherReview, BookingFormState } from "../types/teacher";
+import { getDayNameBg } from "../utils/teacherSlots";
 
 export const TeacherProfile = () => {
     const { id } = useParams<{ id: string }>();
@@ -25,13 +15,7 @@ export const TeacherProfile = () => {
     const navigate = useNavigate();
     const [teacher, setTeacher] = useState<Teacher | null>(null);
     const [loading, setLoading] = useState(true);
-    const [showBookingModal, setShowBookingModal] = useState(false);
     const [showContactModal, setShowContactModal] = useState(false);
-    const [bookingForm, setBookingForm] = useState<BookingForm>({
-        date: "",
-        time: "",
-        message: ""
-    });
     const [contactMessage, setContactMessage] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -43,179 +27,15 @@ export const TeacherProfile = () => {
     const [reviewRating, setReviewRating] = useState(0);
     const [reviewComment, setReviewComment] = useState("");
     const [submittingReview, setSubmittingReview] = useState(false);
-    const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilityRow[]>([]);
-    const [teacherBookingSettings, setTeacherBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
-    const [teacherBlockedSlots, setTeacherBlockedSlots] = useState<TeacherBlockedSlotRow[]>([]);
-    const [teacherExceptions, setTeacherExceptions] = useState<TeacherScheduleExceptionRow[]>([]);
-    const [teacherBookingsForSlots, setTeacherBookingsForSlots] = useState<{ lesson_date: string; lesson_time: string }[]>([]);
-    const [bookingWeekStart, setBookingWeekStart] = useState<Date>(() => {
-        const d = new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(d);
-        mon.setDate(diff);
-        mon.setHours(0, 0, 0, 0);
-        return mon;
-    });
-    const [loadingBookingSlots, setLoadingBookingSlots] = useState(false);
-    const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-    const submittingBookingRef = useRef(false);
-    const INITIAL_SLOTS_PER_DAY = 8;
 
-    const normalizeBookingSlot = (date: string, time: string) => ({
-        date: String(date).slice(0, 10),
-        time: String(time).slice(0, 5),
-    });
+    const showToast = useToast();
+    const booking = useTeacherBooking(teacher, { showToast });
 
-    const closeBookingModal = () => {
-        setShowBookingModal(false);
-        setBookingForm({ date: "", time: "", message: "" });
-    };
-
-    useEffect(() => {
-        if (!showBookingModal || !teacher) return;
-        let cancelled = false;
-        setLoadingBookingSlots(true);
-        (async () => {
-            try {
-                await ensureValidSession();
-                const teacherUserId = teacher.user_id;
-                const [avRes, setRes, blockRes, excRes, bookRes] = await Promise.all([
-                    supabase.from("teacher_availability").select("*").eq("teacher_id", teacherUserId).order("day_of_week"),
-                    supabase.from("teacher_booking_settings").select("*").eq("teacher_id", teacherUserId).maybeSingle(),
-                    supabase.from("teacher_blocked_slots").select("*").eq("teacher_id", teacherUserId),
-                    supabase.from("teacher_schedule_exceptions").select("*").eq("teacher_id", teacherUserId).order("exception_date"),
-                    supabase.from("bookings").select("lesson_date, lesson_time").eq("teacher_id", teacherUserId).in("status", ["pending", "confirmed"]),
-                ]);
-                if (cancelled) return;
-                setTeacherAvailability((avRes.data as TeacherAvailabilityRow[]) ?? []);
-                setTeacherBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
-                setTeacherBlockedSlots((blockRes.data as TeacherBlockedSlotRow[]) ?? []);
-                setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
-                setTeacherBookingsForSlots(
-                    (bookRes.data as { lesson_date: string; lesson_time: string }[] | null)?.map((b) => ({
-                        lesson_date: String(b.lesson_date).slice(0, 10),
-                        lesson_time: String(b.lesson_time).slice(0, 5),
-                    })) ?? []
-                );
-            } catch (e) {
-                console.error("Failed to load booking slots:", e);
-            } finally {
-                if (!cancelled) setLoadingBookingSlots(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [showBookingModal, teacher]);
-
-    const hasAvailability = teacherAvailability.length > 0 && teacherBookingSettings;
-
-    const generatedSlots = useMemo(() => {
-        if (!hasAvailability) return [];
-        return generateSlotsForWeek({
-            availability: teacherAvailability,
-            settings: teacherBookingSettings,
-            blockedSlots: teacherBlockedSlots,
-            exceptions: teacherExceptions,
-            existingBookings: teacherBookingsForSlots,
-            weekStart: bookingWeekStart,
-            daysCount: 7,
-        });
-    }, [hasAvailability, teacherAvailability, teacherBookingSettings, teacherBlockedSlots, teacherExceptions, teacherBookingsForSlots, bookingWeekStart]);
-
-    const generatedSlotsFourWeeks = useMemo(() => {
-        if (!hasAvailability) return [];
-        const now = new Date();
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfThisWeek = new Date(now);
-        startOfThisWeek.setDate(diff);
-        startOfThisWeek.setHours(0, 0, 0, 0);
-        return generateSlotsForWeek({
-            availability: teacherAvailability,
-            settings: teacherBookingSettings,
-            blockedSlots: teacherBlockedSlots,
-            exceptions: teacherExceptions,
-            existingBookings: teacherBookingsForSlots,
-            weekStart: startOfThisWeek,
-            daysCount: 28,
-        });
-    }, [hasAvailability, teacherAvailability, teacherBookingSettings, teacherBlockedSlots, teacherExceptions, teacherBookingsForSlots]);
-
-    const futureSlots = useMemo(() => {
-        const now = new Date();
-        return generatedSlots.filter((s) => {
-            const slotDateTime = new Date(s.date + "T" + s.time);
-            return slotDateTime > now;
-        });
-    }, [generatedSlots]);
-
-    const earliestFreeSlot = useMemo(() => {
-        const now = new Date();
-        const free = generatedSlotsFourWeeks.filter((s) => {
-            const slotDateTime = new Date(s.date + "T" + s.time);
-            return slotDateTime > now && s.status === "free";
-        });
-        if (free.length === 0) return null;
-        free.sort((a, b) => {
-            const cmp = a.date.localeCompare(b.date);
-            return cmp !== 0 ? cmp : a.time.localeCompare(b.time);
-        });
-        return free[0];
-    }, [generatedSlotsFourWeeks]);
-
-    const weekDates = useMemo(() => {
-        const dates: Date[] = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(bookingWeekStart);
-            d.setDate(bookingWeekStart.getDate() + i);
-            dates.push(d);
-        }
-        return dates;
-    }, [bookingWeekStart]);
-
-    const formatDateKey = (date: Date) => {
-        const y = date.getFullYear();
-        const m = (date.getMonth() + 1).toString().padStart(2, "0");
-        const day = date.getDate().toString().padStart(2, "0");
-        return `${y}-${m}-${day}`;
-    };
-
-    const slotsByDay = useMemo(() => {
-        const map = new Map<string, typeof futureSlots>();
-        weekDates.forEach((d) => {
-            const key = formatDateKey(d);
-            const daySlots = futureSlots
-                .filter((s) => s.date === key)
-                .sort((a, b) => a.time.localeCompare(b.time));
-            map.set(key, daySlots);
-        });
-        return map;
-    }, [futureSlots, weekDates]);
-
-    const goPrevWeek = () => {
-        const d = new Date(bookingWeekStart);
-        d.setDate(d.getDate() - 7);
-        setBookingWeekStart(d);
-    };
-    const goNextWeek = () => {
-        const d = new Date(bookingWeekStart);
-        d.setDate(d.getDate() + 7);
-        setBookingWeekStart(d);
-    };
-
-    const goToDate = (date: Date) => {
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(date);
-        mon.setDate(diff);
-        mon.setHours(0, 0, 0, 0);
-        setBookingWeekStart(mon);
-    };
     const closeContactModal = () => {
         setShowContactModal(false);
         setContactMessage("");
     };
-    const { modalRef: bookingModalRef } = useModalFocus(showBookingModal, closeBookingModal);
+    const { modalRef: bookingModalRef } = useModalFocus(booking.showBookingModal, booking.closeBookingModal);
     const { modalRef: contactModalRef } = useModalFocus(showContactModal, closeContactModal);
     const closeReviewModal = () => {
         setShowReviewModal(false);
@@ -395,62 +215,6 @@ export const TeacherProfile = () => {
         }
     };
 
-    const handleBookLesson = async () => {
-        if (!teacher || !user || !bookingForm.date || !bookingForm.time) {
-            alert("Моля, попълнете всички полета");
-            return;
-        }
-        const { date: normDate, time: normTime } = normalizeBookingSlot(bookingForm.date, bookingForm.time);
-        const slotDateTime = new Date(normDate + "T" + normTime);
-        if (slotDateTime <= new Date()) {
-            alert("Не можете да запазвате час с дата или час в миналото.");
-            return;
-        }
-        if (submittingBookingRef.current) return;
-        submittingBookingRef.current = true;
-        setSubmitting(true);
-
-        try {
-            await ensureValidSession();
-            const autoAccept = teacherBookingSettings?.auto_accept_bookings === true;
-            const status = autoAccept ? "confirmed" : "pending";
-
-            const { error: bookingError } = await supabase
-                .from("bookings")
-                .insert({
-                    student_id: user.id,
-                    teacher_id: teacher.user_id,
-                    teacher_profile_id: teacher.id,
-                    lesson_date: normDate,
-                    lesson_time: normTime,
-                    message: bookingForm.message?.trim() || null,
-                    status,
-                });
-
-            if (bookingError) {
-                console.error("Error creating booking:", bookingError);
-                alert("Грешка при запазване на часа. Моля, опитайте отново.");
-                submittingBookingRef.current = false;
-                setSubmitting(false);
-                return;
-            }
-
-            setSuccess(true);
-            setShowBookingModal(false);
-            setBookingForm({ date: "", time: "", message: "" });
-            setTimeout(() => {
-                setSuccess(false);
-                navigate("/home");
-            }, 2000);
-        } catch (error) {
-            console.error("Failed to book lesson:", error);
-            alert("Грешка при запазване на часа. Моля, опитайте отново.");
-        } finally {
-            submittingBookingRef.current = false;
-            setSubmitting(false);
-        }
-    };
-
     const handleContactTeacher = async () => {
         if (!teacher || !user || !contactMessage.trim()) {
             alert("Моля, въведете съобщение");
@@ -507,8 +271,7 @@ export const TeacherProfile = () => {
 
     const getMinDate = () => {
         const today = new Date();
-        today.setDate(today.getDate() + 1);
-        return today.toISOString().split('T')[0];
+        return today.toISOString().split("T")[0];
     };
 
     if (authLoading || loading) {
@@ -796,7 +559,7 @@ export const TeacherProfile = () => {
                         Свържи се с учителя
                     </button>
                     <button
-                        onClick={() => setShowBookingModal(true)}
+                        onClick={booking.openBookingModal}
                         className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105"
                     >
                         Запази час
@@ -804,7 +567,7 @@ export const TeacherProfile = () => {
                 </div>
 
                 {/* booking modal */}
-                {showBookingModal && (
+                {booking.showBookingModal && (
                     <div
                         className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
                         role="dialog"
@@ -820,7 +583,7 @@ export const TeacherProfile = () => {
                                 <h2 id="booking-title" className="text-xl font-bold text-slate-900">Запази час</h2>
                                 <button
                                     type="button"
-                                    onClick={closeBookingModal}
+                                    onClick={booking.closeBookingModal}
                                     className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
                                     aria-label="Затвори"
                                 >
@@ -830,11 +593,11 @@ export const TeacherProfile = () => {
                                 </button>
                             </div>
                             <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto space-y-4">
-                                {loadingBookingSlots ? (
+                                {booking.loadingSlots ? (
                                     <div className="flex items-center justify-center py-12">
                                         <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
                                     </div>
-                                ) : !hasAvailability ? (
+                                ) : !booking.hasAvailability ? (
                                     <>
                                         <p className="text-slate-600 text-sm">
                                             Учителят все още не е настроил наличност за уроци. Можете да изберете дата и час ръчно.
@@ -843,8 +606,8 @@ export const TeacherProfile = () => {
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">Дата</label>
                                             <input
                                                 type="date"
-                                                value={bookingForm.date}
-                                                onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                                                value={booking.bookingForm.date}
+                                                onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, date: e.target.value })}
                                                 min={getMinDate()}
                                                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
                                             />
@@ -853,16 +616,16 @@ export const TeacherProfile = () => {
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">Час</label>
                                             <input
                                                 type="time"
-                                                value={bookingForm.time}
-                                                onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+                                                value={booking.bookingForm.time}
+                                                onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, time: e.target.value })}
                                                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">Съобщение (по избор)</label>
                                             <textarea
-                                                value={bookingForm.message}
-                                                onChange={(e) => setBookingForm({ ...bookingForm, message: e.target.value })}
+                                                value={booking.bookingForm.message}
+                                                onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, message: e.target.value })}
                                                 placeholder="Добавете допълнителна информация..."
                                                 rows={3}
                                                 className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
@@ -871,18 +634,20 @@ export const TeacherProfile = () => {
                                     </>
                                 ) : (
                                     <>
-                                        {earliestFreeSlot && (
+                                        {booking.earliestFreeSlot && (
                                             <div className="flex flex-wrap items-center justify-between gap-2 py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200/80">
                                                 <p className="text-sm text-slate-700">
                                                     <span className="font-semibold text-emerald-800">Най-ранен свободен час:</span>{" "}
-                                                    {new Date(earliestFreeSlot.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
-                                                    в {earliestFreeSlot.time}
+                                                    {new Date(booking.earliestFreeSlot.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
+                                                    в {booking.earliestFreeSlot.time}
                                                 </p>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        goToDate(new Date(earliestFreeSlot.date + "T12:00"));
-                                                        setBookingForm((prev) => ({ ...prev, date: earliestFreeSlot.date, time: earliestFreeSlot.time }));
+                                                        const slot = booking.earliestFreeSlot;
+                                                        if (!slot) return;
+                                                        booking.goToDate(new Date(slot.date + "T12:00"));
+                                                        booking.setBookingForm((prev) => ({ ...prev, date: slot.date, time: slot.time }));
                                                     }}
                                                     className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline"
                                                 >
@@ -891,17 +656,17 @@ export const TeacherProfile = () => {
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
-                                            <button type="button" onClick={goPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Предишна седмица">
+                                            <button type="button" onClick={booking.goPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Предишна седмица">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                             </button>
                                             <div className="flex items-center gap-3">
                                                 <p className="text-sm font-semibold text-slate-700 tabular-nums">
-                                                    {weekDates[0]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short" })} – {weekDates[6]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })}
+                                                    {booking.weekDates[0]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short" })} – {booking.weekDates[6]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })}
                                                 </p>
                                                 <input
                                                     type="date"
                                                     className="sr-only"
-                                                    onChange={(e) => goToDate(new Date(e.target.value + "T12:00"))}
+                                                    onChange={(e) => booking.goToDate(new Date(e.target.value + "T12:00"))}
                                                     id="booking-date-picker"
                                                 />
                                                 <button
@@ -913,17 +678,17 @@ export const TeacherProfile = () => {
                                                     Избор на друга дата
                                                 </button>
                                             </div>
-                                            <button type="button" onClick={goNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Следваща седмица">
+                                            <button type="button" onClick={booking.goNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Следваща седмица">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                             </button>
                                         </div>
                                         <div className="overflow-x-auto pb-2 -mx-1 flex gap-4">
-                                            {weekDates.map((d) => {
-                                                const dateKey = formatDateKey(d);
-                                                const daySlots = slotsByDay.get(dateKey) ?? [];
-                                                const isExpanded = expandedDays.has(dateKey);
-                                                const visibleSlots = isExpanded ? daySlots : daySlots.slice(0, INITIAL_SLOTS_PER_DAY);
-                                                const hasMore = daySlots.length > INITIAL_SLOTS_PER_DAY && !isExpanded;
+                                            {booking.weekDates.map((d) => {
+                                                const dateKey = booking.formatDateKey(d);
+                                                const daySlots = booking.slotsByDay.get(dateKey) ?? [];
+                                                const isExpanded = booking.expandedDays.has(dateKey);
+                                                const visibleSlots = isExpanded ? daySlots : daySlots.slice(0, booking.INITIAL_SLOTS_PER_DAY);
+                                                const hasMore = daySlots.length > booking.INITIAL_SLOTS_PER_DAY && !isExpanded;
                                                 const dayName = getDayNameBg(d.getDay() === 0 ? 7 : d.getDay()).toLowerCase();
                                                 const dateStr = `${d.getDate().toString().padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
                                                 return (
@@ -937,12 +702,12 @@ export const TeacherProfile = () => {
                                                                 {visibleSlots.map((slot) => {
                                                                     const isFree = slot.status === "free";
                                                                     const isBlocked = slot.status === "blocked";
-                                                                    const selected = bookingForm.date === dateKey && bookingForm.time === slot.time;
+                                                                    const selected = booking.bookingForm.date === dateKey && booking.bookingForm.time === slot.time;
                                                                     return (
                                                                         <button
                                                                             key={slot.time}
                                                                             type="button"
-                                                                            onClick={() => isFree && setBookingForm((prev) => ({ ...prev, date: dateKey, time: slot.time }))}
+                                                                            onClick={() => isFree && booking.setBookingForm((prev) => ({ ...prev, date: dateKey, time: slot.time }))}
                                                                             disabled={!isFree}
                                                                             className={`flex items-center justify-between gap-0.5 py-2 px-1.5 rounded-lg text-xs font-medium transition-colors ${
                                                                                 isFree
@@ -972,7 +737,7 @@ export const TeacherProfile = () => {
                                                             {hasMore && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setExpandedDays((prev) => new Set(prev).add(dateKey))}
+                                                                    onClick={() => booking.setExpandedDays((prev) => new Set(prev).add(dateKey))}
                                                                     className="w-full mt-2 py-2 rounded-lg border-2 border-emerald-500 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors"
                                                                 >
                                                                     Още
@@ -986,15 +751,15 @@ export const TeacherProfile = () => {
                                                 );
                                             })}
                                         </div>
-                                        {bookingForm.date && bookingForm.time && (
+                                        {booking.bookingForm.date && booking.bookingForm.time && (
                                             <div className="pt-4 border-t border-slate-200 space-y-3">
                                                 <p className="text-sm font-semibold text-slate-700">
-                                                    Избрахте: {new Date(bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {bookingForm.time}
+                                                    Избрахте: {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {booking.bookingForm.time}
                                                 </p>
                                                 <label className="block text-sm font-semibold text-slate-700">Съобщение (по избор)</label>
                                                 <textarea
-                                                    value={bookingForm.message}
-                                                    onChange={(e) => setBookingForm((prev) => ({ ...prev, message: e.target.value }))}
+                                                    value={booking.bookingForm.message}
+                                                    onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                     placeholder="Добавете допълнителна информация..."
                                                     rows={3}
                                                     className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
@@ -1005,16 +770,16 @@ export const TeacherProfile = () => {
                                 )}
                             </div>
                             <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
-                                <button type="button" onClick={closeBookingModal} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors">
+                                <button type="button" onClick={booking.closeBookingModal} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors">
                                     Откажи
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={handleBookLesson}
-                                    disabled={submitting || !bookingForm.date || !bookingForm.time}
+                                    onClick={booking.handleBookLesson}
+                                    disabled={booking.submitting || !booking.bookingForm.date || !booking.bookingForm.time}
                                     className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {submitting ? "Запазване..." : "Запази"}
+                                    {booking.submitting ? "Запазване..." : "Запази"}
                                 </button>
                             </div>
                         </div>
