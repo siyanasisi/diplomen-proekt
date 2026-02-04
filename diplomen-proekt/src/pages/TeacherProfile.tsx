@@ -199,7 +199,7 @@ export const TeacherProfile = () => {
             });
             if (error) {
                 console.error("Error submitting review:", error);
-                alert("Грешка при изпращане на ревюто. Моля, опитайте отново.");
+                showToast("Грешка при изпращане на ревюто. Моля, опитайте отново.");
                 return;
             }
             closeReviewModal();
@@ -209,7 +209,7 @@ export const TeacherProfile = () => {
             }).finally(() => setLoadingReviews(false));
         } catch (err) {
             console.error("Failed to submit review:", err);
-            alert("Грешка при изпращане на ревюто. Моля, опитайте отново.");
+            showToast("Грешка при изпращане на ревюто. Моля, опитайте отново.");
         } finally {
             setSubmittingReview(false);
         }
@@ -217,7 +217,7 @@ export const TeacherProfile = () => {
 
     const handleContactTeacher = async () => {
         if (!teacher || !user || !contactMessage.trim()) {
-            alert("Моля, въведете съобщение");
+            showToast("Моля, въведете съобщение");
             return;
         }
 
@@ -240,7 +240,7 @@ export const TeacherProfile = () => {
 
             if (error) {
                 console.error('Error sending message:', error);
-                alert("Грешка при изпращане на съобщението. Моля, опитайте отново.");
+                showToast("Грешка при изпращане на съобщението. Моля, опитайте отново.");
                 return;
             }
 
@@ -263,7 +263,7 @@ export const TeacherProfile = () => {
             }, 2000);
         } catch (error) {
             console.error('Failed to send message:', error);
-            alert("Грешка при изпращане на съобщението. Моля, опитайте отново.");
+            showToast("Грешка при изпращане на съобщението. Моля, опитайте отново.");
         } finally {
             setSubmitting(false);
         }
@@ -593,7 +593,25 @@ export const TeacherProfile = () => {
                                 </button>
                             </div>
                             <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto space-y-4">
-                                {booking.loadingSlots ? (
+                                {booking.submitting && !booking.bookingSuccess ? (
+                                    <div className="flex flex-col items-center justify-center py-16 px-4">
+                                        <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center mb-6">
+                                            <span className="inline-block w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                        </div>
+                                        <p className="text-xl font-bold text-slate-900 mb-1">Записваме...</p>
+                                        <p className="text-slate-600">Моля, изчакайте.</p>
+                                    </div>
+                                ) : booking.bookingSuccess ? (
+                                    <div className="flex flex-col items-center justify-center py-16 px-4">
+                                        <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
+                                            <svg className="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-xl font-bold text-slate-900 mb-1">Готово!</p>
+                                        <p className="text-slate-600">Пренасочваме...</p>
+                                    </div>
+                                ) : booking.loadingSlots ? (
                                     <div className="flex items-center justify-center py-12">
                                         <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
                                     </div>
@@ -769,6 +787,21 @@ export const TeacherProfile = () => {
                                     </>
                                 )}
                             </div>
+                            {booking.bookingNetworkError && (
+                                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
+                                    <p className="text-sm text-amber-900 font-medium">
+                                        Възникна проблем с връзката. Проверете интернет и опитайте отново.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={booking.handleBookLesson}
+                                        disabled={booking.submitting}
+                                        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                    >
+                                        {booking.submitting ? "Изчакване..." : "Опитай отново"}
+                                    </button>
+                                </div>
+                            )}
                             <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
                                 <button type="button" onClick={booking.closeBookingModal} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors">
                                     Откажи

@@ -50,6 +50,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     const [weekStart, setWeekStart] = useState<Date>(() => getStartOfWeekMonday(new Date()));
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+    const [bookingNetworkError, setBookingNetworkError] = useState(false);
 
     const loadSlots = useCallback(async (teacherUserId: string) => {
         const [avRes, setRes, blockRes, excRes, bookRes] = await Promise.all([
@@ -155,6 +156,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     const closeBookingModal = useCallback(() => {
         setShowBookingModal(false);
         setBookingForm({ date: "", time: "", message: "" });
+        setBookingNetworkError(false);
     }, []);
 
     const goPrevWeek = useCallback(() => {
@@ -171,8 +173,7 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
 
     const notify = useCallback(
         (message: string) => {
-            if (showToast) showToast(message);
-            else alert(message);
+            showToast?.(message);
         },
         [showToast]
     );
@@ -193,9 +194,25 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         if (submittingRef.current) return;
         submittingRef.current = true;
         setSubmitting(true);
+        setBookingNetworkError(false);
 
         try {
             await ensureValidSession();
+
+            const { data: existingForSlot } = await supabase
+                .from("bookings")
+                .select("id, lesson_time")
+                .eq("teacher_id", teacher.user_id)
+                .eq("lesson_date", normDate)
+                .in("status", ["pending", "confirmed"]);
+            const slotTaken = (existingForSlot ?? []).some(
+                (row) => String(row.lesson_time).slice(0, 5) === normTime
+            );
+            if (slotTaken) {
+                notify("Този час вече е зает. Моля, изберете друг слот.");
+                return;
+            }
+
             const status = settings?.auto_accept_bookings ? "confirmed" : "pending";
             const { error } = await supabase.from("bookings").insert({
                 student_id: user.id,
@@ -219,14 +236,23 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
 
             notify(settings?.auto_accept_bookings ? "Часът е записан и потвърден." : "Заявката е изпратена. Чакайте потвърждение от учителя.");
             setBookingSuccess(true);
-            closeBookingModal();
             setTimeout(() => {
+                closeBookingModal();
                 setBookingSuccess(false);
                 navigate("/home");
             }, REDIRECT_AFTER_BOOKING_MS);
         } catch (err) {
             console.error("Failed to book lesson:", err);
-            notify("Грешка при запазване на часа. Моля, опитайте отново.");
+            const isNetworkError =
+                err instanceof TypeError ||
+                (err && typeof err === "object" && "message" in err && typeof (err as Error).message === "string" &&
+                    /fetch|network|timeout|econnrefused|econnreset|enotfound/i.test((err as Error).message));
+            if (isNetworkError) {
+                setBookingNetworkError(true);
+                notify("Възникна проблем с връзката. Използвайте „Опитай отново“ по-долу.");
+            } else {
+                notify("Грешка при запазване на часа. Моля, опитайте отново.");
+            }
         } finally {
             submittingRef.current = false;
             setSubmitting(false);
@@ -258,5 +284,6 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         handleBookLesson,
         formatDateKey,
         INITIAL_SLOTS_PER_DAY,
+        bookingNetworkError,
     };
 }

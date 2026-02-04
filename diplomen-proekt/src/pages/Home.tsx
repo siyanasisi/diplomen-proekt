@@ -478,7 +478,7 @@ export const Home = () => {
 
                 if (error) {
                     console.error('Error saving event:', error);
-                    alert('Failed to save event. Check console for details.');
+                    showToast('Грешка при запазване на събитието. Моля, опитайте отново.');
                 } else {
                     loadEvents();
                 }
