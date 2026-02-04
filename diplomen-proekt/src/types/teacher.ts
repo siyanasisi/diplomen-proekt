@@ -28,3 +28,49 @@ export interface TeacherReview {
 }
 
 export type TeacherSortOption = "rating" | "name" | "online_first";
+
+export interface TeacherAvailabilityRow {
+  id: string;
+  teacher_id: string;
+  day_of_week: number;
+  start_time: string; 
+  end_time: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TeacherBookingSettingsRow {
+  id: string;
+  teacher_id: string;
+  lesson_duration_minutes: 30 | 45 | 60;
+  buffer_minutes: 0 | 5 | 10 | 15;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TeacherBlockedSlotRow {
+  id: string;
+  teacher_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  created_at?: string;
+}
+
+export interface TeacherScheduleExceptionRow {
+  id: string;
+  teacher_id: string;
+  exception_date: string; // "2026-02-10"
+  is_fully_unavailable: boolean;
+  override_start_time: string | null;
+  override_end_time: string | null;
+  created_at?: string;
+}
+
+export type SlotStatus = "free" | "blocked" | "booked";
+
+export interface SlotInfo {
+  date: string;   // YYYY-MM-DD
+  time: string;  // HH:MM
+  status: SlotStatus;
+}

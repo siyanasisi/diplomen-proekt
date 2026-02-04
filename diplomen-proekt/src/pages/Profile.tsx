@@ -3,6 +3,14 @@ import { useToast } from "../context/ToastContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
+import { TeacherAvailabilityForm } from "../components/teacher-availability/TeacherAvailabilityForm";
+import type {
+    TeacherAvailabilityRow,
+    TeacherBookingSettingsRow,
+    TeacherBlockedSlotRow,
+    TeacherScheduleExceptionRow,
+} from "../types/teacher";
+import type { TeacherAvailabilityFormData } from "../components/teacher-availability/TeacherAvailabilityForm";
 
 export const Profile = () => {
     const { user, role, signOut, loading, refreshProfile } = useAuth();
@@ -45,6 +53,11 @@ export const Profile = () => {
     const [editedPriceNote, setEditedPriceNote] = useState('');
     const [editedOffersOnline, setEditedOffersOnline] = useState(false);
     const [priceNegotiable, setPriceNegotiable] = useState(false);
+    const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilityRow[]>([]);
+    const [teacherBookingSettings, setTeacherBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
+    const [teacherBlockedSlots, setTeacherBlockedSlots] = useState<TeacherBlockedSlotRow[]>([]);
+    const [teacherExceptions, setTeacherExceptions] = useState<TeacherScheduleExceptionRow[]>([]);
+    const [savingAvailability, setSavingAvailability] = useState(false);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -145,8 +158,22 @@ export const Profile = () => {
             } else {
                 setTeacherProfile(null);
             }
+            const [avRes, setRes, blockRes, excRes] = await Promise.all([
+                supabase.from('teacher_availability').select('*').eq('teacher_id', user.id).order('day_of_week'),
+                supabase.from('teacher_booking_settings').select('*').eq('teacher_id', user.id).maybeSingle(),
+                supabase.from('teacher_blocked_slots').select('*').eq('teacher_id', user.id),
+                supabase.from('teacher_schedule_exceptions').select('*').eq('teacher_id', user.id).order('exception_date'),
+            ]);
+            setTeacherAvailability((avRes.data as TeacherAvailabilityRow[]) ?? []);
+            setTeacherBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
+            setTeacherBlockedSlots((blockRes.data as TeacherBlockedSlotRow[]) ?? []);
+            setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
         } else {
             setTeacherProfile(null);
+            setTeacherAvailability([]);
+            setTeacherBookingSettings(null);
+            setTeacherBlockedSlots([]);
+            setTeacherExceptions([]);
         }
         } catch (error) {
             console.error('Error in loadUserData:', error);
@@ -354,6 +381,63 @@ export const Profile = () => {
             setLoadingUpdate(false);
         }
     };
+
+    const handleSaveAvailability = useCallback(async (data: TeacherAvailabilityFormData) => {
+        if (!user || role !== 'teacher') return;
+        setSavingAvailability(true);
+        try {
+            await ensureValidSession();
+            await supabase.from('teacher_availability').delete().eq('teacher_id', user.id);
+            if (data.availability.length > 0) {
+                await supabase.from('teacher_availability').insert(
+                    data.availability.map((a) => ({
+                        teacher_id: user.id,
+                        day_of_week: a.day_of_week,
+                        start_time: a.start_time,
+                        end_time: a.end_time,
+                    }))
+                );
+            }
+            await supabase.from('teacher_booking_settings').upsert(
+                {
+                    teacher_id: user.id,
+                    lesson_duration_minutes: data.settings.lesson_duration_minutes,
+                    buffer_minutes: data.settings.buffer_minutes,
+                },
+                { onConflict: 'teacher_id' }
+            );
+            await supabase.from('teacher_blocked_slots').delete().eq('teacher_id', user.id);
+            if (data.blockedSlots.length > 0) {
+                await supabase.from('teacher_blocked_slots').insert(
+                    data.blockedSlots.map((b) => ({
+                        teacher_id: user.id,
+                        day_of_week: b.day_of_week,
+                        start_time: b.start_time,
+                        end_time: b.end_time,
+                    }))
+                );
+            }
+            await supabase.from('teacher_schedule_exceptions').delete().eq('teacher_id', user.id);
+            if (data.exceptions.length > 0) {
+                await supabase.from('teacher_schedule_exceptions').insert(
+                    data.exceptions.map((e) => ({
+                        teacher_id: user.id,
+                        exception_date: e.exception_date,
+                        is_fully_unavailable: e.is_fully_unavailable,
+                        override_start_time: e.override_start_time,
+                        override_end_time: e.override_end_time,
+                    }))
+                );
+            }
+            await loadUserData();
+            showToast('Наличността е запазена успешно!');
+        } catch (error) {
+            console.error('Error saving availability:', error);
+            showToast('Грешка при запазване на наличността');
+        } finally {
+            setSavingAvailability(false);
+        }
+    }, [user, role, loadUserData, showToast]);
 
     const handleDeleteEvent = useCallback(async (eventId: string) => {
         if (!confirm('Сигурни ли сте, че искате да изтриете това събитие?')) return;
@@ -641,7 +725,7 @@ export const Profile = () => {
     const currentAvatarUrl = avatarUrl || userMetadata?.avatar_url || null;
 
     return (
-        <div className={`min-h-screen ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'} relative overflow-hidden`}>
+        <div className={`min-h-screen ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'} relative overflow-x-hidden`}>
             {/* background*/}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
@@ -852,6 +936,25 @@ export const Profile = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {role === 'teacher' && (
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Кога съм на разположение
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        Настройте работните си дни и часове, продължителност на урок и почивки. Учениците ще виждат само свободни слотове.
+                                    </p>
+                                    <TeacherAvailabilityForm
+                                        initialAvailability={teacherAvailability}
+                                        initialSettings={teacherBookingSettings}
+                                        initialBlocked={teacherBlockedSlots}
+                                        initialExceptions={teacherExceptions}
+                                        onSave={handleSaveAvailability}
+                                        saving={savingAvailability}
+                                    />
+                                </div>
+                            )}
                             
                             {/* stats section for students */}
                             {role === 'student' && (

@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useModalFocus } from "../hooks/useModalFocus";
 import { RatingStars } from "../components/RatingStars";
 import type { Teacher, TeacherReview } from "../types/teacher";
+import type {
+    TeacherAvailabilityRow,
+    TeacherBookingSettingsRow,
+    TeacherBlockedSlotRow,
+    TeacherScheduleExceptionRow,
+} from "../types/teacher";
+import { generateSlotsForWeek, getDayNameBg } from "../utils/teacherSlots";
 
 interface BookingForm {
     date: string;
@@ -36,10 +43,126 @@ export const TeacherProfile = () => {
     const [reviewRating, setReviewRating] = useState(0);
     const [reviewComment, setReviewComment] = useState("");
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilityRow[]>([]);
+    const [teacherBookingSettings, setTeacherBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
+    const [teacherBlockedSlots, setTeacherBlockedSlots] = useState<TeacherBlockedSlotRow[]>([]);
+    const [teacherExceptions, setTeacherExceptions] = useState<TeacherScheduleExceptionRow[]>([]);
+    const [teacherBookingsForSlots, setTeacherBookingsForSlots] = useState<{ lesson_date: string; lesson_time: string }[]>([]);
+    const [bookingWeekStart, setBookingWeekStart] = useState<Date>(() => {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d);
+        mon.setDate(diff);
+        mon.setHours(0, 0, 0, 0);
+        return mon;
+    });
+    const [loadingBookingSlots, setLoadingBookingSlots] = useState(false);
+    const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+    const INITIAL_SLOTS_PER_DAY = 8;
 
     const closeBookingModal = () => {
         setShowBookingModal(false);
         setBookingForm({ date: "", time: "", message: "" });
+    };
+
+    useEffect(() => {
+        if (!showBookingModal || !teacher) return;
+        let cancelled = false;
+        setLoadingBookingSlots(true);
+        (async () => {
+            try {
+                await ensureValidSession();
+                const teacherUserId = teacher.user_id;
+                const [avRes, setRes, blockRes, excRes, bookRes] = await Promise.all([
+                    supabase.from("teacher_availability").select("*").eq("teacher_id", teacherUserId).order("day_of_week"),
+                    supabase.from("teacher_booking_settings").select("*").eq("teacher_id", teacherUserId).maybeSingle(),
+                    supabase.from("teacher_blocked_slots").select("*").eq("teacher_id", teacherUserId),
+                    supabase.from("teacher_schedule_exceptions").select("*").eq("teacher_id", teacherUserId).order("exception_date"),
+                    supabase.from("bookings").select("lesson_date, lesson_time").eq("teacher_id", teacherUserId).in("status", ["pending", "confirmed"]),
+                ]);
+                if (cancelled) return;
+                setTeacherAvailability((avRes.data as TeacherAvailabilityRow[]) ?? []);
+                setTeacherBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
+                setTeacherBlockedSlots((blockRes.data as TeacherBlockedSlotRow[]) ?? []);
+                setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
+                setTeacherBookingsForSlots(
+                    (bookRes.data as { lesson_date: string; lesson_time: string }[] | null)?.map((b) => ({
+                        lesson_date: b.lesson_date,
+                        lesson_time: typeof b.lesson_time === "string" ? b.lesson_time.slice(0, 5) : String(b.lesson_time).slice(0, 5),
+                    })) ?? []
+                );
+            } catch (e) {
+                console.error("Failed to load booking slots:", e);
+            } finally {
+                if (!cancelled) setLoadingBookingSlots(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [showBookingModal, teacher]);
+
+    const hasAvailability = teacherAvailability.length > 0 && teacherBookingSettings;
+
+    const generatedSlots = useMemo(() => {
+        if (!hasAvailability) return [];
+        return generateSlotsForWeek({
+            availability: teacherAvailability,
+            settings: teacherBookingSettings,
+            blockedSlots: teacherBlockedSlots,
+            exceptions: teacherExceptions,
+            existingBookings: teacherBookingsForSlots,
+            weekStart: bookingWeekStart,
+            daysCount: 7,
+        });
+    }, [hasAvailability, teacherAvailability, teacherBookingSettings, teacherBlockedSlots, teacherExceptions, teacherBookingsForSlots, bookingWeekStart]);
+
+    const weekDates = useMemo(() => {
+        const dates: Date[] = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(bookingWeekStart);
+            d.setDate(bookingWeekStart.getDate() + i);
+            dates.push(d);
+        }
+        return dates;
+    }, [bookingWeekStart]);
+
+    const formatDateKey = (date: Date) => {
+        const y = date.getFullYear();
+        const m = (date.getMonth() + 1).toString().padStart(2, "0");
+        const day = date.getDate().toString().padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    };
+
+    const slotsByDay = useMemo(() => {
+        const map = new Map<string, typeof generatedSlots>();
+        weekDates.forEach((d) => {
+            const key = formatDateKey(d);
+            const daySlots = generatedSlots
+                .filter((s) => s.date === key)
+                .sort((a, b) => a.time.localeCompare(b.time));
+            map.set(key, daySlots);
+        });
+        return map;
+    }, [generatedSlots, weekDates]);
+
+    const goPrevWeek = () => {
+        const d = new Date(bookingWeekStart);
+        d.setDate(d.getDate() - 7);
+        setBookingWeekStart(d);
+    };
+    const goNextWeek = () => {
+        const d = new Date(bookingWeekStart);
+        d.setDate(d.getDate() + 7);
+        setBookingWeekStart(d);
+    };
+
+    const goToDate = (date: Date) => {
+        const day = date.getDay();
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(date);
+        mon.setDate(diff);
+        mon.setHours(0, 0, 0, 0);
+        setBookingWeekStart(mon);
     };
     const closeContactModal = () => {
         setShowContactModal(false);
@@ -635,10 +758,10 @@ export const TeacherProfile = () => {
                     >
                         <div
                             ref={bookingModalRef}
-                            className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40"
+                            className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-purple-200/40"
                         >
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 id="booking-title" className="text-2xl font-bold text-slate-900">Запази час</h2>
+                            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                                <h2 id="booking-title" className="text-xl font-bold text-slate-900">Запази час</h2>
                                 <button
                                     type="button"
                                     onClick={closeBookingModal}
@@ -650,49 +773,164 @@ export const TeacherProfile = () => {
                                     </svg>
                                 </button>
                             </div>
-                            <div id="booking-desc" className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Дата
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={bookingForm.date}
-                                        onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
-                                        min={getMinDate()}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Час
-                                    </label>
-                                    <input
-                                        type="time"
-                                        value={bookingForm.time}
-                                        onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                        Съобщение (по избор)
-                                    </label>
-                                    <textarea
-                                        value={bookingForm.message}
-                                        onChange={(e) => setBookingForm({ ...bookingForm, message: e.target.value })}
-                                        placeholder="Добавете допълнителна информация..."
-                                        rows={4}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
-                                    />
-                                </div>
+                            <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto space-y-4">
+                                {loadingBookingSlots ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                ) : !hasAvailability ? (
+                                    <>
+                                        <p className="text-slate-600 text-sm">
+                                            Учителят все още не е настроил наличност за уроци. Можете да изберете дата и час ръчно.
+                                        </p>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Дата</label>
+                                            <input
+                                                type="date"
+                                                value={bookingForm.date}
+                                                onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                                                min={getMinDate()}
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Час</label>
+                                            <input
+                                                type="time"
+                                                value={bookingForm.time}
+                                                onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Съобщение (по избор)</label>
+                                            <textarea
+                                                value={bookingForm.message}
+                                                onChange={(e) => setBookingForm({ ...bookingForm, message: e.target.value })}
+                                                placeholder="Добавете допълнителна информация..."
+                                                rows={3}
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                                            <button type="button" onClick={goPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Предишна седмица">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                            </button>
+                                            <div className="flex items-center gap-3">
+                                                <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                                                    {weekDates[0]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short" })} – {weekDates[6]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })}
+                                                </p>
+                                                <input
+                                                    type="date"
+                                                    className="sr-only"
+                                                    onChange={(e) => goToDate(new Date(e.target.value + "T12:00"))}
+                                                    id="booking-date-picker"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => (document.getElementById("booking-date-picker") as HTMLInputElement | null)?.showPicker?.()}
+                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                    Избор на друга дата
+                                                </button>
+                                            </div>
+                                            <button type="button" onClick={goNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Следваща седмица">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        </div>
+                                        <div className="overflow-x-auto pb-2 -mx-1 flex gap-4">
+                                            {weekDates.map((d) => {
+                                                const dateKey = formatDateKey(d);
+                                                const daySlots = slotsByDay.get(dateKey) ?? [];
+                                                const isExpanded = expandedDays.has(dateKey);
+                                                const visibleSlots = isExpanded ? daySlots : daySlots.slice(0, INITIAL_SLOTS_PER_DAY);
+                                                const hasMore = daySlots.length > INITIAL_SLOTS_PER_DAY && !isExpanded;
+                                                const dayName = getDayNameBg(d.getDay() === 0 ? 7 : d.getDay()).toLowerCase();
+                                                const dateStr = `${d.getDate().toString().padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+                                                return (
+                                                    <div key={dateKey} className="flex-shrink-0 w-[140px] sm:w-[160px] flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                                                        <div className="p-3 bg-white border-b border-slate-200">
+                                                            <p className="font-semibold text-slate-800 capitalize text-sm">{dayName}</p>
+                                                            <p className="text-xs text-slate-500 tabular-nums">{dateStr}</p>
+                                                        </div>
+                                                        <div className="p-2 flex-1 min-h-[120px]">
+                                                            <div className="grid grid-cols-2 gap-1.5">
+                                                                {visibleSlots.map((slot) => {
+                                                                    const isFree = slot.status === "free";
+                                                                    const isBlocked = slot.status === "blocked";
+                                                                    const selected = bookingForm.date === dateKey && bookingForm.time === slot.time;
+                                                                    return (
+                                                                        <button
+                                                                            key={slot.time}
+                                                                            type="button"
+                                                                            onClick={() => isFree && setBookingForm((prev) => ({ ...prev, date: dateKey, time: slot.time }))}
+                                                                            disabled={!isFree}
+                                                                            className={`flex items-center justify-between gap-0.5 py-2 px-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                                                                isFree
+                                                                                    ? "bg-white border-2 border-emerald-500 text-emerald-800 hover:bg-emerald-50"
+                                                                                    : isBlocked
+                                                                                    ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(0,0,0,0.04)_3px,rgba(0,0,0,0.04)_6px)]"
+                                                                                    : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed"
+                                                                            } ${selected ? "ring-2 ring-purple-600 ring-offset-1" : ""}`}
+                                                                        >
+                                                                            <span className="tabular-nums">{slot.time}</span>
+                                                                            {isFree && (
+                                                                                <span className="flex items-center gap-0.5">
+                                                                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                                                                    <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
+                                                                                </span>
+                                                                            )}
+                                                                            {!isFree && (
+                                                                                <span className="flex items-center gap-0.5 opacity-60">
+                                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                                                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
+                                                                                </span>
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {hasMore && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setExpandedDays((prev) => new Set(prev).add(dateKey))}
+                                                                    className="w-full mt-2 py-2 rounded-lg border-2 border-emerald-500 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors"
+                                                                >
+                                                                    Още
+                                                                </button>
+                                                            )}
+                                                            {daySlots.length === 0 && (
+                                                                <p className="text-xs text-slate-400 py-4 text-center">Няма слотове</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        {bookingForm.date && bookingForm.time && (
+                                            <div className="pt-4 border-t border-slate-200 space-y-3">
+                                                <p className="text-sm font-semibold text-slate-700">
+                                                    Избрахте: {new Date(bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {bookingForm.time}
+                                                </p>
+                                                <label className="block text-sm font-semibold text-slate-700">Съобщение (по избор)</label>
+                                                <textarea
+                                                    value={bookingForm.message}
+                                                    onChange={(e) => setBookingForm((prev) => ({ ...prev, message: e.target.value }))}
+                                                    placeholder="Добавете допълнителна информация..."
+                                                    rows={3}
+                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={closeBookingModal}
-                                    className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors"
-                                >
+                            <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
+                                <button type="button" onClick={closeBookingModal} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors">
                                     Откажи
                                 </button>
                                 <button
