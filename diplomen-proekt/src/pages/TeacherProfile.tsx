@@ -88,8 +88,8 @@ export const TeacherProfile = () => {
                 setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
                 setTeacherBookingsForSlots(
                     (bookRes.data as { lesson_date: string; lesson_time: string }[] | null)?.map((b) => ({
-                        lesson_date: b.lesson_date,
-                        lesson_time: typeof b.lesson_time === "string" ? b.lesson_time.slice(0, 5) : String(b.lesson_time).slice(0, 5),
+                        lesson_date: String(b.lesson_date).slice(0, 10),
+                        lesson_time: String(b.lesson_time).slice(0, 5),
                     })) ?? []
                 );
             } catch (e) {
@@ -116,6 +116,47 @@ export const TeacherProfile = () => {
         });
     }, [hasAvailability, teacherAvailability, teacherBookingSettings, teacherBlockedSlots, teacherExceptions, teacherBookingsForSlots, bookingWeekStart]);
 
+    const generatedSlotsFourWeeks = useMemo(() => {
+        if (!hasAvailability) return [];
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const startOfThisWeek = new Date(now);
+        startOfThisWeek.setDate(diff);
+        startOfThisWeek.setHours(0, 0, 0, 0);
+        return generateSlotsForWeek({
+            availability: teacherAvailability,
+            settings: teacherBookingSettings,
+            blockedSlots: teacherBlockedSlots,
+            exceptions: teacherExceptions,
+            existingBookings: teacherBookingsForSlots,
+            weekStart: startOfThisWeek,
+            daysCount: 28,
+        });
+    }, [hasAvailability, teacherAvailability, teacherBookingSettings, teacherBlockedSlots, teacherExceptions, teacherBookingsForSlots]);
+
+    const futureSlots = useMemo(() => {
+        const now = new Date();
+        return generatedSlots.filter((s) => {
+            const slotDateTime = new Date(s.date + "T" + s.time);
+            return slotDateTime > now;
+        });
+    }, [generatedSlots]);
+
+    const earliestFreeSlot = useMemo(() => {
+        const now = new Date();
+        const free = generatedSlotsFourWeeks.filter((s) => {
+            const slotDateTime = new Date(s.date + "T" + s.time);
+            return slotDateTime > now && s.status === "free";
+        });
+        if (free.length === 0) return null;
+        free.sort((a, b) => {
+            const cmp = a.date.localeCompare(b.date);
+            return cmp !== 0 ? cmp : a.time.localeCompare(b.time);
+        });
+        return free[0];
+    }, [generatedSlotsFourWeeks]);
+
     const weekDates = useMemo(() => {
         const dates: Date[] = [];
         for (let i = 0; i < 7; i++) {
@@ -134,16 +175,16 @@ export const TeacherProfile = () => {
     };
 
     const slotsByDay = useMemo(() => {
-        const map = new Map<string, typeof generatedSlots>();
+        const map = new Map<string, typeof futureSlots>();
         weekDates.forEach((d) => {
             const key = formatDateKey(d);
-            const daySlots = generatedSlots
+            const daySlots = futureSlots
                 .filter((s) => s.date === key)
                 .sort((a, b) => a.time.localeCompare(b.time));
             map.set(key, daySlots);
         });
         return map;
-    }, [generatedSlots, weekDates]);
+    }, [futureSlots, weekDates]);
 
     const goPrevWeek = () => {
         const d = new Date(bookingWeekStart);
@@ -351,6 +392,11 @@ export const TeacherProfile = () => {
     const handleBookLesson = async () => {
         if (!teacher || !user || !bookingForm.date || !bookingForm.time) {
             alert("Моля, попълнете всички полета");
+            return;
+        }
+        const slotDateTime = new Date(bookingForm.date + "T" + bookingForm.time);
+        if (slotDateTime <= new Date()) {
+            alert("Не можете да запазвате час с дата или час в миналото.");
             return;
         }
 
@@ -815,6 +861,25 @@ export const TeacherProfile = () => {
                                     </>
                                 ) : (
                                     <>
+                                        {earliestFreeSlot && (
+                                            <div className="flex flex-wrap items-center justify-between gap-2 py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200/80">
+                                                <p className="text-sm text-slate-700">
+                                                    <span className="font-semibold text-emerald-800">Най-ранен свободен час:</span>{" "}
+                                                    {new Date(earliestFreeSlot.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
+                                                    в {earliestFreeSlot.time}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        goToDate(new Date(earliestFreeSlot.date + "T12:00"));
+                                                        setBookingForm((prev) => ({ ...prev, date: earliestFreeSlot.date, time: earliestFreeSlot.time }));
+                                                    }}
+                                                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline"
+                                                >
+                                                    Отиди там
+                                                </button>
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
                                             <button type="button" onClick={goPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700" aria-label="Предишна седмица">
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>

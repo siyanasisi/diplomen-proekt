@@ -64,8 +64,8 @@ export function TeacherAvailabilityForm({
   >(
     initialBlocked.map((b) => ({
       day_of_week: b.day_of_week,
-      start_time: b.start_time.slice(0, 5),
-      end_time: b.end_time.slice(0, 5),
+      start_time: (b.start_time ?? "").slice(0, 5) || "12:00",
+      end_time: (b.end_time ?? "").slice(0, 5) || "13:00",
     }))
   );
   const [exceptions, setExceptions] = useState<
@@ -77,7 +77,7 @@ export function TeacherAvailabilityForm({
     }[]
   >(
     initialExceptions.map((e) => ({
-      exception_date: e.exception_date,
+      exception_date: String(e.exception_date).slice(0, 10),
       is_fully_unavailable: e.is_fully_unavailable,
       override_start_time: e.override_start_time?.slice(0, 5) ?? null,
       override_end_time: e.override_end_time?.slice(0, 5) ?? null,
@@ -101,13 +101,13 @@ export function TeacherAvailabilityForm({
     setBlockedSlots(
       initialBlocked.map((b) => ({
         day_of_week: b.day_of_week,
-        start_time: b.start_time.slice(0, 5),
-        end_time: b.end_time.slice(0, 5),
+        start_time: (b.start_time ?? "").slice(0, 5) || "12:00",
+        end_time: (b.end_time ?? "").slice(0, 5) || "13:00",
       }))
     );
     setExceptions(
       initialExceptions.map((e) => ({
-        exception_date: e.exception_date,
+        exception_date: String(e.exception_date).slice(0, 10),
         is_fully_unavailable: e.is_fully_unavailable,
         override_start_time: e.override_start_time?.slice(0, 5) ?? null,
         override_end_time: e.override_end_time?.slice(0, 5) ?? null,

@@ -10,8 +10,11 @@ import type {
 const DAY_NAMES_BG = ["Неделя", "Понеделник", "Вторник", "Сряда", "Четвъртък", "Петък", "Събота"];
 
 function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
+  if (!t || typeof t !== "string") return 0;
+  const parts = t.split(":");
+  const h = Number(parts[0]) || 0;
+  const m = Number(parts[1]) || 0;
+  return h * 60 + m;
 }
 
 // 480 -> 08:00 
@@ -46,13 +49,19 @@ function slotStartsInWindow(
     out.push(t);
     t += step;
   }
+  const lastPossible = endMin - duration;
+  if (lastPossible >= startMin && (out.length === 0 || out[out.length - 1] !== lastPossible)) {
+    out.push(lastPossible);
+    out.sort((a, b) => a - b);
+  }
   return out;
 }
 
 function isInBlockedRange(t: number, duration: number, blocked: { start: number; end: number }[]): boolean {
   const tEnd = t + duration;
   for (const b of blocked) {
-    if (t < b.end && tEnd > b.start) return true;
+    if (tEnd <= b.start || t > b.end) continue;
+    return true;
   }
   return false;
 }
@@ -102,11 +111,12 @@ export function generateSlotsForWeek(params: GenerateSlotsParams): SlotInfo[] {
 
   const exceptionsByDate = new Map<string, TeacherScheduleExceptionRow>();
   for (const e of exceptions) {
-    exceptionsByDate.set(e.exception_date, e);
+    const dateKey = String(e.exception_date).slice(0, 10);
+    if (dateKey.length === 10) exceptionsByDate.set(dateKey, e);
   }
 
   const bookedSet = new Set(
-    existingBookings.map((b) => `${b.lesson_date}T${b.lesson_time}`)
+    existingBookings.map((b) => `${String(b.lesson_date).slice(0, 10)}T${String(b.lesson_time).slice(0, 5)}`)
   );
 
   const result: SlotInfo[] = [];
