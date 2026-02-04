@@ -2,7 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useState, useEffect, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 type StudentBooking = {
     id: string;
@@ -21,6 +21,7 @@ type PendingBooking = {
     message: string | null;
     student_id: string;
     student_name?: string;
+    status?: string;
 };
 
 const formatDateLessons = (d: string) => {
@@ -42,6 +43,7 @@ export const Home = () => {
     const { user, role } = useAuth();
     const showToast = useToast();
     const navigate = useNavigate();
+    const location = useLocation();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
     const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
@@ -78,6 +80,12 @@ export const Home = () => {
             }
         }
     }, [user, role]);
+
+    useEffect(() => {
+        if (user && location.pathname === "/home") {
+            loadBookedLessonDates();
+        }
+    }, [location.pathname, user]);
 
     const loadEvents = async () => {
         if (!user) return;
@@ -116,22 +124,22 @@ export const Home = () => {
         if (!user) return;
         try {
             await ensureValidSession();
+            const statusFilter = ["pending", "confirmed"];
             const { data: asStudent } = await supabase
-                .from('bookings')
-                .select('lesson_date')
-                .eq('student_id', user.id);
+                .from("bookings")
+                .select("lesson_date")
+                .eq("student_id", user.id)
+                .in("status", statusFilter);
             const { data: asTeacher } = await supabase
-                .from('bookings')
-                .select('lesson_date')
-                .eq('teacher_id', user.id);
+                .from("bookings")
+                .select("lesson_date")
+                .eq("teacher_id", user.id)
+                .in("status", statusFilter);
+            const toDateKey = (iso: string) => String(iso).split("T")[0].trim();
             const allDates = [...(asStudent ?? []), ...(asTeacher ?? [])]
-                .map((r: { lesson_date: string }) => r.lesson_date)
+                .map((r: { lesson_date: string }) => toDateKey(r.lesson_date))
                 .filter(Boolean);
-            const toDateKey = (iso: string) => {
-                const [y, m, d] = iso.split('T')[0].split('-').map(Number);
-                return `${y}-${m}-${d}`;
-            };
-            const keys = [...new Set(allDates.map(toDateKey))];
+            const keys = [...new Set(allDates)];
             setBookedLessonDates(keys);
 
             if (role === 'student') {
@@ -269,7 +277,10 @@ export const Home = () => {
                     .gte("lesson_date", todayKey)
                     .order("lesson_date", { ascending: true })
                     .order("lesson_time", { ascending: true });
-                const list = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+                const slotKey = (b: { lesson_date: string; lesson_time: string }) =>
+                    `${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKey(x) === slotKey(b)) === i);
                 if (list.length > 0) {
                     const ids = [...new Set(list.map((b) => b.teacher_profile_id))];
                     const { data: tp } = await supabase.from("teacher_profiles").select("id, full_name, user_id").in("id", ids);
@@ -282,18 +293,21 @@ export const Home = () => {
             } else if (role === "teacher") {
                 const { data: rows } = await supabase
                     .from("bookings")
-                    .select("id, lesson_date, lesson_time, message, student_id")
+                    .select("id, lesson_date, lesson_time, message, student_id, status")
                     .eq("teacher_id", user.id)
-                    .eq("status", "pending")
+                    .in("status", ["pending", "confirmed"])
                     .gte("lesson_date", todayKey)
                     .order("lesson_date", { ascending: true })
                     .order("lesson_time", { ascending: true });
-                const list = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string }[];
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string; status: string }[];
+                const slotKeyT = (b: { student_id: string; lesson_date: string; lesson_time: string }) =>
+                    `${b.student_id}-${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKeyT(x) === slotKeyT(b)) === i);
                 if (list.length > 0) {
                     const ids = [...new Set(list.map((b) => b.student_id))];
                     const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
                     const map = new Map((pr ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Ученик"]));
-                    setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик" })));
+                    setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик", status: b.status })));
                 } else {
                     setPendingBookings([]);
                 }
@@ -328,8 +342,9 @@ export const Home = () => {
                 });
             }
             showToast("Часът е отменен.");
-            loadLessonsData();
-            loadBookedLessonDates();
+            await loadLessonsData();
+            await loadBookedLessonDates();
+            await loadEvents();
         } catch (e) {
             console.error(e);
             showToast("Грешка при отказ.");
@@ -375,7 +390,8 @@ export const Home = () => {
             });
             showToast("Часът е отказен.");
             await loadLessonsData();
-            loadBookedLessonDates();
+            await loadBookedLessonDates();
+            await loadEvents();
         } catch (e) {
             console.error(e);
             showToast("Грешка при отказ.");
@@ -1233,7 +1249,7 @@ export const Home = () => {
                                         </div>
                                         <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
                                     </div>
-                                    <p className="text-slate-500 text-[15px] ml-[52px]">Часове, чакащи потвърждение от вас.</p>
+                                    <p className="text-slate-500 text-[15px] ml-[52px]">Чакащи потвърждение и потвърдени часове. Можете да откажете час при нужда.</p>
                                 </header>
                                 {lessonsLoading ? (
                                     <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
@@ -1247,61 +1263,87 @@ export const Home = () => {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </div>
-                                        <h3 className="text-lg font-semibold text-slate-800 mb-2">Няма чакащи часове</h3>
+                                        <h3 className="text-lg font-semibold text-slate-800 mb-2">Няма записани часове</h3>
                                         <p className="text-slate-500 text-[15px] max-w-sm mx-auto">Нови записи от ученици ще се появят тук. Можете да ги потвърдите или откажете.</p>
                                     </div>
                                 ) : (
-                                    <ul className="space-y-3">
-                                        {pendingBookings.map((b) => {
-                                            const lessonDate = new Date(b.lesson_date + "T12:00");
-                                            const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
-                                            const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
-                                            const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
-                                            return (
-                                                <li
-                                                    key={b.id}
-                                                    className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
-                                                >
-                                                    <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
-                                                        <div className="flex items-center gap-5 min-w-0 flex-1">
-                                                            <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
-                                                                <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
-                                                                <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
-                                                                <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                    <div className="space-y-10">
+                                        {(() => {
+                                            const pending = pendingBookings.filter((b) => (b.status ?? "pending") === "pending");
+                                            const confirmed = pendingBookings.filter((b) => b.status === "confirmed");
+                                            const renderBooking = (b: PendingBooking, showConfirm: boolean) => {
+                                                const lessonDate = new Date(b.lesson_date + "T12:00");
+                                                const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                                const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                                const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                                return (
+                                                    <li
+                                                        key={b.id}
+                                                        className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                                    >
+                                                        <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                            <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                                <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                                    <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                                    <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                                    <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-semibold text-slate-900 text-[15px]">
+                                                                        {String(b.lesson_time).slice(0, 5)} ч.
+                                                                    </p>
+                                                                    <p className="text-slate-600 text-[15px] mt-0.5 truncate">{b.student_name}</p>
+                                                                    {b.message && (
+                                                                        <p className="text-sm text-slate-400 mt-2 truncate max-w-sm" title={b.message}>{b.message}</p>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="font-semibold text-slate-900 text-[15px]">
-                                                                    {String(b.lesson_time).slice(0, 5)} ч.
-                                                                </p>
-                                                                <p className="text-slate-600 text-[15px] mt-0.5 truncate">{b.student_name}</p>
-                                                                {b.message && (
-                                                                    <p className="text-sm text-slate-400 mt-2 truncate max-w-sm" title={b.message}>{b.message}</p>
+                                                            <div className="flex gap-2.5 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                                {showConfirm && (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={actingOnBookingId !== null}
+                                                                        onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
+                                                                    >
+                                                                        {actingOnBookingId === b.id ? "Изчакване..." : "Потвърди"}
+                                                                    </button>
                                                                 )}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={actingOnBookingId !== null}
+                                                                    onClick={() => handleCancelByTeacher(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
+                                                                >
+                                                                    Откажи час
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                        <div className="flex gap-2.5 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
-                                                            <button
-                                                                type="button"
-                                                                disabled={actingOnBookingId !== null}
-                                                                onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
-                                                                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
-                                                            >
-                                                                {actingOnBookingId === b.id ? "Изчакване..." : "Потвърди"}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                disabled={actingOnBookingId !== null}
-                                                                onClick={() => handleCancelByTeacher(b.id, b.student_id, b.lesson_date, b.lesson_time)}
-                                                                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
-                                                            >
-                                                                Откажи
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </li>
+                                                    </li>
+                                                );
+                                            };
+                                            return (
+                                                <>
+                                                    {pending.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-3">Чакащи потвърждение</h3>
+                                                            <ul className="space-y-3">
+                                                                {pending.map((b) => renderBooking(b, true))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                    {confirmed.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-3">Потвърдени часове</h3>
+                                                            <ul className="space-y-3">
+                                                                {confirmed.map((b) => renderBooking(b, false))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                </>
                                             );
-                                        })}
-                                    </ul>
+                                        })()}
+                                    </div>
                                 )}
                             </div>
                         )}

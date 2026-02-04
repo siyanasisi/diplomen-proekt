@@ -116,7 +116,11 @@ export function generateSlotsForWeek(params: GenerateSlotsParams): SlotInfo[] {
   }
 
   const bookedSet = new Set(
-    existingBookings.map((b) => `${String(b.lesson_date).slice(0, 10)}T${String(b.lesson_time).slice(0, 5)}`)
+    existingBookings.map((b) => {
+      const d = String(b.lesson_date).slice(0, 10);
+      const t = String(b.lesson_time).slice(0, 5);
+      return `${d}T${t}`;
+    })
   );
 
   const result: SlotInfo[] = [];
