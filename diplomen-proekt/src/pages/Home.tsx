@@ -1,24 +1,64 @@
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useToast } from "../context/ToastContext";
+import { useState, useEffect, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
+
+type StudentBooking = {
+    id: string;
+    lesson_date: string;
+    lesson_time: string;
+    status: string;
+    teacher_name: string;
+    teacher_profile_id: string;
+    teacher_id: string;
+};
+
+type PendingBooking = {
+    id: string;
+    lesson_date: string;
+    lesson_time: string;
+    message: string | null;
+    student_id: string;
+    student_name?: string;
+};
+
+const formatDateLessons = (d: string) => {
+    try {
+        return new Date(d + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    } catch {
+        return d;
+    }
+};
+
+const formatDateTimeLessons = (date: string, time: string) => {
+    const t = String(time).slice(0, 5);
+    return formatDateLessons(date) + " в " + t + " ч.";
+};
 
 export const Home = () => {
 
     type CalendarEventRow = { id: string; date: string; event_text: string };
     const { user, role } = useAuth();
+    const showToast = useToast();
     const navigate = useNavigate();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
     const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
     const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+    const [todayBookingsCount, setTodayBookingsCount] = useState(0);
+    const [teacherPendingCount, setTeacherPendingCount] = useState(0);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
-    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'messages'>('dashboard');
+    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'messages' | 'lessons'>('dashboard');
     const [messages, setMessages] = useState<any[]>([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [lessonsLoading, setLessonsLoading] = useState(false);
+    const [studentBookings, setStudentBookings] = useState<StudentBooking[]>([]);
+    const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>([]);
+    const [actingOnBookingId, setActingOnBookingId] = useState<string | null>(null);
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -103,8 +143,30 @@ export const Home = () => {
                     .eq('status', 'pending')
                     .gte('lesson_date', todayKey);
                 setPendingBookingsCount(count ?? 0);
+
+                const todayKeyOnly = new Date().toISOString().slice(0, 10);
+                const { count: todayCount } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .in('status', ['pending', 'confirmed'])
+                    .eq('lesson_date', todayKeyOnly);
+                setTodayBookingsCount(todayCount ?? 0);
+            } else if (role === 'teacher') {
+                setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count: teacherPending } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('teacher_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setTeacherPendingCount(teacherPending ?? 0);
             } else {
                 setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                setTeacherPendingCount(0);
             }
         } catch (e) {
             console.error('Failed to load booked lesson dates:', e);
@@ -188,6 +250,137 @@ export const Home = () => {
             console.error('Failed to load messages:', error);
         } finally {
             setLoadingMessages(false);
+        }
+    };
+
+    const loadLessonsData = useCallback(async () => {
+        if (!user) return;
+        setLessonsLoading(true);
+        try {
+            await ensureValidSession();
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            if (role === "student") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, status, teacher_profile_id")
+                    .eq("student_id", user.id)
+                    .in("status", ["pending", "confirmed"])
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const list = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.teacher_profile_id))];
+                    const { data: tp } = await supabase.from("teacher_profiles").select("id, full_name, user_id").in("id", ids);
+                    const map = new Map((tp ?? []).map((p: { id: string; full_name: string | null; user_id: string }) => [p.id, { name: p.full_name ?? "Учител", userId: p.user_id }]));
+                    setStudentBookings(list.map((b) => ({ ...b, teacher_name: map.get(b.teacher_profile_id)?.name ?? "Учител", teacher_id: map.get(b.teacher_profile_id)?.userId ?? "" })));
+                } else {
+                    setStudentBookings([]);
+                }
+                setPendingBookings([]);
+            } else if (role === "teacher") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, message, student_id")
+                    .eq("teacher_id", user.id)
+                    .eq("status", "pending")
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const list = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string }[];
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.student_id))];
+                    const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+                    const map = new Map((pr ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Ученик"]));
+                    setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик" })));
+                } else {
+                    setPendingBookings([]);
+                }
+                setStudentBookings([]);
+            } else {
+                setStudentBookings([]);
+                setPendingBookings([]);
+            }
+        } catch (e) {
+            console.error("Lessons load:", e);
+        } finally {
+            setLessonsLoading(false);
+        }
+    }, [user, role]);
+
+    useEffect(() => {
+        if (user && activeMenu === "lessons") loadLessonsData();
+    }, [user, activeMenu, loadLessonsData]);
+
+    const handleCancelMyBooking = async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("student_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            if (teacherId) {
+                await supabase.from("messages").insert({
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    message: `Отмених записания час на ${text}.`,
+                    is_from_student: true,
+                });
+            }
+            showToast("Часът е отменен.");
+            loadLessonsData();
+            loadBookedLessonDates();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        }
+    };
+
+    const handleConfirmBooking = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "confirmed" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Вашият час на ${text} е потвърден. До скоро!`,
+                is_from_student: false,
+            });
+            showToast("Часът е потвърден.");
+            await loadLessonsData();
+            loadBookedLessonDates();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при потвърждаване.");
+        } finally {
+            setActingOnBookingId(null);
+        }
+    };
+
+    const handleCancelByTeacher = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Съжалявам, часът на ${text} е отменен. Можете да запишете друг час.`,
+                is_from_student: false,
+            });
+            showToast("Часът е отказен.");
+            await loadLessonsData();
+            loadBookedLessonDates();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        } finally {
+            setActingOnBookingId(null);
         }
     };
 
@@ -377,6 +570,15 @@ export const Home = () => {
                 </svg>
             )
         },
+        {
+            id: 'lessons' as const,
+            label: 'Часове',
+            icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            )
+        },
         ...(role === 'teacher' ? [{
             id: 'messages' as const,
             label: 'Съобщения',
@@ -525,6 +727,20 @@ export const Home = () => {
                                     <p className="text-base font-semibold text-slate-600">
                                         Преглед на днешната активност
                                     </p>
+                                </div>
+
+                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 shadow-md border-2 border-purple-200/40 max-w-md">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-3">Часове</h3>
+                                    <ul className="space-y-1.5 text-slate-700 mb-4">
+                                        <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{teacherPendingCount}</span></li>
+                                    </ul>
+                                    <button
+                                        onClick={() => setActiveMenu('lessons')}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                    >
+                                        Виж всички
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
                                 </div>
 
                                 {/* statistics row */}
@@ -1005,6 +1221,91 @@ export const Home = () => {
                             </div>
                         )}
 
+                        {/* lessons view - teacher */}
+                        {activeMenu === 'lessons' && role === 'teacher' && (
+                            <div className="max-w-3xl">
+                                <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                    </div>
+                                    <p className="text-slate-500 text-[15px] ml-[52px]">Часове, чакащи потвърждение от вас.</p>
+                                </header>
+                                {lessonsLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                        <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                        <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                    </div>
+                                ) : pendingBookings.length === 0 ? (
+                                    <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                        <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                            <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-slate-800 mb-2">Няма чакащи часове</h3>
+                                        <p className="text-slate-500 text-[15px] max-w-sm mx-auto">Нови записи от ученици ще се появят тук. Можете да ги потвърдите или откажете.</p>
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-3">
+                                        {pendingBookings.map((b) => {
+                                            const lessonDate = new Date(b.lesson_date + "T12:00");
+                                            const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                            const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                            const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                            return (
+                                                <li
+                                                    key={b.id}
+                                                    className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                                >
+                                                    <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                        <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                            <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                                <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                                <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                                <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-semibold text-slate-900 text-[15px]">
+                                                                    {String(b.lesson_time).slice(0, 5)} ч.
+                                                                </p>
+                                                                <p className="text-slate-600 text-[15px] mt-0.5 truncate">{b.student_name}</p>
+                                                                {b.message && (
+                                                                    <p className="text-sm text-slate-400 mt-2 truncate max-w-sm" title={b.message}>{b.message}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2.5 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                            <button
+                                                                type="button"
+                                                                disabled={actingOnBookingId !== null}
+                                                                onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
+                                                            >
+                                                                {actingOnBookingId === b.id ? "Изчакване..." : "Потвърди"}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={actingOnBookingId !== null}
+                                                                onClick={() => handleCancelByTeacher(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
+                                                            >
+                                                                Откажи
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+
                         {/* settings view */}
                         {activeMenu === 'settings' && (
                             <div className="space-y-8">
@@ -1254,13 +1555,31 @@ export const Home = () => {
                                             ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? 'час' : 'часа'}, който чака потвърждение от учителя.
                                         </p>
                                         <button
-                                            onClick={() => navigate('/profile#my-bookings')}
+                                            onClick={() => setActiveMenu('lessons')}
                                             className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors"
                                         >
-                                            Виж в Профил
+                                            Виж всички
                                         </button>
                                     </div>
                                 )}
+
+                                {role === 'student' && (
+                                    <div className="mb-8 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-6 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
+                                        <h2 className="text-xl font-bold text-slate-900 mb-4">📚 Часове</h2>
+                                        <ul className="space-y-2 text-slate-700 mb-4">
+                                            <li>• Днес: <span className="font-bold text-purple-900">{todayBookingsCount}</span></li>
+                                            <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{pendingBookingsCount}</span></li>
+                                        </ul>
+                                        <button
+                                            onClick={() => setActiveMenu('lessons')}
+                                            className="w-full px-4 py-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                        >
+                                            Виж всички
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* countdown card */}
                                 <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
@@ -1574,6 +1893,108 @@ export const Home = () => {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* lessons view - student */}
+                    {activeMenu === 'lessons' && role === 'student' && (
+                        <div className="max-w-3xl">
+                            <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                </div>
+                                <p className="text-slate-500 text-[15px] ml-[52px]">Вашите записани уроци. Ще получите съобщение в чата при потвърждение или отказ.</p>
+                            </header>
+                            {lessonsLoading ? (
+                                <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                    <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                    <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                </div>
+                            ) : studentBookings.length === 0 ? (
+                                <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                        <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">Нямате записани часове</h3>
+                                    <p className="text-slate-500 text-[15px] max-w-sm mx-auto mb-10">Намерете учител и запишете час — той ще се появи тук и ще получите известие при потвърждение.</p>
+                                    <button
+                                        onClick={() => navigate("/find-teacher")}
+                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
+                                    >
+                                        Намери учител
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </div>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {studentBookings.map((b) => {
+                                        const isPending = b.status === "pending";
+                                        const lessonDate = new Date(b.lesson_date + "T12:00");
+                                        const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                        const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                        const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                        return (
+                                            <li
+                                                key={b.id}
+                                                className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                            >
+                                                <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                    <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                        <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                            <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                            <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                            <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-semibold text-slate-900 text-[15px]">
+                                                                {String(b.lesson_time).slice(0, 5)} ч. · {b.teacher_name}
+                                                            </p>
+                                                            <p className="text-slate-500 text-[15px] mt-0.5">
+                                                                {formatDateLessons(b.lesson_date)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                        <span
+                                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium ${
+                                                                isPending
+                                                                    ? "bg-amber-50 text-amber-800 border border-amber-200/70"
+                                                                    : "bg-emerald-50 text-emerald-800 border border-emerald-200/70"
+                                                            }`}
+                                                        >
+                                                            {isPending ? (
+                                                                <>
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                                    Чака потвърждение
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                                    Потвърден
+                                                                </>
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelMyBooking(b.id, b.teacher_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 hover:text-red-600 transition-colors"
+                                                        >
+                                                            Откажи час
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
                     )}
 
