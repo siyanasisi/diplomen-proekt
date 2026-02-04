@@ -66,6 +66,14 @@ export const Profile = () => {
         student_id: string;
         student_name?: string;
     }[]>([]);
+    const [studentUpcomingBookings, setStudentUpcomingBookings] = useState<{
+        id: string;
+        lesson_date: string;
+        lesson_time: string;
+        status: string;
+        teacher_name: string;
+        teacher_profile_id: string;
+    }[]>([]);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -149,6 +157,29 @@ export const Profile = () => {
 
                 setRecentActivity(recent);
             }
+        }
+
+        if (role === 'student') {
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const { data: myBookings } = await supabase
+                .from('bookings')
+                .select('id, lesson_date, lesson_time, status, teacher_profile_id')
+                .eq('student_id', user.id)
+                .in('status', ['pending', 'confirmed'])
+                .gte('lesson_date', todayKey)
+                .order('lesson_date', { ascending: true })
+                .order('lesson_time', { ascending: true });
+            const list = (myBookings ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+            if (list.length > 0) {
+                const profileIds = [...new Set(list.map((b) => b.teacher_profile_id))];
+                const { data: tpData } = await supabase.from('teacher_profiles').select('id, full_name').in('id', profileIds);
+                const nameMap = new Map((tpData ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? 'Учител']));
+                setStudentUpcomingBookings(list.map((b) => ({ ...b, teacher_name: nameMap.get(b.teacher_profile_id) ?? 'Учител' })));
+            } else {
+                setStudentUpcomingBookings([]);
+            }
+        } else {
+            setStudentUpcomingBookings([]);
         }
 
         if (role === 'teacher') {
@@ -489,7 +520,7 @@ export const Profile = () => {
             await supabase.from('messages').insert({
                 student_id: studentId,
                 teacher_id: user.id,
-                message: `Вашият час на ${dateTimeText} е потвърден. До скоро!`,
+                message: `Вашият час в ${dateTimeText} е потвърден. До скоро!`,
                 is_from_student: false,
             });
 
@@ -515,7 +546,7 @@ export const Profile = () => {
             await supabase.from('messages').insert({
                 student_id: studentId,
                 teacher_id: user.id,
-                message: `Съжалявам, часът на ${dateTimeText} е отменен. Можете да запишете друг час.`,
+                message: `Съжалявам, часът в ${dateTimeText} е отменен. Можете да запишете друг час.`,
                 is_from_student: false,
             });
 
@@ -1150,6 +1181,56 @@ export const Profile = () => {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {role === 'student' && studentUpcomingBookings.length > 0 && (
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Моите записани часове
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-4">
+                                        Тук виждате записаните от вас часове. Ще получите съобщение в чата, когато учителят потвърди или откаже.
+                                    </p>
+                                    <ul className="space-y-3">
+                                        {studentUpcomingBookings.map((b) => {
+                                            const timeStr = String(b.lesson_time).slice(0, 5);
+                                            const dateStr = (() => {
+                                                try {
+                                                    return new Date(b.lesson_date + 'T12:00').toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                                                } catch {
+                                                    return b.lesson_date;
+                                                }
+                                            })();
+                                            const isPending = b.status === 'pending';
+                                            return (
+                                                <li
+                                                    key={b.id}
+                                                    className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${
+                                                        isPending ? 'border-amber-200/80 bg-amber-50/50' : 'border-emerald-200/60 bg-emerald-50/40'
+                                                    }`}
+                                                >
+                                                    <span className="font-semibold text-slate-800">
+                                                        {dateStr} в {timeStr} ч.
+                                                    </span>
+                                                    <span className="text-slate-600">{b.teacher_name}</span>
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-semibold ${
+                                                            isPending
+                                                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        }`}
+                                                    >
+                                                        {isPending ? (
+                                                            <> Чака потвърждение</>
+                                                        ) : (
+                                                            <>✓ Потвърден</>
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 </div>
                             )}
 

@@ -11,6 +11,7 @@ export const Home = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
     const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
+    const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
@@ -92,6 +93,19 @@ export const Home = () => {
             };
             const keys = [...new Set(allDates.map(toDateKey))];
             setBookedLessonDates(keys);
+
+            if (role === 'student') {
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setPendingBookingsCount(count ?? 0);
+            } else {
+                setPendingBookingsCount(0);
+            }
         } catch (e) {
             console.error('Failed to load booked lesson dates:', e);
         }
@@ -1234,6 +1248,19 @@ export const Home = () => {
                     {activeMenu === 'dashboard' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
                             <div className="max-w-2xl w-full px-8">
+                                {role === 'student' && pendingBookingsCount > 0 && (
+                                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200 flex items-center justify-between gap-4 flex-wrap">
+                                        <p className="text-amber-800 font-semibold">
+                                            ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? 'час' : 'часа'}, който чака потвърждение от учителя.
+                                        </p>
+                                        <button
+                                            onClick={() => navigate('/profile')}
+                                            className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors"
+                                        >
+                                            Виж в Профил
+                                        </button>
+                                    </div>
+                                )}
                                 {/* countdown card */}
                                 <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
