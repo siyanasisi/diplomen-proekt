@@ -8,9 +8,14 @@ function getFocusables(container: HTMLElement | null): HTMLElement[] {
     return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
-export function useModalFocus(isOpen: boolean, onClose: () => void) {
+export type UseModalFocusOptions = {
+    canClose?: () => boolean;
+};
+
+export function useModalFocus(isOpen: boolean, onClose: () => void, options?: UseModalFocusOptions) {
     const modalRef = useRef<HTMLDivElement | null>(null);
     const previousActiveRef = useRef<HTMLElement | null>(null);
+    const canClose = options?.canClose;
 
     // on open - save focus, then move focus to first focusable in modal
     useEffect(() => {
@@ -29,7 +34,7 @@ export function useModalFocus(isOpen: boolean, onClose: () => void) {
         return () => cancelAnimationFrame(t);
     }, [isOpen]);
 
-    // on close - restore focus
+    // on close - restore focus 
     useEffect(() => {
         if (isOpen) return;
         const prev = previousActiveRef.current;
@@ -46,6 +51,7 @@ export function useModalFocus(isOpen: boolean, onClose: () => void) {
             if (!isOpen || !modalRef.current) return;
             if (e.key === "Escape") {
                 e.preventDefault();
+                if (canClose && !canClose()) return;
                 onClose();
                 return;
             }
@@ -60,7 +66,7 @@ export function useModalFocus(isOpen: boolean, onClose: () => void) {
             e.preventDefault();
             focusables[nextIdx].focus({ preventScroll: true });
         },
-        [isOpen, onClose]
+        [isOpen, onClose, canClose]
     );
 
     useEffect(() => {

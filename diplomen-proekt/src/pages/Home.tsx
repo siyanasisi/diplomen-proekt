@@ -1,20 +1,66 @@
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useToast } from "../context/ToastContext";
+import { useState, useEffect, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+
+type StudentBooking = {
+    id: string;
+    lesson_date: string;
+    lesson_time: string;
+    status: string;
+    teacher_name: string;
+    teacher_profile_id: string;
+    teacher_id: string;
+};
+
+type PendingBooking = {
+    id: string;
+    lesson_date: string;
+    lesson_time: string;
+    message: string | null;
+    student_id: string;
+    student_name?: string;
+    status?: string;
+};
+
+const formatDateLessons = (d: string) => {
+    try {
+        return new Date(d + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    } catch {
+        return d;
+    }
+};
+
+const formatDateTimeLessons = (date: string, time: string) => {
+    const t = String(time).slice(0, 5);
+    return formatDateLessons(date) + " в " + t + " ч.";
+};
 
 export const Home = () => {
 
+    type CalendarEventRow = { id: string; date: string; event_text: string };
     const { user, role } = useAuth();
+    const showToast = useToast();
     const navigate = useNavigate();
+    const location = useLocation();
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [events, setEvents] = useState<{ [key: string]: string }>({});
+    const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
+    const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
+    const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+    const [todayBookingsCount, setTodayBookingsCount] = useState(0);
+    const [teacherPendingCount, setTeacherPendingCount] = useState(0);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
     const [longestStreak, setLongestStreak] = useState(0);
-    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'messages'>('dashboard');
+    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'messages' | 'lessons'>('dashboard');
     const [messages, setMessages] = useState<any[]>([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
+    const [lessonsLoading, setLessonsLoading] = useState(false);
+    const [studentBookings, setStudentBookings] = useState<StudentBooking[]>([]);
+    const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>([]);
+    const [actingOnBookingId, setActingOnBookingId] = useState<string | null>(null);
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -23,16 +69,23 @@ export const Home = () => {
         }
     }, [user, navigate]);
 
-    // Load events from Supabase when user changes
+    // Load events and booked lesson dates from Supabase when user changes
     useEffect(() => {
         if (user) {
             loadEvents();
+            loadBookedLessonDates();
             loadUserStats();
             if (role === 'teacher') {
                 loadMessages();
             }
         }
     }, [user, role]);
+
+    useEffect(() => {
+        if (user && location.pathname === "/home") {
+            loadBookedLessonDates();
+        }
+    }, [location.pathname, user]);
 
     const loadEvents = async () => {
         if (!user) return;
@@ -44,7 +97,9 @@ export const Home = () => {
             const { data, error } = await supabase
                 .from('calendar_events')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .order('date', { ascending: true })
+                .order('created_at', { ascending: true });
 
             if (error) {
                 // if auth error persists-  sign out
@@ -56,16 +111,73 @@ export const Home = () => {
                 }
                 console.error('Error loading events:', error);
             } else if (data) {
-                const eventsMap: { [key: string]: string } = {};
-                data.forEach(event => {
-                    eventsMap[event.date] = event.event_text;
-                });
-                setEvents(eventsMap);
+                setEventsList((data as CalendarEventRow[]).map(e => ({ id: e.id, date: e.date, event_text: e.event_text })));
             }
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
             navigate('/login');
+        }
+    };
+
+    const loadBookedLessonDates = async () => {
+        if (!user) return;
+        try {
+            await ensureValidSession();
+            const statusFilter = ["pending", "confirmed"];
+            const { data: asStudent } = await supabase
+                .from("bookings")
+                .select("lesson_date")
+                .eq("student_id", user.id)
+                .in("status", statusFilter);
+            const { data: asTeacher } = await supabase
+                .from("bookings")
+                .select("lesson_date")
+                .eq("teacher_id", user.id)
+                .in("status", statusFilter);
+            const toDateKey = (iso: string) => String(iso).split("T")[0].trim();
+            const allDates = [...(asStudent ?? []), ...(asTeacher ?? [])]
+                .map((r: { lesson_date: string }) => toDateKey(r.lesson_date))
+                .filter(Boolean);
+            const keys = [...new Set(allDates)];
+            setBookedLessonDates(keys);
+
+            if (role === 'student') {
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setPendingBookingsCount(count ?? 0);
+
+                const todayKeyOnly = new Date().toISOString().slice(0, 10);
+                const { count: todayCount } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .in('status', ['pending', 'confirmed'])
+                    .eq('lesson_date', todayKeyOnly);
+                setTodayBookingsCount(todayCount ?? 0);
+            } else if (role === 'teacher') {
+                setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count: teacherPending } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('teacher_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setTeacherPendingCount(teacherPending ?? 0);
+            } else {
+                setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                setTeacherPendingCount(0);
+            }
+        } catch (e) {
+            console.error('Failed to load booked lesson dates:', e);
         }
     };
 
@@ -149,6 +261,145 @@ export const Home = () => {
         }
     };
 
+    const loadLessonsData = useCallback(async () => {
+        if (!user) return;
+        setLessonsLoading(true);
+        try {
+            await ensureValidSession();
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            if (role === "student") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, status, teacher_profile_id")
+                    .eq("student_id", user.id)
+                    .in("status", ["pending", "confirmed"])
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+                const slotKey = (b: { lesson_date: string; lesson_time: string }) =>
+                    `${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKey(x) === slotKey(b)) === i);
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.teacher_profile_id))];
+                    const { data: tp } = await supabase.from("teacher_profiles").select("id, full_name, user_id").in("id", ids);
+                    const map = new Map((tp ?? []).map((p: { id: string; full_name: string | null; user_id: string }) => [p.id, { name: p.full_name ?? "Учител", userId: p.user_id }]));
+                    setStudentBookings(list.map((b) => ({ ...b, teacher_name: map.get(b.teacher_profile_id)?.name ?? "Учител", teacher_id: map.get(b.teacher_profile_id)?.userId ?? "" })));
+                } else {
+                    setStudentBookings([]);
+                }
+                setPendingBookings([]);
+            } else if (role === "teacher") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, message, student_id, status")
+                    .eq("teacher_id", user.id)
+                    .in("status", ["pending", "confirmed"])
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string; status: string }[];
+                const slotKeyT = (b: { student_id: string; lesson_date: string; lesson_time: string }) =>
+                    `${b.student_id}-${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKeyT(x) === slotKeyT(b)) === i);
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.student_id))];
+                    const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+                    const map = new Map((pr ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Ученик"]));
+                    setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик", status: b.status })));
+                } else {
+                    setPendingBookings([]);
+                }
+                setStudentBookings([]);
+            } else {
+                setStudentBookings([]);
+                setPendingBookings([]);
+            }
+        } catch (e) {
+            console.error("Lessons load:", e);
+        } finally {
+            setLessonsLoading(false);
+        }
+    }, [user, role]);
+
+    useEffect(() => {
+        if (user && activeMenu === "lessons") loadLessonsData();
+    }, [user, activeMenu, loadLessonsData]);
+
+    const handleCancelMyBooking = async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("student_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            if (teacherId) {
+                await supabase.from("messages").insert({
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    message: `Отмених записания час на ${text}.`,
+                    is_from_student: true,
+                });
+            }
+            showToast("Часът е отменен.");
+            await loadLessonsData();
+            await loadBookedLessonDates();
+            await loadEvents();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        }
+    };
+
+    const handleConfirmBooking = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "confirmed" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Вашият час на ${text} е потвърден. До скоро!`,
+                is_from_student: false,
+            });
+            showToast("Часът е потвърден.");
+            await loadLessonsData();
+            loadBookedLessonDates();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при потвърждаване.");
+        } finally {
+            setActingOnBookingId(null);
+        }
+    };
+
+    const handleCancelByTeacher = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Съжалявам, часът на ${text} е отменен. Можете да запишете друг час.`,
+                is_from_student: false,
+            });
+            showToast("Часът е отказен.");
+            await loadLessonsData();
+            await loadBookedLessonDates();
+            await loadEvents();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        } finally {
+            setActingOnBookingId(null);
+        }
+    };
+
     const dziBelExamDate = new Date(2026, 4, 20);
     const today = new Date();
     const daysUntilExam = Math.ceil((dziBelExamDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -184,10 +435,18 @@ export const Home = () => {
         return `${year}-${month + 1}-${day}`;
     };
 
+    const eventsForDate = (dateKey: string) => eventsList.filter(e => e.date === dateKey);
+    const hasEventOnDate = (dateKey: string) => eventsForDate(dateKey).length > 0;
+    const hasBookedLessonOnDate = (dateKey: string) => bookedLessonDates.includes(dateKey);
+    const hasDotOnDate = (dateKey: string) => hasBookedLessonOnDate(dateKey) || hasEventOnDate(dateKey);
+
     const handleDayClick = (day: number) => {
         const dateKey = formatDateKey(day);
         setSelectedDay(dateKey);
-        setEventText(events[dateKey] || "");
+        const dayEvents = eventsForDate(dateKey);
+        const first = dayEvents[0];
+        setSelectedEventId(first?.id ?? null);
+        setEventText(first?.event_text ?? "");
     };
 
     const handleSaveEvent = async () => {
@@ -198,46 +457,36 @@ export const Home = () => {
             await ensureValidSession();
 
             if (eventText.trim()) {
-                // check if event already exists
-                const { data: existingEvent } = await supabase
-                    .from('calendar_events')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('date', selectedDay)
-                    .single();
-
                 let error;
-                if (existingEvent) {
-                    // update existing event
+                if (selectedEventId) {
                     const result = await supabase
                         .from('calendar_events')
                         .update({ event_text: eventText })
-                        .eq('user_id', user.id)
-                        .eq('date', selectedDay);
+                        .eq('id', selectedEventId)
+                        .eq('user_id', user.id);
                     error = result.error;
                 } else {
-                    // insert new event
                     const result = await supabase
                         .from('calendar_events')
-                        .insert({ 
-                            user_id: user.id, 
-                            date: selectedDay, 
-                            event_text: eventText 
+                        .insert({
+                            user_id: user.id,
+                            date: selectedDay!,
+                            event_text: eventText
                         });
                     error = result.error;
                 }
 
                 if (error) {
                     console.error('Error saving event:', error);
-                    alert('Failed to save event. Check console for details.');
+                    showToast('Грешка при запазване на събитието. Моля, опитайте отново.');
                 } else {
-                    setEvents({ ...events, [selectedDay]: eventText });
+                    loadEvents();
                 }
             } else {
-                // delete event if text is empty
                 await handleDeleteEvent();
             }
             setSelectedDay(null);
+            setSelectedEventId(null);
             setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
@@ -250,24 +499,28 @@ export const Home = () => {
         if (!selectedDay || !user) return;
 
         try {
-            // ensure we have a valid access token before making request
             await ensureValidSession();
 
-            const { error } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('user_id', user.id)
-                .eq('date', selectedDay);
-
-            if (error) {
-                console.error('Error deleting event:', error);
+            if (selectedEventId) {
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('id', selectedEventId)
+                    .eq('user_id', user.id);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             } else {
-                const newEvents = { ...events };
-                delete newEvents[selectedDay];
-                setEvents(newEvents);
-                setSelectedDay(null);
-                setEventText("");
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('date', selectedDay);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             }
+            setSelectedDay(null);
+            setSelectedEventId(null);
+            setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
@@ -279,24 +532,25 @@ export const Home = () => {
 
     const getUpcomingEvents = () => {
         const today = new Date();
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+        today.setHours(0, 0, 0, 0);
+        return eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                return { id: e.id, date: new Date(y, m - 1, d), dateStr: e.date, event: e.event_text };
             })
             .filter(item => item.date >= today)
             .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .slice(0, 5);
+            .slice(0, 8);
     };
 
     const getAllEvents = () => {
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+        return eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                return { id: e.id, date: new Date(y, m - 1, d), dateStr: e.date, event: e.event_text };
             })
             .sort((a, b) => b.date.getTime() - a.date.getTime())
-            .slice(0, 10);
+            .slice(0, 15);
     };
 
 
@@ -329,6 +583,15 @@ export const Home = () => {
             icon: (
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            )
+        },
+        {
+            id: 'lessons' as const,
+            label: 'Часове',
+            icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             )
         },
@@ -459,7 +722,7 @@ export const Home = () => {
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl border border-purple-100/50">
                                     <span className="text-xs font-medium text-slate-600">Общо събития</span>
-                                    <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                    <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                                 </div>
                             </div>
                         </div>
@@ -482,6 +745,20 @@ export const Home = () => {
                                     </p>
                                 </div>
 
+                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 shadow-md border-2 border-purple-200/40 max-w-md">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-3">Часове</h3>
+                                    <ul className="space-y-1.5 text-slate-700 mb-4">
+                                        <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{teacherPendingCount}</span></li>
+                                    </ul>
+                                    <button
+                                        onClick={() => setActiveMenu('lessons')}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                    >
+                                        Виж всички
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </div>
+
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
@@ -495,7 +772,7 @@ export const Home = () => {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{eventsList.length}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -574,17 +851,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().slice(0, 5).map(({ date, dateStr, event }) => (
+                                            getAllEvents().slice(0, 5).map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -661,7 +940,7 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
                                             return (
@@ -675,9 +954,9 @@ export const Home = () => {
                                                     }`}
                                                 >
                                                     {day}
-                                                    {hasEvent && !isToday && (
+                                                    {hasDot && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                            <span className={`w-2 h-2 rounded-full block ${isToday ? 'bg-white/90' : 'bg-purple-600'}`} aria-hidden />
                                                         </div>
                                                     )}
                                                 </button>
@@ -728,16 +1007,18 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event }) => (
                                                             <div 
-                                                                key={dateStr} 
+                                                                key={id} 
                                                                 className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
+                                                                    setSelectedEventId(id);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
+                                                                    <span className="flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-purple-600" aria-hidden />
                                                                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -787,17 +1068,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().map(({ date, dateStr, event }) => (
+                                            getAllEvents().map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -954,6 +1237,117 @@ export const Home = () => {
                             </div>
                         )}
 
+                        {/* lessons view - teacher */}
+                        {activeMenu === 'lessons' && role === 'teacher' && (
+                            <div className="max-w-3xl">
+                                <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                    </div>
+                                    <p className="text-slate-500 text-[15px] ml-[52px]">Чакащи потвърждение и потвърдени часове. Можете да откажете час при нужда.</p>
+                                </header>
+                                {lessonsLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                        <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                        <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                    </div>
+                                ) : pendingBookings.length === 0 ? (
+                                    <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                        <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                            <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-slate-800 mb-2">Няма записани часове</h3>
+                                        <p className="text-slate-500 text-[15px] max-w-sm mx-auto">Нови записи от ученици ще се появят тук. Можете да ги потвърдите или откажете.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-10">
+                                        {(() => {
+                                            const pending = pendingBookings.filter((b) => (b.status ?? "pending") === "pending");
+                                            const confirmed = pendingBookings.filter((b) => b.status === "confirmed");
+                                            const renderBooking = (b: PendingBooking, showConfirm: boolean) => {
+                                                const lessonDate = new Date(b.lesson_date + "T12:00");
+                                                const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                                const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                                const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                                return (
+                                                    <li
+                                                        key={b.id}
+                                                        className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                                    >
+                                                        <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                            <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                                <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                                    <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                                    <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                                    <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-semibold text-slate-900 text-[15px]">
+                                                                        {String(b.lesson_time).slice(0, 5)} ч.
+                                                                    </p>
+                                                                    <p className="text-slate-600 text-[15px] mt-0.5 truncate">{b.student_name}</p>
+                                                                    {b.message && (
+                                                                        <p className="text-sm text-slate-400 mt-2 truncate max-w-sm" title={b.message}>{b.message}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2.5 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                                {showConfirm && (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={actingOnBookingId !== null}
+                                                                        onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
+                                                                    >
+                                                                        {actingOnBookingId === b.id ? "Изчакване..." : "Потвърди"}
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={actingOnBookingId !== null}
+                                                                    onClick={() => handleCancelByTeacher(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
+                                                                >
+                                                                    Откажи час
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            };
+                                            return (
+                                                <>
+                                                    {pending.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-3">Чакащи потвърждение</h3>
+                                                            <ul className="space-y-3">
+                                                                {pending.map((b) => renderBooking(b, true))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                    {confirmed.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-3">Потвърдени часове</h3>
+                                                            <ul className="space-y-3">
+                                                                {confirmed.map((b) => renderBooking(b, false))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* settings view */}
                         {activeMenu === 'settings' && (
                             <div className="space-y-8">
@@ -983,11 +1377,12 @@ export const Home = () => {
                             <div className="mb-6">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                        {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                        {selectedEventId || eventsForDate(selectedDay).length > 0 ? 'Редактирай събитие' : 'Ново събитие'}
                                     </h3>
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="p-2 hover:bg-slate-50 rounded-xl transition-all duration-300 hover:scale-110"
@@ -1012,7 +1407,7 @@ export const Home = () => {
                                 autoFocus
                             />
                             <div className="flex items-center justify-between gap-3">
-                                {events[selectedDay] && (
+                                {(selectedEventId || eventsForDate(selectedDay).length > 0) && (
                                     <button
                                         onClick={handleDeleteEvent}
                                         className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
@@ -1027,6 +1422,7 @@ export const Home = () => {
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
@@ -1181,7 +1577,7 @@ export const Home = () => {
                             </div>
                             <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
                                 <span className="text-xs font-bold text-purple-700">Събития</span>
-                                <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                             </div>
                         </div>
                     </div>
@@ -1195,6 +1591,37 @@ export const Home = () => {
                     {activeMenu === 'dashboard' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
                             <div className="max-w-2xl w-full px-8">
+                                {role === 'student' && pendingBookingsCount > 0 && (
+                                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200 flex items-center justify-between gap-4 flex-wrap">
+                                        <p className="text-amber-800 font-semibold">
+                                            ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? 'час' : 'часа'}, който чака потвърждение от учителя.
+                                        </p>
+                                        <button
+                                            onClick={() => setActiveMenu('lessons')}
+                                            className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors"
+                                        >
+                                            Виж всички
+                                        </button>
+                                    </div>
+                                )}
+
+                                {role === 'student' && (
+                                    <div className="mb-8 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-6 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
+                                        <h2 className="text-xl font-bold text-slate-900 mb-4">📚 Часове</h2>
+                                        <ul className="space-y-2 text-slate-700 mb-4">
+                                            <li>• Днес: <span className="font-bold text-purple-900">{todayBookingsCount}</span></li>
+                                            <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{pendingBookingsCount}</span></li>
+                                        </ul>
+                                        <button
+                                            onClick={() => setActiveMenu('lessons')}
+                                            className="w-full px-4 py-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                        >
+                                            Виж всички
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* countdown card */}
                                 <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
@@ -1243,7 +1670,7 @@ export const Home = () => {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                                <p className="text-3xl font-bold text-purple-900">{Object.keys(events).length}</p>
+                                                <p className="text-3xl font-bold text-purple-900">{eventsList.length}</p>
                                             </div>
                                         </div>
                                         
@@ -1344,7 +1771,7 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
                                             return (
@@ -1358,9 +1785,9 @@ export const Home = () => {
                                                     }`}
                                                 >
                                                     {day}
-                                                    {hasEvent && !isToday && (
+                                                    {hasDot && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                            <span className={`w-2 h-2 rounded-full block ${isToday ? 'bg-white/90' : 'bg-purple-600'}`} aria-hidden />
                                                         </div>
                                                     )}
                                                 </button>
@@ -1411,16 +1838,18 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event }) => (
                                                             <div 
-                                                                key={dateStr} 
+                                                                key={id} 
                                                                 className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
+                                                                    setSelectedEventId(id);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
+                                                                    <span className="flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-purple-600" aria-hidden />
                                                                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -1473,17 +1902,19 @@ export const Home = () => {
                                             <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                         </div>
                                     ) : (
-                                        getAllEvents().map(({ date, dateStr, event }) => (
+                                        getAllEvents().map(({ id, date, dateStr, event }) => (
                                             <div 
-                                                key={dateStr} 
+                                                key={id} 
                                                 className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                 onClick={() => {
                                                     setActiveMenu('calendar');
                                                     setSelectedDay(dateStr);
+                                                    setSelectedEventId(id);
                                                     setEventText(event);
                                                 }}
                                             >
                                                 <div className="flex items-center gap-4">
+                                                    <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                     <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                         <span className="uppercase leading-tight">
                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -1504,6 +1935,108 @@ export const Home = () => {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* lessons view - student */}
+                    {activeMenu === 'lessons' && role === 'student' && (
+                        <div className="max-w-3xl">
+                            <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                </div>
+                                <p className="text-slate-500 text-[15px] ml-[52px]">Вашите записани уроци. Ще получите съобщение в чата при потвърждение или отказ.</p>
+                            </header>
+                            {lessonsLoading ? (
+                                <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                    <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                    <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                </div>
+                            ) : studentBookings.length === 0 ? (
+                                <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                        <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">Нямате записани часове</h3>
+                                    <p className="text-slate-500 text-[15px] max-w-sm mx-auto mb-10">Намерете учител и запишете час — той ще се появи тук и ще получите известие при потвърждение.</p>
+                                    <button
+                                        onClick={() => navigate("/find-teacher")}
+                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
+                                    >
+                                        Намери учител
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </div>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {studentBookings.map((b) => {
+                                        const isPending = b.status === "pending";
+                                        const lessonDate = new Date(b.lesson_date + "T12:00");
+                                        const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                        const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                        const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                        return (
+                                            <li
+                                                key={b.id}
+                                                className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                            >
+                                                <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                    <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                        <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                            <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                            <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                            <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-semibold text-slate-900 text-[15px]">
+                                                                {String(b.lesson_time).slice(0, 5)} ч. · {b.teacher_name}
+                                                            </p>
+                                                            <p className="text-slate-500 text-[15px] mt-0.5">
+                                                                {formatDateLessons(b.lesson_date)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                        <span
+                                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium ${
+                                                                isPending
+                                                                    ? "bg-amber-50 text-amber-800 border border-amber-200/70"
+                                                                    : "bg-emerald-50 text-emerald-800 border border-emerald-200/70"
+                                                            }`}
+                                                        >
+                                                            {isPending ? (
+                                                                <>
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                                    Чака потвърждение
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                                    Потвърден
+                                                                </>
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelMyBooking(b.id, b.teacher_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 hover:text-red-600 transition-colors"
+                                                        >
+                                                            Откажи час
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
                     )}
 
@@ -1538,11 +2071,12 @@ export const Home = () => {
 
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                    {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                    {selectedEventId || eventsForDate(selectedDay).length > 0 ? 'Редактирай събитие' : 'Ново събитие'}
                                 </h3>
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
+                                        setSelectedEventId(null);
                                         setEventText("");
                                     }}
 
@@ -1572,7 +2106,7 @@ export const Home = () => {
                             autoFocus
                         />
                         <div className="flex items-center justify-between gap-3">
-                            {events[selectedDay] && (
+                            {(selectedEventId || eventsForDate(selectedDay).length > 0) && (
                                 <button
                                     onClick={handleDeleteEvent}
 
@@ -1589,6 +2123,7 @@ export const Home = () => {
                                 <button
                                     onClick={() => {
                                         setSelectedDay(null);
+                                        setSelectedEventId(null);
                                         setEventText("");
                                     }}
 
