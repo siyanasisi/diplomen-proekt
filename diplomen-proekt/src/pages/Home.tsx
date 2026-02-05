@@ -1,8 +1,9 @@
 import { useAuth } from "../context/AuthContext";
 import { useState, useEffect } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { StudyPlan as StudyPlanType } from "../lib/topics";
+import type { KnowledgeLevel } from "../lib/topics";
 import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
 import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
 
@@ -17,8 +18,11 @@ export const Home = () => {
     const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
     const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings'>('dashboard');
-    const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
-    const [studyPlan, setStudyPlan] = useState<StudyPlanType | null>(null);
+    const [studyPlans, setStudyPlans] = useState<StudyPlanType[]>([]);
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const plansWithId = studyPlans.filter((p): p is StudyPlanType & { id: string } => p.id != null && p.id !== '');
+    const studyPlan = plansWithId.find(p => p.id === selectedPlanId) ?? plansWithId[0] ?? null;
+    const effectivePlanId = studyPlan?.id ?? (plansWithId[0]?.id ?? '');
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -33,8 +37,7 @@ export const Home = () => {
             loadEvents();
             loadUserStats();
             if (role === 'student') {
-                checkStudyPlan();
-                loadStudyPlan();
+                loadStudyPlans();
         }
         }
     }, [user, role]);
@@ -110,32 +113,7 @@ export const Home = () => {
         }
     };
 
-    const checkStudyPlan = async () => {
-        if (!user) return;
-
-        try {
-            await ensureValidSession();
-
-            const { data, error } = await supabase
-                .from('study_plans')
-                .select('id')
-                .eq('user_id', user.id)
-                .limit(1)
-                .maybeSingle();
-
-            if (error) {
-                console.error('Error checking study plan:', error);
-                setHasStudyPlan(false);
-            } else {
-                setHasStudyPlan(!!data);
-            }
-        } catch (error) {
-            console.error('Failed to check study plan:', error);
-            setHasStudyPlan(false);
-        }
-    };
-
-    const loadStudyPlan = async () => {
+    const loadStudyPlans = async () => {
         if (!user) return;
 
         try {
@@ -145,35 +123,41 @@ export const Home = () => {
                 .from('study_plans')
                 .select('*')
                 .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+                .order('created_at', { ascending: false });
 
             if (error) {
-                console.error('Error loading study plan:', error);
+                console.error('Error loading study plans:', error);
                 return;
             }
 
-            if (data) {
-                const transformedPlan: StudyPlanType = {
-                    id: data.id,
-                    user_id: data.user_id,
+            if (data && data.length > 0) {
+                const transformed: StudyPlanType[] = data.map((row: { id: string; user_id: string; preferences: { exam_subject?: string; exam_date: string; study_days_per_week: number; topics_per_day: number; bel_level: string; literature_level: string }; plan: StudyPlanType['plan']; created_at?: string; updated_at?: string }) => ({
+                    id: row.id,
+                    user_id: row.user_id,
                     preferences: {
-                        examSubject: normalizeExamSubject(data.preferences.exam_subject),
-                        examDate: new Date(data.preferences.exam_date),
-                        studyDaysPerWeek: data.preferences.study_days_per_week,
-                        topicsPerDay: data.preferences.topics_per_day,
-                        belLevel: data.preferences.bel_level,
-                        literatureLevel: data.preferences.literature_level,
+                        examSubject: normalizeExamSubject(row.preferences.exam_subject),
+                        examDate: new Date(row.preferences.exam_date),
+                        studyDaysPerWeek: row.preferences.study_days_per_week,
+                        topicsPerDay: row.preferences.topics_per_day,
+                        belLevel: row.preferences.bel_level as KnowledgeLevel,
+                        literatureLevel: row.preferences.literature_level as KnowledgeLevel,
                     },
-                    plan: data.plan,
-                    created_at: data.created_at,
-                    updated_at: data.updated_at,
-                };
-                setStudyPlan(transformedPlan);
+                    plan: row.plan,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                }));
+                setStudyPlans(transformed);
+                const savedId = typeof window !== 'undefined' ? sessionStorage.getItem('homeSelectedPlanId') : null;
+                const firstId = transformed[0].id!;
+                const idToSelect: string = savedId && transformed.some(p => p.id === savedId) ? savedId : firstId;
+                setSelectedPlanId(idToSelect);
+                if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', idToSelect);
+            } else {
+                setStudyPlans([]);
+                setSelectedPlanId(null);
             }
         } catch (error) {
-            console.error('Failed to load study plan:', error);
+            console.error('Failed to load study plans:', error);
         }
     };
 
@@ -388,7 +372,7 @@ export const Home = () => {
                 console.error('Error updating study plan:', error);
                 alert('Възникна грешка при актуализирането на плана.');
             } else {
-                setStudyPlan(updatedPlan);
+                setStudyPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
             }
         } catch (error) {
             console.error('Failed to mark day as completed:', error);
@@ -444,7 +428,7 @@ export const Home = () => {
                 console.error('Error updating study plan:', error);
                 alert('Възникна грешка при актуализирането на плана.');
             } else {
-                setStudyPlan(updatedPlan);
+                setStudyPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
             }
         } catch (error) {
             console.error('Failed to mark day as missed:', error);
@@ -703,49 +687,6 @@ export const Home = () => {
                                     </p>
                                 </div>
 
-                                {/* study plan for students without one */}
-                                {role !== 'teacher' && role === 'student' && hasStudyPlan === false && (
-                                    <div className="bg-gradient-to-br from-purple-50/80 via-pink-50/50 to-purple-50/80 rounded-2xl p-6 sm:p-8 shadow-xl border-2 border-purple-200/60 relative overflow-hidden mb-6">
-                                        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-300/30 via-pink-300/20 to-transparent rounded-full blur-3xl"></div>
-                                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
-                                        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 ring-2 ring-purple-300/50">
-                                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                    </div>
-                                                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-purple-900 via-purple-700 to-pink-600 bg-clip-text text-transparent">
-                                                        Създай своя персонален учебен план
-                                                    </h3>
-                                                </div>
-                                                <p className="text-sm sm:text-base text-slate-600 mb-3 leading-relaxed">
-                                                    Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.
-                                                </p>
-                                                <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100/80 border border-purple-200/60 rounded-xl">
-                                                    <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    <p className="text-xs text-purple-800 font-semibold">
-                                                        Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <Link
-                                                to="/study-plan/intro"
-                                                className="relative px-6 py-3.5 sm:px-8 sm:py-4 md:px-10 md:py-4.5 rounded-2xl font-black text-sm sm:text-base md:text-lg transition-all duration-300 ease-out flex items-center gap-2.5 sm:gap-3 shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70 hover:-translate-y-1 hover:scale-105 active:scale-100 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 hover:from-purple-500 hover:via-purple-400 hover:to-pink-400 text-white whitespace-nowrap ring-2 sm:ring-4 ring-purple-300/50 hover:ring-purple-300/80 overflow-hidden group flex-shrink-0"
-                                            >
-                                                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
-                                                <svg className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span className="relative z-10">Направи ми план</span>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
@@ -879,6 +820,27 @@ export const Home = () => {
                         {activeMenu === 'calendar' && (
                             <div className="flex items-start justify-center min-h-[calc(100vh-200px)] py-8 sm:py-12 overflow-y-auto overflow-x-hidden w-full">
                                 <div className="max-w-7xl w-full overflow-x-hidden">
+                                    {/* Избор на план по предмет (когато има повече от един) */}
+                                    {(role as string) === 'student' && plansWithId.length > 1 && (
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-bold text-slate-600 mb-2">План по предмет</label>
+                                            <select
+                                                value={plansWithId.some(p => p.id === selectedPlanId) ? (selectedPlanId ?? '') : effectivePlanId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    if (id && plansWithId.some(p => p.id === id)) {
+                                                        setSelectedPlanId(id);
+                                                        if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', id);
+                                                    }
+                                                }}
+                                                className="px-4 py-3 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+                                            >
+                                                {plansWithId.map((p) => (
+                                                    <option key={p.id} value={p.id}>{p.preferences.examSubject}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     {/* Study Plan Stats - Only for students with study plan */}
                                     {(role as string) === 'student' && studyPlan && !studyPlanHasContent && (
                                         <div className="mb-8 p-6 sm:p-8 bg-amber-50 border-2 border-amber-200 rounded-2xl">
@@ -1470,8 +1432,29 @@ export const Home = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16 xl:gap-20 w-full overflow-x-hidden">
                                 {/* left column */}
                                 <div className="lg:col-span-2 space-y-16 sm:space-y-18 lg:space-y-20 w-full min-w-0 overflow-x-hidden">
-                                {/* study plan for students without one */}
-                                {role === 'student' && hasStudyPlan === false && (
+                                {/* Избор на план по предмет (когато има повече от един) */}
+                                {role === 'student' && plansWithId.length > 1 && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-600 mb-2">План по предмет</label>
+                                        <select
+                                            value={plansWithId.some(p => p.id === selectedPlanId) ? (selectedPlanId ?? '') : effectivePlanId}
+                                            onChange={(e) => {
+                                                const id = e.target.value;
+                                                if (id && plansWithId.some(p => p.id === id)) {
+                                                    setSelectedPlanId(id);
+                                                    if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', id);
+                                                }
+                                            }}
+                                            className="px-4 py-3 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+                                        >
+                                            {plansWithId.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.preferences.examSubject}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                {/* карта за създаване/добавяне на учебен план */}
+                                {role === 'student' && (
                                     <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-14 sm:p-16 lg:p-24 shadow-2xl shadow-purple-200/20 relative overflow-visible animate-in slide-in-from-left duration-700 delay-200 hover:shadow-3xl hover:shadow-purple-300/30 transition-all duration-500 group border border-purple-200/60">
                                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-violet-50/20 to-transparent rounded-3xl -z-10"></div>
                                         <div className="absolute top-0 right-0 w-56 h-56 bg-gradient-to-br from-purple-100/20 via-violet-100/15 to-transparent rounded-full blur-3xl -z-10"></div>
@@ -1487,12 +1470,13 @@ export const Home = () => {
                                             </div>
                                             </div>
                                                     <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-800 tracking-tight">
-                                                        Създай своя персонален учебен план
+                                                        {studyPlans.length > 0 ? 'Добави план по друг предмет' : 'Създай своя персонален учебен план'}
                                                     </h3>
                                         </div>
                                                 <p className="text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed">
-                                                    Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.
+                                                    {studyPlans.length > 0 ? 'Създай учебен план по още един матурен предмет.' : 'Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време, ниво и цел за матурата.'}
                                                 </p>
+                                                {studyPlans.length === 0 && (
                                                 <div className="inline-flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-purple-50/80 to-violet-50/60 rounded-2xl border border-purple-100/60 shadow-sm">
                                                     <svg className="w-5 h-5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1501,18 +1485,20 @@ export const Home = () => {
                                                         Всяка тема включва учене и преговор, затова няма отделни дни само за преговор.
                                                     </p>
                                     </div>
+                                                )}
                                             </div>
                                             <div className="mt-8 sm:mt-0">
-                                                <Link
-                                                    to="/study-plan/intro"
-                                                    className="relative px-8 py-5 sm:px-10 sm:py-6 rounded-2xl font-bold text-base sm:text-lg transition-all duration-500 ease-out flex items-center justify-center gap-3 shadow-lg shadow-purple-300/40 hover:shadow-xl hover:shadow-purple-400/50 hover:scale-[1.03] hover:-translate-y-1 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap overflow-hidden group/btn flex-shrink-0"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate('/study-plan/intro')}
+                                                    className="relative px-8 py-5 sm:px-10 sm:py-6 rounded-2xl font-bold text-base sm:text-lg transition-all duration-500 ease-out flex items-center justify-center gap-3 shadow-lg shadow-purple-300/40 hover:shadow-xl hover:shadow-purple-400/50 hover:scale-[1.03] hover:-translate-y-1 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white whitespace-nowrap overflow-hidden group/btn flex-shrink-0 cursor-pointer"
                                                 >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700"></div>
-                                                    <svg className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <span className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700" aria-hidden="true" />
+                                                    <svg className="w-6 h-6 relative z-10 group-hover/btn:rotate-12 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
                                                     <span className="relative z-10">Направи ми план</span>
-                                                </Link>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -1753,13 +1739,7 @@ export const Home = () => {
 
                                 {/* right sidebar */}
                                 <div className="lg:col-span-1 space-y-20 lg:space-y-24 w-full min-w-0 overflow-x-hidden">
-                                    {/* study progress card */}
-                                    {studyPlan && !studyPlanHasContent && (
-                                        <div className="bg-amber-50/90 backdrop-blur-xl rounded-3xl p-8 border-2 border-amber-200">
-                                            <p className="text-amber-900 font-bold text-base">За „{studyPlan.preferences.examSubject}" все още няма готово съдържание.</p>
-                                            <p className="text-amber-800 text-sm mt-2 leading-relaxed">Ще активираме плана, когато има теми за учене.</p>
-                                        </div>
-                                    )}
+                                    {/* study progress card – само когато има съдържание */}
                                     {studyPlanHasContent && getStudyPlanProgress() && (
                                         <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-12 lg:p-14 shadow-2xl shadow-emerald-200/20 relative overflow-visible animate-in slide-in-from-right duration-700 delay-300 hover:shadow-3xl hover:shadow-emerald-300/30 transition-all duration-500 border border-emerald-200/60 hover:border-emerald-300/80 group">
                                             <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/40 via-emerald-50/20 to-transparent rounded-3xl -z-10"></div>

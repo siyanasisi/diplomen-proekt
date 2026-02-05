@@ -93,19 +93,26 @@ export const StudyPlanQuestionnaire = () => {
 
       const plan = generateStudyPlan(preferences, user.id);
 
+      const row = {
+        user_id: user.id,
+        exam_subject: examSubject,
+        preferences: {
+          exam_subject: examSubject,
+          exam_date: examDate,
+          study_days_per_week: studyDaysPerWeek,
+          topics_per_day: topicsPerDay,
+          bel_level: belLevel,
+          literature_level: literatureLevel,
+        },
+        plan: plan.plan,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('study_plans')
-        .insert({
-          user_id: user.id,
-          preferences: {
-            exam_subject: examSubject,
-            exam_date: examDate,
-            study_days_per_week: studyDaysPerWeek,
-            topics_per_day: topicsPerDay,
-            bel_level: belLevel,
-            literature_level: literatureLevel,
-          },
-          plan: plan.plan,
+        .upsert(row, {
+          onConflict: 'user_id,exam_subject',
+          ignoreDuplicates: false,
         })
         .select()
         .single();
