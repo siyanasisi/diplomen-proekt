@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { supabase, ensureValidSession } from "../supabase-client";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
     const location = useLocation();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +47,36 @@ export const Navbar = () => {
     const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
     const avatarUrl = userMetadata?.avatar_url || null;
+
+    useEffect(() => {
+        const checkStudyPlan = async () => {
+            if (role === 'student' && user) {
+                try {
+                    await ensureValidSession();
+                    const { data, error } = await supabase
+                        .from('study_plans')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (error) {
+                        console.error('Error checking study plan:', error);
+                        setHasStudyPlan(false);
+                    } else {
+                        setHasStudyPlan(!!data);
+                    }
+                } catch (error) {
+                    console.error('Failed to check study plan:', error);
+                    setHasStudyPlan(false);
+                }
+            } else {
+                setHasStudyPlan(null);
+            }
+        };
+
+        checkStudyPlan();
+    }, [user, role, location.pathname]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -113,6 +145,17 @@ export const Navbar = () => {
 
                     {/* desktop auth  */}
                     <div className="hidden md:flex items-center gap-3">
+                        {!loading && user && role === 'student' && hasStudyPlan === false && (
+                            <Link
+                                to="/study-plan/intro"
+                                className="relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Направи ми план</span>
+                            </Link>
+                        )}
                         {!loading && !user && (
                             <>
                                 <Link
@@ -277,6 +320,18 @@ export const Navbar = () => {
                                             <span>{link.label}</span>
                                         </Link>
                                     ))}
+                                    {role === 'student' && hasStudyPlan === false && (
+                                        <Link
+                                            to="/study-plan/intro"
+                                            className="flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 active:scale-95"
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span>Направи ми план</span>
+                                        </Link>
+                                    )}
                                 </div>
                                 
                                 <div className="pt-4 border-t border-slate-200 space-y-1.5">
