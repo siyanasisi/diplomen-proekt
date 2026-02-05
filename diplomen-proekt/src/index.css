@@ -39,7 +39,7 @@ body {
 
 nav[aria-label="Main navigation"] {
   scrollbar-width: none; /* For Firefox */
-  -ms-overflow-style: none; /* For IE and Edge */
+  -ms-overflow-style: none; /* For IE and Edge  */
 }
 
 nav[aria-label="Main navigation"]::-webkit-scrollbar {
