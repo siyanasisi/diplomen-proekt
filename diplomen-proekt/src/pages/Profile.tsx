@@ -48,10 +48,12 @@ export const Profile = () => {
         hourly_rate: number | null;
         price_note: string | null;
         offers_online_lessons: boolean;
+        description: string;
     } | null>(null);
     const [editedHourlyRate, setEditedHourlyRate] = useState('');
     const [editedPriceNote, setEditedPriceNote] = useState('');
     const [editedOffersOnline, setEditedOffersOnline] = useState(false);
+    const [editedDescription, setEditedDescription] = useState('');
     const [priceNegotiable, setPriceNegotiable] = useState(false);
     const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilityRow[]>([]);
     const [teacherBookingSettings, setTeacherBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
@@ -190,7 +192,7 @@ export const Profile = () => {
         if (role === 'teacher') {
             const { data: tp } = await supabase
                 .from('teacher_profiles')
-                .select('hourly_rate, price_note, offers_online_lessons')
+                .select('hourly_rate, price_note, offers_online_lessons, description')
                 .eq('user_id', user.id)
                 .maybeSingle();
             if (tp) {
@@ -198,6 +200,7 @@ export const Profile = () => {
                     hourly_rate: tp.hourly_rate ?? null,
                     price_note: tp.price_note ?? null,
                     offers_online_lessons: tp.offers_online_lessons ?? false,
+                    description: (tp as { description?: string | null }).description ?? '',
                 });
             } else {
                 setTeacherProfile(null);
@@ -417,12 +420,14 @@ export const Profile = () => {
             if (role === 'teacher') {
                 const hourlyRateNum = priceNegotiable ? null : (editedHourlyRate.trim() ? Number(editedHourlyRate.trim()) : null);
                 const priceNoteVal = priceNegotiable ? 'По договаряне' : (editedPriceNote.trim() || null);
+                const descriptionVal = editedDescription.trim() || 'Учител в системата Матура+. Моля, попълнете профила си за да се покажете в списъка с учители.';
                 const { error: tpError } = await supabase
                     .from('teacher_profiles')
                     .update({
                         hourly_rate: hourlyRateNum,
                         price_note: priceNoteVal,
                         offers_online_lessons: editedOffersOnline,
+                        description: descriptionVal,
                     })
                     .eq('user_id', user.id);
                 if (tpError) {
@@ -1047,11 +1052,13 @@ export const Profile = () => {
                                                         setEditedPriceNote(teacherProfile.price_note || '');
                                                         setEditedOffersOnline(teacherProfile.offers_online_lessons);
                                                         setPriceNegotiable(teacherProfile.price_note === 'По договаряне');
+                                                        setEditedDescription(teacherProfile.description || '');
                                                     } else if (role === 'teacher') {
                                                         setEditedHourlyRate('');
                                                         setEditedPriceNote('');
                                                         setEditedOffersOnline(false);
                                                         setPriceNegotiable(false);
+                                                        setEditedDescription('');
                                                     }
                                                 }}
                                                 className="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-purple-600 hover:from-purple-700 hover:via-purple-800 hover:to-purple-700 text-white rounded-2xl font-bold transition-all duration-500 flex items-center gap-3 border-2 border-purple-500/50 hover:border-purple-400/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/40 hover:scale-105 shadow-xl shadow-purple-900/30 group"
@@ -1806,7 +1813,7 @@ export const Profile = () => {
                                 />
                             </div>
 
-                            {role === 'teacher' && (
+                                            {role === 'teacher' && (
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Квалификации</label>
                                     <input
@@ -1815,6 +1822,19 @@ export const Profile = () => {
                                         onChange={(e) => setEditedQualifications(e.target.value)}
                                         className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                         placeholder="Математика, Физика..."
+                                    />
+                                </div>
+                            )}
+
+                            {role === 'teacher' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Биография / Описание</label>
+                                    <textarea
+                                        value={editedDescription}
+                                        onChange={(e) => setEditedDescription(e.target.value)}
+                                        rows={5}
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 resize-y"
+                                        placeholder="Кратко представяне за учениците: опит, подход, за какво преподавате..."
                                     />
                                 </div>
                             )}

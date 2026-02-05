@@ -19,16 +19,16 @@ export const TeacherProfile = () => {
     const [contactMessage, setContactMessage] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [chatMessages, setChatMessages] = useState<any[]>([]);
-    const [loadingChat, setLoadingChat] = useState(false);
     const [reviews, setReviews] = useState<TeacherReview[]>([]);
     const [loadingReviews, setLoadingReviews] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [reviewRating, setReviewRating] = useState(0);
     const [reviewComment, setReviewComment] = useState("");
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [showAllReviews, setShowAllReviews] = useState(false);
 
     const showToast = useToast();
+    const MAX_VISIBLE_REVIEWS = 3;
     const booking = useTeacherBooking(teacher, { showToast });
 
     const closeContactModal = () => {
@@ -79,7 +79,18 @@ export const TeacherProfile = () => {
                 data = byUser.data;
             }
             if (data) {
-                setTeacher(data);
+                // Fallback: use profiles.avatar_url if teacher_profiles.profile_picture is empty
+                const userId = data.user_id;
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('avatar_url')
+                    .eq('id', userId)
+                    .maybeSingle();
+                const avatarUrl = (profileData as { avatar_url?: string | null } | null)?.avatar_url;
+                setTeacher({
+                    ...data,
+                    profile_picture: data.profile_picture || avatarUrl || undefined,
+                });
             } else {
                 navigate('/find-teacher');
             }
@@ -91,6 +102,22 @@ export const TeacherProfile = () => {
         }
     }, [id, user, navigate]);
 
+    const refetchTeacherForRating = useCallback(async () => {
+        if (!teacher?.id) return;
+        try {
+            const { data } = await supabase
+                .from('teacher_profiles')
+                .select('rating')
+                .eq('id', teacher.id)
+                .maybeSingle();
+            if (data && (data as { rating?: number }).rating != null) {
+                setTeacher((prev) => prev ? { ...prev, rating: (data as { rating: number }).rating } : null);
+            }
+        } catch {
+            // ignore
+        }
+    }, [teacher?.id]);
+
     useEffect(() => {
         if (authLoading) return;
         if (!user) {
@@ -100,37 +127,9 @@ export const TeacherProfile = () => {
         if (id) loadTeacher();
     }, [authLoading, user, id, navigate, loadTeacher]);
 
-    const loadChatMessages = async () => {
-        if (!user || !teacher) return;
-
-        setLoadingChat(true);
-        try {
-            await ensureValidSession();
-
-            const { data, error } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('student_id', user.id)
-                .eq('teacher_id', teacher.user_id)
-                .order('created_at', { ascending: true });
-
-            if (error) {
-                console.error('Error loading chat messages:', error);
-            } else if (data) {
-                setChatMessages(data);
-            }
-        } catch (error) {
-            console.error('Failed to load chat messages:', error);
-        } finally {
-            setLoadingChat(false);
-        }
+    const openChatWithTeacher = () => {
+        navigate('/chat', { state: { openTeacherId: teacher!.user_id } });
     };
-
-    useEffect(() => {
-        if (user && teacher) {
-            loadChatMessages();
-        }
-    }, [user, teacher]);
 
     const loadReviews = useCallback(async (): Promise<TeacherReview[]> => {
         if (!teacher?.id) return [];
@@ -210,6 +209,7 @@ export const TeacherProfile = () => {
             loadReviews().then((list) => {
                 setReviews(list);
             }).finally(() => setLoadingReviews(false));
+            refetchTeacherForRating();
         } catch (err) {
             console.error("Failed to submit review:", err);
             showToast("Грешка при изпращане на ревюто. Моля, опитайте отново.");
@@ -229,7 +229,7 @@ export const TeacherProfile = () => {
             await ensureValidSession();
 
             // create message/contact request 
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('messages')
                 .insert({
                     student_id: user.id,
@@ -237,9 +237,7 @@ export const TeacherProfile = () => {
                     message: contactMessage,
                     created_at: new Date().toISOString(),
                     is_from_student: true
-                })
-                .select('*')
-                .single();
+                });
 
             if (error) {
                 console.error('Error sending message:', error);
@@ -247,15 +245,7 @@ export const TeacherProfile = () => {
                 return;
             }
 
-            // ако ученикът беше „изтрил“ чата с този учител, премахни го от скритите – така в страницата Чатове ще се покаже отново
             await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", teacher.user_id);
-
-            // update local chat state so the new message appears immediately
-            if (data) {
-                setChatMessages((prev) => [...prev, data]);
-            } else {
-                loadChatMessages();
-            }
 
             setSuccess(true);
             setShowContactModal(false);
@@ -279,10 +269,10 @@ export const TeacherProfile = () => {
 
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-purple-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-lg font-semibold text-slate-700">Зареждане...</p>
+            <div className="teacher-profile-page min-h-screen flex items-center justify-center relative">
+                <div className="relative z-10 text-center">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-slate-600 font-medium">Зареждане...</p>
                 </div>
             </div>
         );
@@ -290,12 +280,12 @@ export const TeacherProfile = () => {
 
     if (!teacher) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 flex items-center justify-center">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-4">Учителят не е намерен</h2>
+            <div className="teacher-profile-page min-h-screen flex items-center justify-center relative p-4">
+                <div className="relative z-10 text-center teacher-profile-card p-8 sm:p-10 max-w-md">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4">Учителят не е намерен</h2>
                     <button
                         onClick={() => navigate('/find-teacher')}
-                        className="px-6 py-3 bg-purple-900 text-white font-semibold rounded-xl hover:bg-purple-800 transition-colors"
+                        className="min-h-[44px] px-6 py-3 bg-purple-900 text-white font-semibold rounded-xl hover:bg-purple-800 active:scale-[0.98] transition-all shadow-lg shadow-purple-900/20"
                     >
                         Назад към списъка
                     </button>
@@ -304,269 +294,284 @@ export const TeacherProfile = () => {
         );
     }
 
+    const sectionCardClass = "teacher-profile-card teacher-profile-section-card";
+    const sectionTitleClass = "text-sm font-semibold text-slate-700 tracking-tight mb-2.5";
+
+    const displayRating =
+        reviews.length > 0
+            ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+            : (teacher.rating ?? 0);
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-5xl mx-auto">
+        <div className="teacher-profile-page min-h-screen relative py-8 px-4 sm:px-6 lg:py-10">
+            <div className="relative z-10 max-w-6xl mx-auto">
                 {/* success message */}
                 {success && (
-                    <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-3">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="mb-8 rounded-xl px-4 py-3 flex items-center gap-3 bg-emerald-50/95 border border-emerald-200/80 shadow-sm">
+                        <svg className="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <p className="text-green-800 font-semibold">Успешно изпълнено!</p>
+                        <p className="text-emerald-800 font-medium text-sm">Успешно изпълнено!</p>
                     </div>
                 )}
 
                 {/* back button */}
                 <button
                     onClick={() => navigate('/find-teacher')}
-                    className="mb-6 flex items-center gap-2 text-slate-600 hover:text-slate-900 font-semibold transition-colors"
+                    className="block mb-10 flex items-center gap-2 min-h-[44px] px-3 py-2 -ml-1 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-white/80 font-medium text-sm transition-all active:scale-[0.98]"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                     Назад
                 </button>
 
-                {/* profile card */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* profile picture */}
-                        <div className="flex-shrink-0">
-                            {teacher.profile_picture ? (
-                                <img
-                                    src={teacher.profile_picture}
-                                    alt={teacher.full_name}
-                                    className="w-32 h-32 rounded-2xl object-cover border-4 border-purple-200/40 shadow-lg"
-                                />
-                            ) : (
-                                <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center text-white text-4xl font-bold border-4 border-purple-200/40 shadow-lg">
-                                    {teacher.full_name.charAt(0).toUpperCase()}
-                                </div>
+                {/* header */}
+                <header className="mb-6 pb-5 border-b border-slate-200/80 flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
+                    <div className="flex-shrink-0">
+                        {teacher.profile_picture ? (
+                            <img
+                                src={teacher.profile_picture}
+                                alt=""
+                                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border border-slate-200/80 shadow-md"
+                            />
+                        ) : (
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-600 text-3xl sm:text-4xl font-semibold border border-slate-200/80 shadow-md">
+                                {teacher.full_name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <h1 className="teacher-profile-headline text-3xl sm:text-4xl font-bold text-slate-900 leading-tight tracking-tight">
+                            {teacher.full_name}
+                        </h1>
+                        <p className="text-slate-500 mt-1.5 text-base">
+                            {teacher.subject}
+                            {teacher.city && (
+                                <>
+                                    <span className="text-slate-400 mx-2" aria-hidden>·</span>
+                                    {teacher.city}
+                                </>
                             )}
-                        </div>
-
-                        {/* info */}
-                        <div className="flex-1">
-                            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                                {teacher.full_name}
-                            </h1>
-                            <p className="text-xl font-semibold text-purple-700 mb-3">
-                                {teacher.subject}
+                        </p>
+                        {(teacher.hourly_rate != null || teacher.price_note) && (
+                            <p className="mt-1.5 text-base font-semibold text-slate-800">
+                                {teacher.hourly_rate != null && `${teacher.hourly_rate} €/час`}
+                                {teacher.hourly_rate != null && teacher.price_note && " · "}
+                                {teacher.price_note && teacher.price_note}
                             </p>
-                            <div className="flex items-center gap-2 mb-4">
-                                <RatingStars rating={Math.round(teacher.rating ?? 0)} size="md" />
-                                <span className="text-lg font-semibold text-slate-700">
-                                    {(teacher.rating ?? 0).toFixed(1)}
-                                </span>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {teacher.is_online && (
-                                    <span className="px-4 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-                                        Онлайн в момента
-                                    </span>
+                        )}
+                        <p className="mt-2 flex items-center gap-2 text-slate-600">
+                            <RatingStars rating={Math.round(displayRating)} size="sm" />
+                            <span className="text-sm font-medium">{displayRating.toFixed(1)}</span>
+                            {reviews.length > 0 && (
+                                <span className="text-slate-400 text-sm">({reviews.length} {reviews.length === 1 ? 'отзив' : 'отзива'})</span>
+                            )}
+                        </p>
+                    </div>
+                </header>
+
+                <div className="lg:grid lg:grid-cols-[1fr_360px] gap-6 lg:gap-8 lg:items-start">
+                    {/* left column */}
+                    <div className="flex flex-col gap-5 sm:gap-6">
+                        {/* description */}
+                        {teacher.description && (
+                            <section className={sectionCardClass}>
+                                <h2 className={sectionTitleClass}>Описание</h2>
+                                <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">
+                                    {teacher.description}
+                                </p>
+                            </section>
+                        )}
+
+                        {/* education and qualifications */}
+                        {(teacher.education || teacher.qualifications) && (
+                            <section className={sectionCardClass}>
+                                <h2 className={sectionTitleClass}>Образование и квалификации</h2>
+                                {teacher.education && (
+                                    <p className="text-slate-600 text-[15px] mb-3">{teacher.education}</p>
                                 )}
-                                {teacher.offers_online_lessons && (
-                                    <span className="px-4 py-2 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full">
-                                        Предлага онлайн уроци
-                                    </span>
+                                {teacher.qualifications && (
+                                    <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">{teacher.qualifications}</p>
                                 )}
-                                {teacher.city && (
-                                    <span className="px-4 py-2 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full">
-                                        {teacher.city}
-                                    </span>
+                            </section>
+                        )}
+
+                        {/* price */}
+                        {(teacher.hourly_rate != null || teacher.price_note) && (
+                            <section className={sectionCardClass}>
+                                <h2 className={sectionTitleClass}>Цена</h2>
+                                {teacher.hourly_rate != null && (
+                                    <p className="text-slate-800 font-semibold text-[15px]">Цена за час: {teacher.hourly_rate} €</p>
+                                )}
+                                {teacher.price_note && (
+                                    <p className="text-slate-600 text-[15px] mt-1">{teacher.price_note}</p>
+                                )}
+                            </section>
+                        )}
+
+                        {/* available schedule */}
+                        {teacher.available_schedule && (
+                            <section className={sectionCardClass}>
+                                <h2 className={sectionTitleClass}>Наличен график</h2>
+                                <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">{teacher.available_schedule}</p>
+                            </section>
+                        )}
+
+                        {/* reviews section */}
+                        <section className="teacher-profile-card teacher-profile-reviews-section teacher-profile-section-card">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                <h2 className="text-sm font-semibold text-slate-700 tracking-tight">
+                                    Отзиви от ученици
+                                </h2>
+                                {user && user.id !== teacher.user_id && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReviewModal(true)}
+                                        className="teacher-profile-write-review-btn min-h-[36px] px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors active:scale-[0.98]"
+                                    >
+                                        Напиши ревю
+                                    </button>
                                 )}
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* description */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                    <h2 className="text-xl font-bold text-slate-900 mb-4">Описание</h2>
-                    <p className="text-slate-700 leading-relaxed whitespace-pre-line">
-                        {teacher.description}
-                    </p>
-                </div>
-
-                {/* price */}
-                {(teacher.hourly_rate != null || teacher.price_note) && (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                        <h2 className="text-xl font-bold text-slate-900 mb-4">Цена</h2>
-                        {teacher.hourly_rate != null && (
-                            <p className="text-lg font-bold text-slate-900">Цена за час: {teacher.hourly_rate} €</p>
-                        )}
-                        {teacher.price_note && (
-                            <p className="text-slate-700 mt-1">{teacher.price_note}</p>
-                        )}
-                    </div>
-                )}
-
-                {/* education and qualifications */}
-                {(teacher.education || teacher.qualifications) && (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                        <h2 className="text-xl font-bold text-slate-900 mb-4">Образование и квалификации</h2>
-                        {teacher.education && (
-                            <div className="mb-4">
-                                <h3 className="text-sm font-semibold text-purple-700 mb-2">Образование</h3>
-                                <p className="text-slate-700">{teacher.education}</p>
-                            </div>
-                        )}
-                        {teacher.qualifications && (
-                            <div>
-                                <h3 className="text-sm font-semibold text-purple-700 mb-2">Квалификации</h3>
-                                <p className="text-slate-700 whitespace-pre-line">{teacher.qualifications}</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* available schedule */}
-                {teacher.available_schedule && (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                        <h2 className="text-xl font-bold text-slate-900 mb-4">Наличен график</h2>
-                        <p className="text-slate-700 whitespace-pre-line">{teacher.available_schedule}</p>
-                    </div>
-                )}
-
-                {/* reviews */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <h2 className="text-xl font-bold text-slate-900">Коментари от ученици</h2>
-                        {user && user.id !== teacher.user_id && (
-                            <button
-                                type="button"
-                                onClick={() => setShowReviewModal(true)}
-                                className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition-colors"
-                            >
-                                Напиши ревю
-                            </button>
-                        )}
-                    </div>
-                    {loadingReviews ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="w-8 h-8 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    ) : reviews.length === 0 ? (
-                        <p className="text-slate-600">Все още няма коментари. Бъдете първият, който ще оцени!</p>
-                    ) : (
-                        <ul className="space-y-4">
-                            {reviews.map((r) => (
-                                <li
-                                    key={r.id}
-                                    className="border border-slate-200 rounded-xl p-4 bg-slate-50/50"
-                                >
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <RatingStars rating={r.rating} size="sm" />
-                                        <span className="text-sm font-semibold text-slate-700">{r.author_name}</span>
-                                        <span className="text-xs text-slate-500">
-                                            {new Date(r.created_at).toLocaleDateString("bg-BG", {
+                            {loadingReviews ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                </div>
+                            ) : reviews.length === 0 ? (
+                                <p className="text-slate-500 text-[15px] py-4">Все още няма коментари. Бъдете първият, който ще оцени!</p>
+                            ) : (
+                                <>
+                                    <ul className="space-y-4">
+                                        {(showAllReviews ? reviews : reviews.slice(0, MAX_VISIBLE_REVIEWS)).map((r) => {
+                                            const dateStr = new Date(r.created_at).toLocaleDateString("bg-BG", {
                                                 day: "numeric",
                                                 month: "long",
                                                 year: "numeric",
-                                            })}
-                                        </span>
-                                    </div>
-                                    {r.comment && <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.comment}</p>}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-                {/* chat section */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-8 shadow-lg border border-purple-200/40 mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900 mb-1">Чат с учителя</h2>
-                            <p className="text-sm text-slate-600">
-                                Вижте историята на съобщенията си с този учител
-                            </p>
-                        </div>
-                        <button
-                            onClick={loadChatMessages}
-                            disabled={loadingChat}
-                            className="px-4 py-2 text-xs font-semibold text-purple-900 hover:bg-purple-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                            <svg
-                                className={`w-4 h-4 ${loadingChat ? 'animate-spin' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Обнови
-                        </button>
-                    </div>
-
-                    <div className="h-64 border border-slate-200 rounded-2xl p-4 bg-slate-50/60 overflow-y-auto space-y-3">
-                        {loadingChat ? (
-                            <div className="h-full flex items-center justify-center">
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="w-8 h-8 border-4 border-purple-900 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="text-xs text-slate-600 font-semibold">Зареждане на чат...</p>
-                                </div>
-                            </div>
-                        ) : chatMessages.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-center">
-                                <div>
-                                    <p className="text-sm text-slate-600 mb-1">Все още няма съобщения.</p>
-                                    <p className="text-xs text-slate-500">
-                                        Използвайте бутона &quot;Свържи се с учителя&quot;, за да започнете чат.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            chatMessages.map((msg) => {
-                                const isStudent = msg.is_from_student !== false;
-                                const msgDate = new Date(msg.created_at);
-                                return (
-                                    <div
-                                        key={msg.id}
-                                        className={`flex ${isStudent ? 'justify-end' : 'justify-start'}`}
-                                    >
-                                        <div
-                                            className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm text-sm ${
-                                                isStudent
-                                                    ? 'bg-purple-900 text-white rounded-br-sm'
-                                                    : 'bg-white text-slate-800 border border-slate-200 rounded-bl-sm'
-                                            }`}
+                                            });
+                                            return (
+                                                <li key={r.id} className="teacher-profile-review-card">
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+                                                        <RatingStars rating={r.rating} size="sm" />
+                                                        <span className="text-sm font-medium text-slate-800">
+                                                            {r.author_name ?? "Анонимен"}
+                                                        </span>
+                                                        <span className="text-xs text-slate-500">{dateStr}</span>
+                                                    </div>
+                                                    {r.comment && (
+                                                        <p className="text-slate-600 text-[15px] leading-relaxed whitespace-pre-wrap mt-1">
+                                                            &ldquo;{r.comment}&rdquo;
+                                                        </p>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                    {reviews.length > MAX_VISIBLE_REVIEWS && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllReviews((v) => !v)}
+                                            className="mt-5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                                         >
-                                            <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                                            <p
-                                                className={`mt-1 text-[10px] ${
-                                                    isStudent ? 'text-purple-100/80' : 'text-slate-400'
-                                                }`}
-                                            >
-                                                {msgDate.toLocaleTimeString('bg-BG', {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                })}{' '}
-                                                · {isStudent ? 'Вие' : 'Учител'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
+                                            {showAllReviews ? "Свий" : `Виж всички (${reviews.length})`}
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </section>
 
-                {/* action buttons */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <button
-                        onClick={() => setShowContactModal(true)}
-                        className="flex-1 px-6 py-4 bg-white border-2 border-purple-900 text-purple-900 font-semibold rounded-xl hover:bg-purple-50 transition-all duration-300 shadow-md hover:shadow-lg"
-                    >
-                        Свържи се с учителя
-                    </button>
-                    <button
-                        onClick={booking.openBookingModal}
-                        className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105"
-                    >
-                        Запази час
-                    </button>
+                        {/* chat link */}
+                        <div className="pt-4">
+                            <button
+                                type="button"
+                                onClick={openChatWithTeacher}
+                                className="text-sm text-slate-500 hover:text-slate-700 hover:underline transition-colors py-1"
+                            >
+                                Отвори чат с учителя
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* right column */}
+                    <aside className="lg:sticky lg:top-6 lg:self-start">
+                        <div className="teacher-profile-sidebar-card flex flex-col gap-5">
+                            {/* supporting */}
+                            <div className="flex gap-4 items-start">
+                                <div className="flex-shrink-0">
+                                    {teacher.profile_picture ? (
+                                        <img
+                                            src={teacher.profile_picture}
+                                            alt=""
+                                            className="teacher-profile-avatar-inline w-16 h-16 rounded-xl object-cover"
+                                        />
+                                    ) : (
+                                        <div className="teacher-profile-avatar-inline w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center text-slate-600 text-lg font-semibold">
+                                            {teacher.full_name.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-slate-800 truncate">{teacher.full_name}</p>
+                                    <p className="text-sm text-slate-500 mt-0.5">{teacher.subject}</p>
+                                    <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-2 flex-wrap">
+                                        <span className="inline-flex items-center gap-1">
+                                            <RatingStars rating={Math.round(displayRating)} size="xs" />
+                                            <span>{displayRating.toFixed(1)}</span>
+                                        </span>
+                                        {teacher.city && <span>{teacher.city}</span>}
+                                        {teacher.is_online && (
+                                            <span className="inline-flex items-center gap-1 text-emerald-600">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+                                                Онлайн
+                                            </span>
+                                        )}
+                                    </p>
+                                    {(teacher.hourly_rate != null || teacher.price_note) && (
+                                        <p className="mt-2 text-sm font-semibold text-slate-800">
+                                            {teacher.hourly_rate != null ? `${teacher.hourly_rate} €/час` : null}
+                                            {teacher.hourly_rate != null && teacher.price_note ? " · " : null}
+                                            {teacher.price_note ?? ""}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* primary cta */}
+                            <div className="pb-2">
+                                <button
+                                    onClick={booking.openBookingModal}
+                                    className="teacher-profile-btn-primary w-full min-h-[56px] px-5 py-3.5 text-white text-base font-semibold rounded-xl"
+                                >
+                                    Запази час
+                                </button>
+                            </div>
+
+                            {/* details */}
+                            <div className="border-t border-slate-200 pt-7">
+                                <ul className="teacher-profile-checklist text-xs text-slate-500 space-y-1.5" aria-hidden>
+                                    <li className="flex items-center gap-2">
+                                        <span className="text-emerald-500 shrink-0" aria-hidden>✓</span>
+                                        Избор на дата и час
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <span className="text-emerald-500 shrink-0" aria-hidden>✓</span>
+                                        Потвърждение от учителя
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {/* secondary cta */}
+                            <div className="border-t border-slate-200 pt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowContactModal(true)}
+                                    className="teacher-profile-contact-btn w-full min-h-[48px] px-4 py-3 text-sm font-semibold rounded-xl border-2 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
+                                >
+                                    Свържи се с учителя
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
 
                 {/* booking modal */}
