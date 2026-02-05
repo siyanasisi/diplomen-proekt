@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useChat } from "../hooks/useChat";
 import { ChatSidebar } from "../components/chat/ChatSidebar";
 import { ChatHeader } from "../components/chat/ChatHeader";
@@ -11,7 +10,6 @@ import { ChatInput } from "../components/chat/ChatInput";
 
 export const Chat = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const chat = useChat();
     const {
         user,
@@ -80,17 +78,6 @@ export const Chat = () => {
     } = chat;
 
     const isStudent = role === "student";
-
-    // when navigating from teacher profile with openTeacherId select that conversation
-    const openTeacherId = (location.state as { openTeacherId?: string } | null)?.openTeacherId;
-    useEffect(() => {
-        if (!openTeacherId || !conversations.length || selectedConv?.otherUserId === openTeacherId) return;
-        const conv = conversations.find((c) => c.otherUserId === openTeacherId);
-        if (conv) {
-            setSelectedConv(conv);
-            navigate(location.pathname, { replace: true, state: {} });
-        }
-    }, [openTeacherId, conversations, selectedConv?.otherUserId, setSelectedConv, navigate, location.pathname]);
 
     // layout: sidebar (conversation list) + main (header, messages, input or empty state)
     return (

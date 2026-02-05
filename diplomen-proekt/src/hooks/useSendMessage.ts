@@ -23,10 +23,6 @@ export function useSendMessage(
 
     const handleSend = useCallback(async () => {
         if (!user || !role || !selectedConv || (!newMessage.trim() && !attachmentFile) || sending) return;
-        if (selectedConv.otherUserId === user.id) {
-            showToast("Не можете да изпращате съобщения до себе си.");
-            return;
-        }
         setSending(true);
         let attachmentUrl: string | null = null;
         const optimisticId = `opt-${Date.now()}`;
@@ -104,10 +100,6 @@ export function useSendMessage(
     const handleRetrySend = useCallback(
         async (msg: Message) => {
             if (!msg.sendFailed || !user || !role || !selectedConv) return;
-            if (selectedConv.otherUserId === user.id) {
-                showToast("Не можете да изпращате съобщения до себе си.");
-                return;
-            }
             const optimisticId = msg.id;
             setMessages((prev) => prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: true, sendFailed: false } : m)));
             try {
