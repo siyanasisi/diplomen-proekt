@@ -12,6 +12,9 @@ export interface Teacher {
     qualifications?: string;
     available_schedule?: string;
     email?: string;
+    hourly_rate?: number | null;
+    price_note?: string | null;
+    offers_online_lessons?: boolean;
 }
 
 export type TeacherSortOption = "rating" | "name" | "online_first";

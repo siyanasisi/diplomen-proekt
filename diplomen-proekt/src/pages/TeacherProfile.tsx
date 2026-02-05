@@ -220,7 +220,6 @@ export const TeacherProfile = () => {
                 return;
             }
 
-            // ако ученикът беше „изтрил“ чата с този учител, премахни го от скритите – така в страницата Чатове ще се покаже отново
             await supabase.from("hidden_conversations").delete().eq("user_id", user.id).eq("other_user_id", teacher.user_id);
 
             // update local chat state so the new message appears immediately
