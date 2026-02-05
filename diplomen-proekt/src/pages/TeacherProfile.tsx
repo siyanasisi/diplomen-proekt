@@ -223,6 +223,10 @@ export const TeacherProfile = () => {
             showToast("Моля, въведете съобщение");
             return;
         }
+        if (user.id === teacher.user_id) {
+            showToast("Не можете да изпращате съобщения до себе си.");
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -481,15 +485,17 @@ export const TeacherProfile = () => {
                         </section>
 
                         {/* chat link */}
-                        <div className="pt-4">
-                            <button
-                                type="button"
-                                onClick={openChatWithTeacher}
-                                className="text-sm text-slate-500 hover:text-slate-700 hover:underline transition-colors py-1"
-                            >
-                                Отвори чат с учителя
-                            </button>
-                        </div>
+                        {user && user.id !== teacher.user_id && (
+                            <div className="pt-4">
+                                <button
+                                    type="button"
+                                    onClick={openChatWithTeacher}
+                                    className="text-sm text-slate-500 hover:text-slate-700 hover:underline transition-colors py-1"
+                                >
+                                    Отвори чат с учителя
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* right column */}
@@ -561,15 +567,17 @@ export const TeacherProfile = () => {
                             </div>
 
                             {/* secondary cta */}
-                            <div className="border-t border-slate-200 pt-5">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowContactModal(true)}
-                                    className="teacher-profile-contact-btn w-full min-h-[48px] px-4 py-3 text-sm font-semibold rounded-xl border-2 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
-                                >
-                                    Свържи се с учителя
-                                </button>
-                            </div>
+                            {user && user.id !== teacher.user_id && (
+                                <div className="border-t border-slate-200 pt-5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowContactModal(true)}
+                                        className="teacher-profile-contact-btn w-full min-h-[48px] px-4 py-3 text-sm font-semibold rounded-xl border-2 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
+                                    >
+                                        Свържи се с учителя
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </aside>
                 </div>
