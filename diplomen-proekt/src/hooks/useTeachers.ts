@@ -65,6 +65,31 @@ export function useTeachers(userId: string | null) {
                     profile_picture: t.profile_picture ?? avatarByUserId.get(t.user_id) ?? undefined,
                 }));
             }
+
+            const teacherIds = list.map((t: Teacher) => t.id);
+            const ratingByTeacherId = new Map<string, number>();
+            if (teacherIds.length > 0) {
+                const { data: reviewsData } = await supabase
+                    .from("teacher_reviews")
+                    .select("teacher_id, rating")
+                    .in("teacher_id", teacherIds);
+                const reviewsList = (reviewsData ?? []) as { teacher_id: string; rating: number }[];
+                const sumByTeacher = new Map<string, { sum: number; count: number }>();
+                for (const r of reviewsList) {
+                    const cur = sumByTeacher.get(r.teacher_id) ?? { sum: 0, count: 0 };
+                    sumByTeacher.set(r.teacher_id, { sum: cur.sum + r.rating, count: cur.count + 1 });
+                }
+                sumByTeacher.forEach((v, teacherId) => {
+                    const avg = Math.round((v.sum / v.count) * 10) / 10;
+                    ratingByTeacherId.set(teacherId, avg);
+                });
+            }
+            list = list.map((t: Teacher) => {
+                const fromReviews = ratingByTeacherId.get(t.id);
+                const rating = fromReviews != null ? fromReviews : (t.rating ?? 0);
+                return { ...t, rating };
+            });
+
             setTeachers(list);
         } catch (err) {
             console.error("[useTeachers] Failed to load teachers:", err);

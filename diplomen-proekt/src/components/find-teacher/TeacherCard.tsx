@@ -8,35 +8,24 @@ interface TeacherCardProps {
     isLoggedIn: boolean;
 }
 
-const PLACEHOLDER_DESCRIPTIONS = [
-    "Моля, попълнете профила си",
-    "Попълнете профила си",
-    "Описание",
-];
-
-const DESCRIPTION_FALLBACK = "Очаквайте повече информация скоро.";
-
-function getDisplayDescription(description: string | undefined, _subject: string): string {
-    const trimmed = (description ?? "").trim();
-    if (!trimmed) return DESCRIPTION_FALLBACK;
-    const lower = trimmed.toLowerCase();
-    if (PLACEHOLDER_DESCRIPTIONS.some((p) => lower.includes(p.toLowerCase()))) {
-        return DESCRIPTION_FALLBACK;
+function formatPrice(teacher: Teacher): string | null {
+    if (teacher.hourly_rate != null && teacher.hourly_rate > 0) {
+        return `${teacher.hourly_rate} €/час`;
     }
-    return trimmed;
+    if (teacher.price_note?.trim()) return teacher.price_note.trim();
+    return null;
 }
 
-function getHookLine(description: string, subject: string): string {
-    const display = getDisplayDescription(description, subject);
-    if (display === DESCRIPTION_FALLBACK) return display;
-    const firstSentence = display.split(/[.!?]/)[0]?.trim() || display.slice(0, 80);
-    return firstSentence.length > 60 ? firstSentence.slice(0, 57) + "…" : firstSentence;
+function getDisplayRating(rating: number | undefined | null): number {
+    return rating != null && Number.isFinite(rating) ? rating : 0;
 }
 
 export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
     const navigate = useNavigate();
-    const hasRating = teacher.rating > 0;
-    const hookLine = getHookLine(teacher.description ?? "", teacher.subject);
+    const displayRating = getDisplayRating(teacher.rating);
+    const hasRating = displayRating > 0;
+    const priceStr = formatPrice(teacher);
+    const qualification = (teacher.qualifications ?? teacher.education ?? "").trim();
 
     const handleViewProfile = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -79,7 +68,7 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-md">
                     {teacher.subject}
                 </span>
-                {teacher.rating >= 4.5 && teacher.rating > 0 && (
+                {displayRating >= 4.5 && displayRating > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-md" title="Висок рейтинг">
                         <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -100,6 +89,14 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-md">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" aria-hidden />
                         Онлайн
+                    </span>
+                )}
+                {teacher.offers_online_lessons && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-violet-700 bg-violet-50 rounded-md" title="Предлага онлайн обучение">
+                        <svg className="w-3.5 h-3.5 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Онлайн обучение
                     </span>
                 )}
             </div>
@@ -141,9 +138,9 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                         </h3>
                         {hasRating ? (
                             <div className="flex items-center gap-1.5 mt-2">
-                                <RatingStars rating={Math.round(teacher.rating)} size="xs" />
+                                <RatingStars rating={Math.round(displayRating)} size="xs" />
                                 <span className="text-xs font-medium text-gray-500">
-                                    {teacher.rating.toFixed(1)}
+                                    {displayRating.toFixed(1)}
                                 </span>
                             </div>
                         ) : (
@@ -164,20 +161,30 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
                     </div>
                 </div>
 
-                {/* description */}
-                <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed mb-4 min-h-[2.5rem]">
-                    {hookLine}
-                </p>
-
-                {/* online badge if there is a city */}
-                {teacher.is_online && teacher.city && (
-                    <div className="mb-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-md">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" aria-hidden />
-                            Онлайн
-                        </span>
-                    </div>
-                )}
+                {/* rating, price, qualification, online */}
+                <div className="flex flex-col gap-2.5 mb-4">
+                    {priceStr && (
+                        <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <span className="flex-shrink-0 text-slate-400" aria-hidden>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </span>
+                            <span className="font-medium">{priceStr}</span>
+                        </div>
+                    )}
+                    {qualification && (
+                        <div className="flex items-start gap-2 text-sm text-slate-600">
+                            <span className="flex-shrink-0 mt-0.5 text-slate-400" aria-hidden>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                                </svg>
+                            </span>
+                            <span className="line-clamp-2 leading-snug">{qualification}</span>
+                        </div>
+                    )}
+                </div>
 
                 {/* cta */}
                 <div className="mt-auto pt-3 flex flex-wrap items-center gap-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">

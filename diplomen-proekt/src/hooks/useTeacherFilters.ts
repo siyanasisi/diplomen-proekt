@@ -82,7 +82,7 @@ function filterTeachers(teachers: Teacher[], filters: TeacherFiltersState): Teac
             (t) =>
                 t.full_name.toLowerCase().includes(q) ||
                 t.subject.toLowerCase().includes(q) ||
-                t.description.toLowerCase().includes(q)
+                (t.description ?? "").toLowerCase().includes(q)
         );
     }
     if (filters.selectedSubject) {
@@ -90,13 +90,13 @@ function filterTeachers(teachers: Teacher[], filters: TeacherFiltersState): Teac
     }
     if (filters.selectedCity) {
         if (filters.selectedCity === "Онлайн") {
-            result = result.filter((t) => t.is_online);
+            result = result.filter((t) => t.offers_online_lessons === true);
         } else {
             result = result.filter((t) => t.city === filters.selectedCity);
         }
     }
     if (filters.isOnlineOnly) {
-        result = result.filter((t) => t.is_online);
+        result = result.filter((t) => t.offers_online_lessons === true);
     }
     if (filters.selectedRating > 0) {
         result = result.filter((t) => t.rating >= filters.selectedRating);
@@ -112,7 +112,7 @@ function sortTeachers(list: Teacher[], sortBy: TeacherSortOption): Teacher[] {
     } else if (sortBy === "name") {
         copy.sort((a, b) => a.full_name.localeCompare(b.full_name, "bg"));
     } else if (sortBy === "online_first") {
-        copy.sort((a, b) => (a.is_online === b.is_online ? 0 : a.is_online ? -1 : 1));
+        copy.sort((a, b) => (a.offers_online_lessons === b.offers_online_lessons ? 0 : a.offers_online_lessons ? -1 : 1));
     }
     return copy;
 }
