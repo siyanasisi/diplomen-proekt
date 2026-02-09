@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase-client';
+import { useToast } from '../context/ToastContext';
 
 
 interface InputFieldProps {
@@ -24,7 +25,7 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className={`w-full pl-14 pr-6 py-4 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white`}
+      className={`w-full pl-14 pr-6 py-4 border-2 ${error ? 'border-red-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800`}
     />
     {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
   </div>
@@ -32,6 +33,7 @@ const InputField = ({ id, label, type, value, onChange, placeholder, error }: In
 
 export default function SignUp() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -93,15 +95,19 @@ export default function SignUp() {
 
     // validate name fields
     if (!firstName.trim()) {
-      setMessage('Моля, въведете име.');
+      const msg = 'Моля, въведете име.';
+      setMessage(msg);
       setMessageType('error');
+      showToast(msg);
       setLoading(false);
       return;
     }
 
     if (!lastName.trim()) {
-      setMessage('Моля, въведете фамилия.');
+      const msg = 'Моля, въведете фамилия.';
+      setMessage(msg);
       setMessageType('error');
+      showToast(msg);
       setLoading(false);
       return;
     }
@@ -163,6 +169,7 @@ export default function SignUp() {
             if (!signInError && signInData.user) {
               setMessage('Успешно! Вие сте влезли в акаунта си.');
               setMessageType('success');
+              showToast('Успешно! Вие сте влезли в акаунта си.');
               setLoading(false);
               
               const checkSession = async () => {
@@ -195,9 +202,45 @@ export default function SignUp() {
           errorMessage = error.message || 'Възникна грешка при регистрация. Моля опитайте отново.';
         }
         
-        setMessage(`Грешка: ${errorMessage}`);
+        const msg = `Грешка: ${errorMessage}`;
+        setMessage(msg);
         setMessageType('error');
+        showToast(msg);
       } else {
+
+        if (role === 'teacher') {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            
+            if (currentUser) {
+              // create teacher profile entry
+              const { error: profileError } = await supabase
+                .from('teacher_profiles')
+                .insert({
+                  user_id: currentUser.id,
+                  full_name: `${firstName.trim()} ${lastName.trim()}`,
+                  subject: qualifications || 'Не е посочен', // use qualifications as subject for now
+                  description: 'Учител в системата Матура+. Моля, попълнете профила си за да се покажете в списъка с учители.',
+                  rating: 0,
+                  city: city || null,
+                  is_online: false,
+                  email: email.trim(),
+                  education: null,
+                  qualifications: qualifications || null,
+                  available_schedule: null
+                });
+
+              if (profileError) {
+                console.error('Error creating teacher profile:', profileError);
+              }
+            }
+          } catch (profileCreationError) {
+            console.error('Error creating teacher profile:', profileCreationError);
+          }
+        }
+
         setMessage('Успешно! Вие сте регистриран и влезли.');
         setMessageType('success');
         setFirstName('');
@@ -225,6 +268,7 @@ export default function SignUp() {
     } catch (error) {
       setMessage('Нещо се обърка!');
       setMessageType('error');
+      showToast('Нещо се обърка!');
     } finally {
       setLoading(false);
     }
@@ -327,7 +371,7 @@ export default function SignUp() {
                   id="role"
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full pl-14 pr-6 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800"
                 >
                   <option value="student">Ученик</option>
                   <option value="teacher">Учител</option>
@@ -345,7 +389,7 @@ export default function SignUp() {
                       id="grade"
                       value={grade}
                       onChange={(e) => setGrade(e.target.value)}
-                      className="w-full pl-14 pr-6 py-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                      className="w-full pl-14 pr-6 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-all duration-200 bg-slate-50 hover:bg-white placeholder:text-slate-400 text-slate-800"
                     >
                       <option value="">Изберете клас</option>
                       <option value="11">11 клас</option>

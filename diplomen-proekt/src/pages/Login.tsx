@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { supabase } from '../supabase-client';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,11 +24,14 @@ export default function Login() {
       });
 
       if (error) {
-        setMessage('Грешка: ' + error.message);
+        const msg = 'Грешка: ' + error.message;
+        setMessage(msg);
         setMessageType('error');
+        showToast(msg);
       } else {
         setMessage('Успешно влизане! Пренасочване...');
         setMessageType('success');
+        showToast('Успешно влизане!');
         
         // wait for session to be established then redirect
         const checkSession = async () => {
@@ -40,9 +45,11 @@ export default function Login() {
         };
         setTimeout(checkSession, 100);
       }
-    } catch (error) {
+    } catch (err) {
+      console.error("[Login] signIn error:", err);
       setMessage('Нещо се обърка!');
       setMessageType('error');
+      showToast('Нещо се обърка!');
     } finally {
       setLoading(false);
     }
@@ -83,7 +90,7 @@ export default function Login() {
           <div className="px-10 pt-12 pb-10">
             <form onSubmit={handleLogin} className="space-y-8">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
                   Имейл
                 </label>
                 <input
@@ -93,11 +100,11 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  className="w-full px-4 py-3.5 border-2 border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-colors placeholder:text-slate-400 text-slate-800"
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
                   Парола
                 </label>
                 <input
@@ -107,13 +114,13 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  className="w-full px-4 py-3.5 border-2 border-slate-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 transition-colors placeholder:text-slate-400 text-slate-800"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-lg text-lg font-semibold transition-transform duration-200 transform hover:scale-105 active:scale-100 shadow-md focus:outline-none focus:ring-2 focus:ring-rose-400"
+                className="w-full py-3.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-xl text-lg font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-100 shadow-lg shadow-rose-500/25 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2"
               >
                 {loading ? 'Влизане...' : 'Вход'}
               </button>
