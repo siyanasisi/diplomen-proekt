@@ -68,7 +68,7 @@ export function Learning() {
     <>
       <div className="p-4 sm:p-5 border-b border-slate-100">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          Содержание
+          Съдържание
         </span>
       </div>
       <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Topics">
