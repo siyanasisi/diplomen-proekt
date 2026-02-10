@@ -10,6 +10,11 @@ import { FindTeacher } from './pages/FindTeacher'
 import { TeacherProfile } from './pages/TeacherProfile'
 import { Chat } from './pages/Chat'
 import { Navbar } from './components/Navbar'
+import { StudyEntry } from './pages/StudyEntry'
+import { Learning } from './pages/Learning'
+import { TopicTest } from './pages/TopicTest'
+
+function App() {
 import { StudyPlanQuestionnaire } from './components/StudyPlanQuestionnaire'
 import { StudyPlanIntro } from './components/StudyPlanIntro'
 
@@ -29,6 +34,9 @@ function App() {
             <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
               <Routes>
                 <Route path="home" element={<Home />} />
+                <Route path="study" element={<StudyEntry />} />
+                <Route path="study/learn/:subjectId/:topicId" element={<Learning />} />
+                <Route path="study/test/:topicId" element={<TopicTest />} /
                 <Route path="profile" element={<Profile />} />
                 <Route path="signup" element={<SignUp />} />
                 <Route path="login" element={<Login />} />
