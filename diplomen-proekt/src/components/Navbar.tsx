@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { supabase, ensureValidSession } from "../supabase-client";
+import { AvatarImage } from "./AvatarImage";
 
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
     const location = useLocation();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -36,15 +40,121 @@ export const Navbar = () => {
                 </svg>
             )
         },
+        { 
+            to: "/find-teacher", 
+            label: "Намери учител", 
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM17 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            )
+        },
     ];
 
     const isActive = (path: string) => location.pathname === path;
-    const { signOut, user, role, loading } = useAuth();
+    const { signOut, user, role, loading, currentUserProfile } = useAuth();
     const userMetadata = user?.user_metadata as any;
-    const fullName = userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
-    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+    const fullName = (currentUserProfile?.first_name != null || currentUserProfile?.last_name != null)
+        ? `${currentUserProfile?.first_name ?? ""} ${currentUserProfile?.last_name ?? ""}`.trim()
+        : userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
+    const displayName = fullName || user?.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Ученик');
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
-    const avatarUrl = userMetadata?.avatar_url || null;
+    const avatarUrl = currentUserProfile?.avatar_url ?? userMetadata?.avatar_url ?? null;
+
+     useEffect(() => {
+        const checkStudyPlan = async () => {
+            if (role === 'student' && user) {
+                try {
+                    await ensureValidSession();
+                    const { data, error } = await supabase
+                        .from('study_plans')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (error) {
+                        console.error('Error checking study plan:', error);
+                        setHasStudyPlan(false);
+                    } else {
+                        setHasStudyPlan(!!data);
+                    }
+                } catch (error) {
+                    console.error('Failed to check study plan:', error);
+                    setHasStudyPlan(false);
+                }
+            } else {
+                setHasStudyPlan(null);
+            }
+        };
+
+        checkStudyPlan();
+    }, [user, role, location.pathname]);
+    const loadUnreadMessagesCount = useCallback(async () => {
+        if (!user || !role) return;
+        try {
+            await ensureValidSession();
+            const { data, error } = await supabase
+                .from("messages")
+                .select("id, student_id, teacher_id, is_from_student, read_by_student_at, read_by_teacher_at");
+
+            if (error) {
+                console.error("Error loading unread messages (navbar):", error);
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                setUnreadMessagesCount(0);
+                return;
+            }
+
+            const unreadCount = data.filter((msg: any) => {
+                if (role === "student") {
+                    return msg.student_id === user.id && msg.is_from_student === false && !msg.read_by_student_at;
+                }
+                return msg.teacher_id === user.id && msg.is_from_student === true && !msg.read_by_teacher_at;
+            }).length;
+
+            setUnreadMessagesCount(unreadCount);
+        } catch (error) {
+            console.error("Failed to load unread messages count (navbar):", error);
+        }
+    }, [user, role]);
+
+    // initial load + reload when user and role changes
+    useEffect(() => {
+        if (user && role) loadUnreadMessagesCount();
+    }, [user, role, loadUnreadMessagesCount]);
+
+    useEffect(() => {
+        const onUnreadUpdated = () => {
+            loadUnreadMessagesCount();
+            setTimeout(() => loadUnreadMessagesCount(), 300);
+        };
+        window.addEventListener("chat-unread-updated", onUnreadUpdated);
+        return () => window.removeEventListener("chat-unread-updated", onUnreadUpdated);
+    }, [loadUnreadMessagesCount]);
+
+    useEffect(() => {
+        if (!user || !role) return;
+
+        const channel = supabase
+            .channel(`navbar-unread-messages-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'messages',
+                },
+                () => loadUnreadMessagesCount()
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user, role, loadUnreadMessagesCount]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -92,16 +202,16 @@ export const Navbar = () => {
                     {!loading && user && (
                         <div className="hidden md:flex items-center gap-1.5">
                             {navLinks.map((link) => (
-                                <Link
-                                    key={link.to}
-                                    to={link.to}
-                                    className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
-                                        isActive(link.to)
-                                            ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg shadow-slate-900/20 scale-105'
-                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95'
+<Link
+                                        key={link.to}
+                                        to={link.to}
+                                        className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
+                                            isActive(link.to)
+                                                ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                                                : 'text-slate-600 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
                                     }`}
                                 >
-                                    <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                    <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
                                     <span>{link.label}</span>
                                     {isActive(link.to) && (
                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
@@ -112,6 +222,19 @@ export const Navbar = () => {
                     )}
 
                     {/* desktop auth  */}
+                    <div className="hidden md:flex items-center gap-3">
+                        {!loading && user && role === 'student' && hasStudyPlan === false && (
+                            <Link
+                                to="/study-plan/intro"
+                                className="relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Направи ми план</span>
+                            </Link>
+                    )}
+                    </div>
                     <div className="hidden md:flex items-center gap-3">
                         {!loading && !user && (
                             <>
@@ -130,25 +253,41 @@ export const Navbar = () => {
                             </>
                         )}
                         {!loading && user && (
-                            <div className="relative" ref={dropdownRef}>
+                            <>
+                                <Link
+                                    to="/chat"
+                                    className={`relative p-2.5 rounded-xl transition-all duration-200 active:scale-95 ${
+                                        location.pathname === "/chat"
+                                            ? "text-purple-600 bg-purple-50"
+                                            : "text-slate-600 hover:text-purple-600 hover:bg-purple-50/80"
+                                    }`}
+                                >
+                                    <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                    {unreadMessagesCount > 0 && (
+                                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold flex items-center justify-center shadow-md shadow-purple-500/30">
+                                            {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                                        </span>
+                                    )}
+                                </Link>
+                                <div className="relative" ref={dropdownRef}>
                                 <button
                                     onClick={() => setDropdownOpen(!dropdownOpen)}
                                     className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
                                 >
                                     <div className="relative">
-                                        {avatarUrl ? (
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
-                                                <img 
-                                                    src={avatarUrl} 
-                                                    alt={displayName}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
-                                                {displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        <AvatarImage
+                                            url={avatarUrl}
+                                            fallback={
+                                                <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
+                                            }
+                                            className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            imgClassName="w-full h-full object-cover"
+                                            alt={displayName}
+                                        />
                                         <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
                                     </div>
                                     <span className="text-sm font-semibold text-slate-900 max-w-[140px] truncate">
@@ -219,7 +358,8 @@ export const Navbar = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -241,6 +381,18 @@ export const Navbar = () => {
                                 </Link>
                             </>
                         )}
+                        {role === 'student' && hasStudyPlan === false && (
+                                        <Link
+                                            to="/study-plan/intro"
+                                            className="flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 active:scale-95"
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span>Направи ми план</span>
+                                        </Link>
+                                    )}
                         <button
                             onClick={() => setMenuOpen(!menuOpen)}
                             className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 active:scale-95"
@@ -268,12 +420,12 @@ export const Navbar = () => {
                                             to={link.to}
                                             className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                                 isActive(link.to)
-                                                    ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg'
-                                                    : 'text-slate-700 hover:bg-slate-100 active:scale-95'
+                                                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
+                                                    : 'text-slate-700 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
                                             }`}
                                             onClick={() => setMenuOpen(false)}
                                         >
-                                            <span className={isActive(link.to) ? 'text-white' : 'text-slate-500'}>{link.icon}</span>
+                                            <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
                                             <span>{link.label}</span>
                                         </Link>
                                     ))}
@@ -285,19 +437,17 @@ export const Navbar = () => {
                                         className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
                                         onClick={() => setMenuOpen(false)}
                                     >
-                                        {avatarUrl ? (
-                                            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
-                                                <img 
-                                                    src={avatarUrl} 
-                                                    alt={displayName}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
-                                                {displayName.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                                        <AvatarImage
+                                            url={avatarUrl}
+                                            fallback={
+                                                <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </div>
+                                            }
+                                            className="w-9 h-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            imgClassName="w-full h-full object-cover"
+                                            alt={displayName}
+                                        />
                                         <div className="flex-1">
                                             <p className="font-semibold">{displayName}</p>
                                             <p className="text-xs text-slate-500 truncate">{user.email}</p>

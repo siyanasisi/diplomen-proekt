@@ -1,11 +1,21 @@
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
+import { TeacherAvailabilityForm } from "../components/teacher-availability/TeacherAvailabilityForm";
+import type {
+    TeacherAvailabilityRow,
+    TeacherBookingSettingsRow,
+    TeacherBlockedSlotRow,
+    TeacherScheduleExceptionRow,
+} from "../types/teacher";
+import type { TeacherAvailabilityFormData } from "../components/teacher-availability/TeacherAvailabilityForm";
 
 export const Profile = () => {
-    const { user, role, signOut, loading } = useAuth();
+    const { user, role, signOut, loading, refreshProfile } = useAuth();
     const navigate = useNavigate();
+    const showToast = useToast();
 
     const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
@@ -34,21 +44,40 @@ export const Profile = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(true);
-    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    // show notification and hide after 3s
-    const showNotification = useCallback((type: 'success' | 'error', message: string) => {
-        setNotification({ type, message });
-        setTimeout(() => {
-            setNotification((prev) => {
-                // Only clear if this is still the current notification
-                if (prev?.type === type && prev?.message === message) {
-                    return null;
-                }
-                return prev;
-            });
-        }, 3000);
-    }, []);
+    const [teacherProfile, setTeacherProfile] = useState<{
+        hourly_rate: number | null;
+        price_note: string | null;
+        offers_online_lessons: boolean;
+        description: string;
+    } | null>(null);
+    const [editedHourlyRate, setEditedHourlyRate] = useState('');
+    const [editedPriceNote, setEditedPriceNote] = useState('');
+    const [editedOffersOnline, setEditedOffersOnline] = useState(false);
+    const [editedDescription, setEditedDescription] = useState('');
+    const [priceNegotiable, setPriceNegotiable] = useState(false);
+    const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilityRow[]>([]);
+    const [teacherBookingSettings, setTeacherBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
+    const [teacherBlockedSlots, setTeacherBlockedSlots] = useState<TeacherBlockedSlotRow[]>([]);
+    const [teacherExceptions, setTeacherExceptions] = useState<TeacherScheduleExceptionRow[]>([]);
+    const [savingAvailability, setSavingAvailability] = useState(false);
+    const [pendingBookings, setPendingBookings] = useState<{
+        id: string;
+        lesson_date: string;
+        lesson_time: string;
+        message: string | null;
+        student_id: string;
+        student_name?: string;
+    }[]>([]);
+    const [studentUpcomingBookings, setStudentUpcomingBookings] = useState<{
+        id: string;
+        lesson_date: string;
+        lesson_time: string;
+        status: string;
+        teacher_name: string;
+        teacher_profile_id: string;
+        teacher_id: string;
+    }[]>([]);
+    const [actingOnBookingId, setActingOnBookingId] = useState<string | null>(null);
 
     const loadUserData = useCallback(async () => {
         if (!user) return;
@@ -133,6 +162,83 @@ export const Profile = () => {
                 setRecentActivity(recent);
             }
         }
+
+        if (role === 'student') {
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const { data: myBookings } = await supabase
+                .from('bookings')
+                .select('id, lesson_date, lesson_time, status, teacher_profile_id')
+                .eq('student_id', user.id)
+                .in('status', ['pending', 'confirmed'])
+                .gte('lesson_date', todayKey)
+                .order('lesson_date', { ascending: true })
+                .order('lesson_time', { ascending: true });
+            const list = (myBookings ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+            if (list.length > 0) {
+                const profileIds = [...new Set(list.map((b) => b.teacher_profile_id))];
+                const { data: tpData } = await supabase.from('teacher_profiles').select('id, full_name, user_id').in('id', profileIds);
+                const nameMap = new Map((tpData ?? []).map((p: { id: string; full_name: string | null; user_id: string }) => [p.id, { name: p.full_name ?? 'Учител', userId: p.user_id }]));
+                setStudentUpcomingBookings(list.map((b) => {
+                    const t = nameMap.get(b.teacher_profile_id);
+                    return { ...b, teacher_name: t?.name ?? 'Учител', teacher_id: t?.userId ?? '' };
+                }));
+            } else {
+                setStudentUpcomingBookings([]);
+            }
+        } else {
+            setStudentUpcomingBookings([]);
+        }
+
+        if (role === 'teacher') {
+            const { data: tp } = await supabase
+                .from('teacher_profiles')
+                .select('hourly_rate, price_note, offers_online_lessons, description')
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (tp) {
+                setTeacherProfile({
+                    hourly_rate: tp.hourly_rate ?? null,
+                    price_note: tp.price_note ?? null,
+                    offers_online_lessons: tp.offers_online_lessons ?? false,
+                    description: (tp as { description?: string | null }).description ?? '',
+                });
+            } else {
+                setTeacherProfile(null);
+            }
+            const [avRes, setRes, blockRes, excRes] = await Promise.all([
+                supabase.from('teacher_availability').select('*').eq('teacher_id', user.id).order('day_of_week'),
+                supabase.from('teacher_booking_settings').select('*').eq('teacher_id', user.id).maybeSingle(),
+                supabase.from('teacher_blocked_slots').select('*').eq('teacher_id', user.id),
+                supabase.from('teacher_schedule_exceptions').select('*').eq('teacher_id', user.id).order('exception_date'),
+            ]);
+            setTeacherAvailability((avRes.data as TeacherAvailabilityRow[]) ?? []);
+            setTeacherBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
+            setTeacherBlockedSlots((blockRes.data as TeacherBlockedSlotRow[]) ?? []);
+            setTeacherExceptions((excRes.data as TeacherScheduleExceptionRow[]) ?? []);
+            const { data: pendingData } = await supabase
+                .from('bookings')
+                .select('id, lesson_date, lesson_time, message, student_id')
+                .eq('teacher_id', user.id)
+                .eq('status', 'pending')
+                .order('lesson_date', { ascending: true })
+                .order('lesson_time', { ascending: true });
+            const list = (pendingData ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string }[];
+            if (list.length > 0) {
+                const ids = [...new Set(list.map((b) => b.student_id))];
+                const { data: profilesData } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+                const nameMap = new Map((profilesData ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? 'Ученик']));
+                setPendingBookings(list.map((b) => ({ ...b, student_name: nameMap.get(b.student_id) ?? 'Ученик' })));
+            } else {
+                setPendingBookings([]);
+            }
+        } else {
+            setTeacherProfile(null);
+            setTeacherAvailability([]);
+            setTeacherBookingSettings(null);
+            setTeacherBlockedSlots([]);
+            setTeacherExceptions([]);
+            setPendingBookings([]);
+        }
         } catch (error) {
             console.error('Error in loadUserData:', error);
             // Set defaults on error to prevent blank page
@@ -152,13 +258,14 @@ export const Profile = () => {
         if (user) {
             setIsLoadingData(true);
             loadUserData()
-                .then(() => {
+                .then(async () => {
                     if (isMounted) {
                         setIsLoadingData(false);
-                        //load avatar URL from user metadata
                         const userMetadata = user.user_metadata as any;
                         if (userMetadata?.avatar_url) {
                             setAvatarUrl(userMetadata.avatar_url);
+                            // синхронизация в profiles – за чат/навбар (ако още не е записано)
+                            await supabase.from("profiles").update({ avatar_url: userMetadata.avatar_url }).eq("id", user.id);
                         } else {
                             setAvatarUrl(null);
                         }
@@ -200,16 +307,16 @@ export const Profile = () => {
         if (!user) return;
 
         if (!deletePassword) {
-            alert('Моля въведете паролата си за потвърждение');
+            showToast('Моля въведете паролата си за потвърждение');
             return;
         }
         if (deleteConfirmText !== 'ИЗТРИЙ') {
-            alert('Моля напишете "ИЗТРИЙ" за потвърждение');
+            showToast('Моля напишете "ИЗТРИЙ" за потвърждение');
             return;
         }
 
         if (!user.email) {
-            alert('Email не е наличен');
+            showToast('Email не е наличен');
             return;
         }
 
@@ -222,7 +329,7 @@ export const Profile = () => {
             });
 
             if (verifyError) {
-                showNotification('error', 'Паролата е неправилна. Моля опитайте отново.');
+                showToast('Паролата е неправилна. Моля опитайте отново.');
                 setDeletingAccount(false);
                 return;
             }
@@ -261,15 +368,13 @@ export const Profile = () => {
             }
 
 
-            alert('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
-            
-
+            showToast('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
 
             await signOut();
             navigate("/");
         } catch (error: any) {
             console.error('Error deleting account:', error);
-            alert(`Грешка при изтриване на акаунта: ${error.message}`);
+            showToast(`Грешка при изтриване на акаунта: ${error.message}`);
         } finally {
             setDeletingAccount(false);
         }
@@ -307,22 +412,193 @@ export const Profile = () => {
 
             if (error) {
                 console.error('Error updating profile:', error);
-                showNotification('error', 'Грешка при обновяване на профила');
-            } else {
-                // wait for auth state change to propagate (onAuthStateChange in AuthContext will update user)
-                // then reload our local data without full page reload
-                await new Promise(resolve => setTimeout(resolve, 300));
-                await loadUserData();
-                setEditMode(false);
-                showNotification('success', 'Профилът е обновен успешно!');
+                showToast('Грешка при обновяване на профила');
+                setLoadingUpdate(false);
+                return;
             }
+
+            if (role === 'teacher') {
+                const hourlyRateNum = priceNegotiable ? null : (editedHourlyRate.trim() ? Number(editedHourlyRate.trim()) : null);
+                const priceNoteVal = priceNegotiable ? 'По договаряне' : (editedPriceNote.trim() || null);
+                const descriptionVal = editedDescription.trim() || 'Учител в системата Матура+. Моля, попълнете профила си за да се покажете в списъка с учители.';
+                const { error: tpError } = await supabase
+                    .from('teacher_profiles')
+                    .update({
+                        hourly_rate: hourlyRateNum,
+                        price_note: priceNoteVal,
+                        offers_online_lessons: editedOffersOnline,
+                        description: descriptionVal,
+                    })
+                    .eq('user_id', user.id);
+                if (tpError) {
+                    console.error('Error updating teacher profile:', tpError);
+                    showToast('Профилът е обновен, но данните за цена/онлайн не са запазени.');
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await loadUserData();
+            setEditMode(false);
+            showToast('Профилът е обновен успешно!');
         } catch (error) {
             console.error('Error:', error);
-            showNotification('error', 'Грешка при обновяване на профила');
+            showToast('Грешка при обновяване на профила');
         } finally {
             setLoadingUpdate(false);
         }
     };
+
+    const handleSaveAvailability = useCallback(async (data: TeacherAvailabilityFormData) => {
+        if (!user || role !== 'teacher') return;
+        setSavingAvailability(true);
+        try {
+            await ensureValidSession();
+            await supabase.from('teacher_availability').delete().eq('teacher_id', user.id);
+            if (data.availability.length > 0) {
+                await supabase.from('teacher_availability').insert(
+                    data.availability.map((a) => ({
+                        teacher_id: user.id,
+                        day_of_week: a.day_of_week,
+                        start_time: a.start_time,
+                        end_time: a.end_time,
+                    }))
+                );
+            }
+            await supabase.from('teacher_booking_settings').upsert(
+                {
+                    teacher_id: user.id,
+                    lesson_duration_minutes: data.settings.lesson_duration_minutes,
+                    buffer_minutes: data.settings.buffer_minutes,
+                    auto_accept_bookings: data.settings.auto_accept_bookings,
+                },
+                { onConflict: 'teacher_id' }
+            );
+            await supabase.from('teacher_blocked_slots').delete().eq('teacher_id', user.id);
+            if (data.blockedSlots.length > 0) {
+                await supabase.from('teacher_blocked_slots').insert(
+                    data.blockedSlots.map((b) => ({
+                        teacher_id: user.id,
+                        day_of_week: b.day_of_week,
+                        start_time: b.start_time,
+                        end_time: b.end_time,
+                    }))
+                );
+            }
+            await supabase.from('teacher_schedule_exceptions').delete().eq('teacher_id', user.id);
+            if (data.exceptions.length > 0) {
+                await supabase.from('teacher_schedule_exceptions').insert(
+                    data.exceptions.map((e) => ({
+                        teacher_id: user.id,
+                        exception_date: e.exception_date,
+                        is_fully_unavailable: e.is_fully_unavailable,
+                        override_start_time: e.override_start_time,
+                        override_end_time: e.override_end_time,
+                    }))
+                );
+            }
+            await loadUserData();
+            showToast('Наличността е запазена успешно!');
+        } catch (error) {
+            console.error('Error saving availability:', error);
+            showToast('Грешка при запазване на наличността');
+        } finally {
+            setSavingAvailability(false);
+        }
+    }, [user, role, loadUserData, showToast]);
+
+    const formatBookingDateTime = (lessonDate: string, lessonTime: string) => {
+        const timeStr = String(lessonTime).slice(0, 5);
+        try {
+            const d = new Date(lessonDate + 'T12:00:00');
+            return d.toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' в ' + timeStr + ' ч.';
+        } catch {
+            return lessonDate + ' в ' + timeStr + ' ч.';
+        }
+    };
+
+    const handleConfirmBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'confirmed' })
+                .eq('id', bookingId)
+                .eq('teacher_id', user.id);
+            if (error) throw error;
+
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            await supabase.from('messages').insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Вашият час в ${dateTimeText} е потвърден. До скоро!`,
+                is_from_student: false,
+            });
+
+            showToast('Часът е потвърден. Ученикът ще получи съобщение в чата.');
+            await loadUserData();
+        } catch (e) {
+            console.error('Error confirming booking:', e);
+            showToast('Грешка при потвърждаване.');
+        } finally {
+            setActingOnBookingId(null);
+        }
+    }, [user, loadUserData, showToast]);
+
+    const handleCancelBooking = useCallback(async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm('Сигурни ли сте, че искате да откажете този час?')) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled' })
+                .eq('id', bookingId)
+                .eq('teacher_id', user.id);
+            if (error) throw error;
+
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            await supabase.from('messages').insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Съжалявам, часът в ${dateTimeText} е отменен. Можете да запишете друг час.`,
+                is_from_student: false,
+            });
+
+            showToast('Часът е отказен. Ученикът ще получи съобщение в чата.');
+            await loadUserData();
+        } catch (e) {
+            console.error('Error cancelling booking:', e);
+            showToast('Грешка при отказ.');
+        } finally {
+            setActingOnBookingId(null);
+        }
+    }, [user, loadUserData, showToast]);
+
+    const handleCancelMyBooking = useCallback(async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm('Сигурни ли сте, че искате да откажете този час?')) return;
+        try {
+            const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled' })
+                .eq('id', bookingId)
+                .eq('student_id', user.id);
+            if (error) throw error;
+            const dateTimeText = formatBookingDateTime(lessonDate, lessonTime);
+            if (teacherId) {
+                await supabase.from('messages').insert({
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    message: `Отмених записания час на ${dateTimeText}.`,
+                    is_from_student: true,
+                });
+            }
+            showToast('Часът е отменен.');
+            await loadUserData();
+        } catch (e) {
+            console.error('Error cancelling booking:', e);
+            showToast('Грешка при отказ.');
+        }
+    }, [user, loadUserData, showToast]);
 
     const handleDeleteEvent = useCallback(async (eventId: string) => {
         if (!confirm('Сигурни ли сте, че искате да изтриете това събитие?')) return;
@@ -334,12 +610,12 @@ export const Profile = () => {
 
         if (error) {
             console.error('Error deleting event:', error);
-            showNotification('error', 'Грешка при изтриване на събитието');
+            showToast('Грешка при изтриване на събитието');
         } else {
-            showNotification('success', 'Събитието е изтрито успешно');
+            showToast('Събитието е изтрито успешно');
             loadUserData();
         }
-    }, [showNotification, loadUserData]);
+    }, [showToast, loadUserData]);
 
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (!user || !event.target.files || event.target.files.length === 0) return;
@@ -347,12 +623,12 @@ export const Profile = () => {
         const file = event.target.files[0];
         
         if (!file.type.startsWith('image/')) {
-            alert('Моля изберете валиден файл (изображение)');
+            showToast('Моля изберете валиден файл (изображение)');
             return;
         }
 
         if (file.size > 2 * 1024 * 1024) {
-            alert('Файлът е твърде голям. Моля изберете изображение под 2MB');
+            showToast('Файлът е твърде голям. Моля изберете изображение под 2MB');
             return;
         }
 
@@ -395,6 +671,10 @@ export const Profile = () => {
                 throw updateError;
             }
 
+
+            const { error: profileErr } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+            if (profileErr) console.warn("Профил: не може да се запише avatar_url в profiles", profileErr.message);
+
             // update local state immediately
             setAvatarUrl(publicUrl);
             
@@ -402,11 +682,11 @@ export const Profile = () => {
             await new Promise(resolve => setTimeout(resolve, 500));
             
             await loadUserData();
-            
-            showNotification('success', 'Профилната снимка е обновена успешно!');
+            await refreshProfile();
+            showToast('Профилната снимка е обновена успешно!');
         } catch (error: any) {
             console.error('Error uploading avatar:', error);
-            showNotification('error', `Грешка при качване на снимката: ${error.message}`);
+            showToast(`Грешка при качване на снимката: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
             event.target.value = '';
@@ -492,7 +772,7 @@ export const Profile = () => {
                 throw updateError;
             }
 
-            showNotification('success', 'Паролата е променена успешно!');
+            showToast('Паролата е променена успешно!');
             setShowChangePassword(false);
             setCurrentPassword('');
             setNewPassword('');
@@ -500,7 +780,9 @@ export const Profile = () => {
             setPasswordError('');
         } catch (error: any) {
             console.error('Error changing password:', error);
-            setPasswordError(error.message || 'Грешка при промяна на паролата');
+            const errMsg = error.message || 'Грешка при промяна на паролата';
+            setPasswordError(errMsg);
+            showToast(errMsg);
         } finally {
             setChangingPassword(false);
         }
@@ -537,18 +819,19 @@ export const Profile = () => {
                 throw updateError;
             }
 
+
+            const { error: profileErr } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+            if (profileErr) console.warn("Профил: не може да се изтрие avatar_url в profiles", profileErr.message);
+
             setAvatarUrl(null);
             
-            // wait for auth state change listener to update the user object
             await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // refresh user data to ensure everything is in sync
             await loadUserData();
-            
-            alert('Профилната снимка е премахната успешно!');
+            await refreshProfile();
+            showToast('Профилната снимка е премахната успешно!');
         } catch (error: any) {
             console.error('Error removing avatar:', error);
-            alert(`Грешка при премахване на снимката: ${error.message}`);
+            showToast(`Грешка при премахване на снимката: ${error.message}`);
         }
     };
 
@@ -563,7 +846,7 @@ export const Profile = () => {
         const firstName = userMetadata?.first_name;
         const lastName = userMetadata?.last_name;
         const fullName = userMetadata?.full_name || (firstName && lastName ? `${firstName} ${lastName}` : null);
-        return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Студент');
+        return fullName || user.email?.split('@')[0] || (role === 'teacher' ? 'Учител' : 'Ученик');
     }, [userMetadata, user?.email, role]);
     
     const memberSince = useMemo(() => {
@@ -575,6 +858,22 @@ export const Profile = () => {
             return '';
         }
     }, [user?.created_at]);
+
+    const futurePendingBookings = useMemo(
+        () =>
+            pendingBookings.filter(
+                (b) => new Date(b.lesson_date + 'T' + (b.lesson_time?.slice(0, 5) || '00:00')) > new Date()
+            ),
+        [pendingBookings]
+    );
+
+    useEffect(() => {
+        if (loading || isLoadingData || !user) return;
+        if (window.location.hash === '#my-bookings') {
+            const el = document.getElementById('my-bookings');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [loading, isLoadingData, user, studentUpcomingBookings.length]);
 
     if (loading) {
         return (
@@ -603,43 +902,13 @@ export const Profile = () => {
     const currentAvatarUrl = avatarUrl || userMetadata?.avatar_url || null;
 
     return (
-        <div className={`min-h-screen ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'} relative overflow-hidden`}>
+        <div className={`min-h-screen ${role === 'teacher' ? 'bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10' : 'bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50'} relative overflow-x-hidden`}>
             {/* background*/}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse"></div>
                 <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl"></div>
             </div>
-            {/* notification toast */}
-            {notification && (
-                <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 duration-500 ease-out">
-                    <div className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-2xl border-2 flex items-center gap-3 transform transition-all duration-500 hover:scale-105 ${
-                        notification.type === 'success' 
-                            ? 'bg-gradient-to-br from-emerald-50/95 to-emerald-100/80 border-emerald-300/60 text-emerald-900 shadow-emerald-900/20' 
-                            : 'bg-gradient-to-br from-red-50/95 to-red-100/80 border-red-300/60 text-red-900 shadow-red-900/20'
-                    }`}>
-                        {notification.type === 'success' ? (
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                        ) : (
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                        )}
-                        <p className="font-semibold text-sm">{notification.message}</p>
-                        <button
-                            onClick={() => setNotification(null)}
-                            className="ml-2 p-1 rounded-lg hover:bg-black/10 transition-colors"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
@@ -778,6 +1047,19 @@ export const Profile = () => {
                                                     setEditedLastName(lastName || '');
                                                     setEditedCity(city || '');
                                                     setEditedQualifications(qualifications || '');
+                                                    if (role === 'teacher' && teacherProfile) {
+                                                        setEditedHourlyRate(teacherProfile.hourly_rate != null ? String(teacherProfile.hourly_rate) : '');
+                                                        setEditedPriceNote(teacherProfile.price_note || '');
+                                                        setEditedOffersOnline(teacherProfile.offers_online_lessons);
+                                                        setPriceNegotiable(teacherProfile.price_note === 'По договаряне');
+                                                        setEditedDescription(teacherProfile.description || '');
+                                                    } else if (role === 'teacher') {
+                                                        setEditedHourlyRate('');
+                                                        setEditedPriceNote('');
+                                                        setEditedOffersOnline(false);
+                                                        setPriceNegotiable(false);
+                                                        setEditedDescription('');
+                                                    }
                                                 }}
                                                 className="px-8 py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-purple-600 hover:from-purple-700 hover:via-purple-800 hover:to-purple-700 text-white rounded-2xl font-bold transition-all duration-500 flex items-center gap-3 border-2 border-purple-500/50 hover:border-purple-400/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-purple-900/40 hover:scale-105 shadow-xl shadow-purple-900/30 group"
                                             >
@@ -812,10 +1094,93 @@ export const Profile = () => {
                                                     <p className="text-lg font-bold text-slate-900 relative z-10">{qualifications}</p>
                                                 </div>
                                             )}
+                                            {role === 'teacher' && teacherProfile && (teacherProfile.hourly_rate != null || teacherProfile.price_note || teacherProfile.offers_online_lessons) && (
+                                                <div className="sm:col-span-2 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 border-2 border-purple-200/40 hover:border-purple-300/60 transition-all duration-500 hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 group relative overflow-hidden">
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-100/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                                    <p className="text-xs font-black text-purple-600 mb-3 uppercase tracking-widest relative z-10">Цена и онлайн уроци</p>
+                                                    <div className="relative z-10 space-y-1">
+                                                        {teacherProfile.hourly_rate != null && (
+                                                            <p className="text-lg font-bold text-slate-900">Цена за час: {teacherProfile.hourly_rate} €</p>
+                                                        )}
+                                                        {teacherProfile.price_note && (
+                                                            <p className="text-slate-700">{teacherProfile.price_note}</p>
+                                                        )}
+                                                        {teacherProfile.offers_online_lessons && (
+                                                            <p className="text-sm font-semibold text-emerald-700">Предлага онлайн уроци</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
+                            {role === 'teacher' && (
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Кога съм на разположение
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        Настройте работните си дни и часове, продължителност на урок и почивки. Учениците ще виждат само свободни слотове.
+                                    </p>
+                                    <TeacherAvailabilityForm
+                                        initialAvailability={teacherAvailability}
+                                        initialSettings={teacherBookingSettings}
+                                        initialBlocked={teacherBlockedSlots}
+                                        initialExceptions={teacherExceptions}
+                                        onSave={handleSaveAvailability}
+                                        saving={savingAvailability}
+                                    />
+                                </div>
+                            )}
+
+                            {role === 'teacher' && futurePendingBookings.length > 0 && (
+                                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Чакащи часове за потвърждение
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-4">
+                                        Потвърдете или откажете записаните от учениците часове.
+                                    </p>
+                                    <ul className="space-y-3">
+                                        {futurePendingBookings.map((b) => (
+                                                <li
+                                                    key={b.id}
+                                                    className="flex flex-wrap items-center gap-3 rounded-xl border border-purple-200/60 bg-purple-50/40 p-4"
+                                                >
+                                                    <span className="font-semibold text-slate-800">
+                                                        {b.lesson_date} {String(b.lesson_time).slice(0, 5)}
+                                                    </span>
+                                                    <span className="text-slate-600">{b.student_name}</span>
+                                                    {b.message && (
+                                                        <span className="text-sm text-slate-500 truncate max-w-xs" title={b.message}>
+                                                            {b.message}
+                                                        </span>
+                                                    )}
+                                                    <div className="ml-auto flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={actingOnBookingId !== null}
+                                                            onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-sm font-medium hover:bg-purple-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        >
+                                                            {actingOnBookingId === b.id ? '...' : 'Потвърди'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={actingOnBookingId !== null}
+                                                            onClick={() => handleCancelBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        >
+                                                            {actingOnBookingId === b.id ? '...' : 'Откажи'}
+                                                        </button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                    </ul>
+                                </div>
+                            )}
                             
                             {/* stats section for students */}
                             {role === 'student' && (
@@ -870,6 +1235,63 @@ export const Profile = () => {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {role === 'student' && studentUpcomingBookings.length > 0 && (
+                                <div id="my-bookings" className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 scroll-mt-6">
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                        Моите записани часове
+                                    </h3>
+                                    <p className="text-sm text-slate-600 mb-4">
+                                        Тук виждате записаните от вас часове. Ще получите съобщение в чата, когато учителят потвърди или откаже.
+                                    </p>
+                                    <ul className="space-y-3">
+                                        {studentUpcomingBookings.map((b) => {
+                                            const timeStr = String(b.lesson_time).slice(0, 5);
+                                            const dateStr = (() => {
+                                                try {
+                                                    return new Date(b.lesson_date + 'T12:00').toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                                                } catch {
+                                                    return b.lesson_date;
+                                                }
+                                            })();
+                                            const isPending = b.status === 'pending';
+                                            return (
+                                                <li
+                                                    key={b.id}
+                                                    className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${
+                                                        isPending ? 'border-amber-200/80 bg-amber-50/50' : 'border-emerald-200/60 bg-emerald-50/40'
+                                                    }`}
+                                                >
+                                                    <span className="font-semibold text-slate-800">
+                                                        {dateStr} в {timeStr} ч.
+                                                    </span>
+                                                    <span className="text-slate-600">{b.teacher_name}</span>
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-semibold ${
+                                                            isPending
+                                                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        }`}
+                                                    >
+                                                        {isPending ? (
+                                                            <>⏳ Чака потвърждение</>
+                                                        ) : (
+                                                            <>✓ Потвърден</>
+                                                        )}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCancelMyBooking(b.id, b.teacher_id, b.lesson_date, b.lesson_time)}
+                                                        className="ml-auto px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-100 hover:border-red-200 hover:text-red-700"
+                                                    >
+                                                        Откажи час
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 </div>
                             )}
 
@@ -1391,7 +1813,7 @@ export const Profile = () => {
                                 />
                             </div>
 
-                            {role === 'teacher' && (
+                                            {role === 'teacher' && (
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Квалификации</label>
                                     <input
@@ -1402,6 +1824,76 @@ export const Profile = () => {
                                         placeholder="Математика, Физика..."
                                     />
                                 </div>
+                            )}
+
+                            {role === 'teacher' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Биография / Описание</label>
+                                    <textarea
+                                        value={editedDescription}
+                                        onChange={(e) => setEditedDescription(e.target.value)}
+                                        rows={5}
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 resize-y"
+                                        placeholder="Кратко представяне за учениците: опит, подход, за какво преподавате..."
+                                    />
+                                </div>
+                            )}
+
+                            {role === 'teacher' && (
+                                <>
+                                    <div className="border-t border-slate-200 pt-5 mt-2">
+                                        <p className="text-sm font-bold text-purple-700 mb-3">Цена и онлайн уроци</p>
+                                        <div className="space-y-4">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={priceNegotiable}
+                                                    onChange={(e) => {
+                                                        setPriceNegotiable(e.target.checked);
+                                                        if (e.target.checked) setEditedHourlyRate('');
+                                                    }}
+                                                    className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <span className="text-slate-700 font-medium">По договаряне</span>
+                                            </label>
+                                            {!priceNegotiable && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Цена за час (€)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={editedHourlyRate}
+                                                        onChange={(e) => setEditedHourlyRate(e.target.value)}
+                                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                        placeholder="напр. 25"
+                                                    />
+                                                </div>
+                                            )}
+                                            {!priceNegotiable && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-slate-700 mb-2">Бележка за цената (по избор)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editedPriceNote}
+                                                        onChange={(e) => setEditedPriceNote(e.target.value)}
+                                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                        placeholder="напр. При пакет 10 урока - отстъпка"
+                                                    />
+                                                </div>
+                                            )}
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editedOffersOnline}
+                                                    onChange={(e) => setEditedOffersOnline(e.target.checked)}
+                                                    className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <span className="text-slate-700 font-medium">Предлагам онлайн уроци</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <div className="flex gap-3 pt-4">

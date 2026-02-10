@@ -1,18 +1,57 @@
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { useToast } from "../context/ToastContext";
+import { useState, useEffect, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import type { StudyPlan as StudyPlanType } from "../lib/topics";
+import type { KnowledgeLevel } from "../lib/topics";
+import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
+import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
+
+type CalendarEventRow = { id: string; date: string; event_text: string };
+
+function formatDateTimeLessons(lessonDate: string, lessonTime: string): string {
+    const d = String(lessonDate).slice(0, 10);
+    const t = String(lessonTime).slice(0, 5);
+    return `${d} ${t}`;
+}
+
+function formatDateLessons(lessonDate: string): string {
+    const d = String(lessonDate).slice(0, 10);
+    const [y, m, day] = d.split('-').map(Number);
+    const date = new Date(y, (m ?? 1) - 1, day ?? 1);
+    return date.toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export const Home = () => {
 
     const { user, role } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const showToast = useToast();
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [events, setEvents] = useState<{ [key: string]: string }>({});
+    const [eventsList, setEventsList] = useState<{ id: string; date: string; event_text: string }[]>([]);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
     const [eventText, setEventText] = useState("");
+    const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
-    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings'>('dashboard');
+    const [activeMenu, setActiveMenu] = useState<'dashboard' | 'study-plan' | 'calendar' | 'events' | 'settings' | 'lessons' | 'messages'>('dashboard');
+    const [studyPlans, setStudyPlans] = useState<StudyPlanType[]>([]);
+    const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+    const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
+    const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+    const [todayBookingsCount, setTodayBookingsCount] = useState(0);
+    const [teacherPendingCount, setTeacherPendingCount] = useState(0);
+    const [messages, setMessages] = useState<Array<{ id: string; student_id: string; teacher_id: string; message: string; created_at: string; read_at?: string | null; student_name?: string; student_email?: string | null }>>([]);
+    const [loadingMessages, setLoadingMessages] = useState(false);
+    const [studentBookings, setStudentBookings] = useState<Array<{ id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string; teacher_name?: string; teacher_id?: string }>>([]);
+    const [pendingBookings, setPendingBookings] = useState<Array<{ id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string; status: string; student_name?: string }>>([]);
+    const [lessonsLoading, setLessonsLoading] = useState(false);
+    const [actingOnBookingId, setActingOnBookingId] = useState<string | null>(null);
+    const plansWithId = studyPlans.filter((p): p is StudyPlanType & { id: string } => p.id != null && p.id !== '');
+    const studyPlan = plansWithId.find(p => p.id === selectedPlanId) ?? plansWithId[0] ?? null;
+    const effectivePlanId = studyPlan?.id ?? (plansWithId[0]?.id ?? '');
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -21,13 +60,26 @@ export const Home = () => {
         }
     }, [user, navigate]);
 
-    // Load events from Supabase when user changes
+    // Load events and booked lesson dates from Supabase when user changes
     useEffect(() => {
         if (user) {
             loadEvents();
+            loadBookedLessonDates();
             loadUserStats();
+            if (role === 'teacher') {
+                loadMessages();
+            }
+            if (role === 'student') {
+                loadStudyPlans();
+            }
         }
-    }, [user]);
+    }, [user, role]);
+
+    useEffect(() => {
+        if (user && location?.pathname === "/home") {
+            loadBookedLessonDates();
+        }
+    }, [location?.pathname, user]);
 
     const loadEvents = async () => {
         if (!user) return;
@@ -39,7 +91,9 @@ export const Home = () => {
             const { data, error } = await supabase
                 .from('calendar_events')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .order('date', { ascending: true })
+                .order('created_at', { ascending: true });
 
             if (error) {
                 // if auth error persists-  sign out
@@ -51,16 +105,73 @@ export const Home = () => {
                 }
                 console.error('Error loading events:', error);
             } else if (data) {
-                const eventsMap: { [key: string]: string } = {};
-                data.forEach(event => {
-                    eventsMap[event.date] = event.event_text;
-                });
-                setEvents(eventsMap);
+                setEventsList((data as CalendarEventRow[]).map(e => ({ id: e.id, date: e.date, event_text: e.event_text })));
             }
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
             navigate('/login');
+        }
+    };
+
+    const loadBookedLessonDates = async () => {
+        if (!user) return;
+        try {
+            await ensureValidSession();
+            const statusFilter = ["pending", "confirmed"];
+            const { data: asStudent } = await supabase
+                .from("bookings")
+                .select("lesson_date")
+                .eq("student_id", user.id)
+                .in("status", statusFilter);
+            const { data: asTeacher } = await supabase
+                .from("bookings")
+                .select("lesson_date")
+                .eq("teacher_id", user.id)
+                .in("status", statusFilter);
+            const toDateKey = (iso: string) => String(iso).split("T")[0].trim();
+            const allDates = [...(asStudent ?? []), ...(asTeacher ?? [])]
+                .map((r: { lesson_date: string }) => toDateKey(r.lesson_date))
+                .filter(Boolean);
+            const keys = [...new Set(allDates)];
+            setBookedLessonDates(keys);
+
+            if (role === 'student') {
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setPendingBookingsCount(count ?? 0);
+
+                const todayKeyOnly = new Date().toISOString().slice(0, 10);
+                const { count: todayCount } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('student_id', user.id)
+                    .in('status', ['pending', 'confirmed'])
+                    .eq('lesson_date', todayKeyOnly);
+                setTodayBookingsCount(todayCount ?? 0);
+            } else if (role === 'teacher') {
+                setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const { count: teacherPending } = await supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('teacher_id', user.id)
+                    .eq('status', 'pending')
+                    .gte('lesson_date', todayKey);
+                setTeacherPendingCount(teacherPending ?? 0);
+            } else {
+                setPendingBookingsCount(0);
+                setTodayBookingsCount(0);
+                setTeacherPendingCount(0);
+            }
+        } catch (e) {
+            console.error('Failed to load booked lesson dates:', e);
         }
     };
 
@@ -87,14 +198,249 @@ export const Home = () => {
                 }
                 console.error('Error loading stats:', error);
             } else if (data) {
+                setCurrentStreak(data.current_streak || 0);
                 setLongestStreak(data.longest_streak || 0);
             } else {
+                setCurrentStreak(0);
                 setLongestStreak(0);
             }
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
             navigate('/login');
+        }
+    };
+
+    const loadStudyPlans = async () => {
+        if (!user) return;
+
+        try {
+            await ensureValidSession();
+
+            const { data, error } = await supabase
+                .from('study_plans')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading study plans:', error);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                const transformed: StudyPlanType[] = data.map((row: { id: string; user_id: string; preferences: { exam_subject?: string; exam_date: string; study_days_per_week: number; topics_per_day: number; bel_level: string; literature_level: string }; plan: StudyPlanType['plan']; created_at?: string; updated_at?: string }) => ({
+                    id: row.id,
+                    user_id: row.user_id,
+                    preferences: {
+                        examSubject: normalizeExamSubject(row.preferences.exam_subject),
+                        examDate: new Date(row.preferences.exam_date),
+                        studyDaysPerWeek: row.preferences.study_days_per_week,
+                        topicsPerDay: row.preferences.topics_per_day,
+                        belLevel: row.preferences.bel_level as KnowledgeLevel,
+                        literatureLevel: row.preferences.literature_level as KnowledgeLevel,
+                    },
+                    plan: row.plan,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                }));
+                setStudyPlans(transformed);
+                const savedId = typeof window !== 'undefined' ? sessionStorage.getItem('homeSelectedPlanId') : null;
+                const firstId = transformed[0].id!;
+                const idToSelect: string = savedId && transformed.some(p => p.id === savedId) ? savedId : firstId;
+                setSelectedPlanId(idToSelect);
+                if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', idToSelect);
+            } else {
+                setStudyPlans([]);
+                setSelectedPlanId(null);
+            }
+        } catch (error) {
+            console.error('Failed to load study plans:', error);
+        }
+    };
+
+    const loadMessages = async () => {
+        if (!user || role !== 'teacher') return;
+
+        setLoadingMessages(true);
+        try {
+            await ensureValidSession();
+
+            // load messages where teacher is the recipient
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('teacher_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading messages:', error);
+            } else if (data) {
+                // get student information for each message
+                const messagesWithStudents = await Promise.all(
+                    data.map(async (message) => {
+                        // get student profile info
+                        const { data: studentData } = await supabase
+                            .from('profiles')
+                            .select('first_name, last_name, email')
+                            .eq('id', message.student_id)
+                            .single();
+
+                        return {
+                            ...message,
+                            student_name: studentData 
+                                ? `${studentData.first_name || ''} ${studentData.last_name || ''}`.trim() || studentData.email?.split('@')[0] || 'Ученик'
+                                : 'Ученик',
+                            student_email: studentData?.email || null
+                        };
+                    })
+                );
+
+                setMessages(messagesWithStudents);
+            }
+        } catch (error) {
+            console.error('Failed to load messages:', error);
+        } finally {
+            setLoadingMessages(false);
+        }
+    };
+
+    const loadLessonsData = useCallback(async () => {
+        if (!user) return;
+        setLessonsLoading(true);
+        try {
+            await ensureValidSession();
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            if (role === "student") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, status, teacher_profile_id")
+                    .eq("student_id", user.id)
+                    .in("status", ["pending", "confirmed"])
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; status: string; teacher_profile_id: string }[];
+                const slotKey = (b: { lesson_date: string; lesson_time: string }) =>
+                    `${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKey(x) === slotKey(b)) === i);
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.teacher_profile_id))];
+                    const { data: tp } = await supabase.from("teacher_profiles").select("id, full_name, user_id").in("id", ids);
+                    const map = new Map((tp ?? []).map((p: { id: string; full_name: string | null; user_id: string }) => [p.id, { name: p.full_name ?? "Учител", userId: p.user_id }]));
+                    setStudentBookings(list.map((b) => ({ ...b, teacher_name: map.get(b.teacher_profile_id)?.name ?? "Учител", teacher_id: map.get(b.teacher_profile_id)?.userId ?? "" })));
+                } else {
+                    setStudentBookings([]);
+                }
+                setPendingBookings([]);
+            } else if (role === "teacher") {
+                const { data: rows } = await supabase
+                    .from("bookings")
+                    .select("id, lesson_date, lesson_time, message, student_id, status")
+                    .eq("teacher_id", user.id)
+                    .in("status", ["pending", "confirmed"])
+                    .gte("lesson_date", todayKey)
+                    .order("lesson_date", { ascending: true })
+                    .order("lesson_time", { ascending: true });
+                const raw = (rows ?? []) as { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string; status: string }[];
+                const slotKeyT = (b: { student_id: string; lesson_date: string; lesson_time: string }) =>
+                    `${b.student_id}-${String(b.lesson_date).slice(0, 10)}-${String(b.lesson_time).slice(0, 5)}`;
+                const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKeyT(x) === slotKeyT(b)) === i);
+                if (list.length > 0) {
+                    const ids = [...new Set(list.map((b) => b.student_id))];
+                    const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+                    const map = new Map((pr ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Ученик"]));
+                    setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик", status: b.status })));
+                } else {
+                    setPendingBookings([]);
+                }
+                setStudentBookings([]);
+            } else {
+                setStudentBookings([]);
+                setPendingBookings([]);
+            }
+        } catch (e) {
+            console.error("Lessons load:", e);
+        } finally {
+            setLessonsLoading(false);
+        }
+    }, [user, role]);
+
+    useEffect(() => {
+        if (user && activeMenu === "lessons") loadLessonsData();
+    }, [user, activeMenu, loadLessonsData]);
+
+    const handleCancelMyBooking = async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("student_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            if (teacherId) {
+                await supabase.from("messages").insert({
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    message: `Отмених записания час на ${text}.`,
+                    is_from_student: true,
+                });
+            }
+            showToast("Часът е отменен.");
+            await loadLessonsData();
+            await loadBookedLessonDates();
+            await loadEvents();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        }
+    };
+
+    const handleConfirmBooking = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "confirmed" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Вашият час на ${text} е потвърден. До скоро!`,
+                is_from_student: false,
+            });
+            showToast("Часът е потвърден.");
+            await loadLessonsData();
+            loadBookedLessonDates();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при потвърждаване.");
+        } finally {
+            setActingOnBookingId(null);
+        }
+    };
+
+    const handleCancelByTeacher = async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
+        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+        setActingOnBookingId(bookingId);
+        try {
+            const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", bookingId).eq("teacher_id", user.id);
+            if (error) throw error;
+            const text = formatDateTimeLessons(lessonDate, lessonTime);
+            await supabase.from("messages").insert({
+                student_id: studentId,
+                teacher_id: user.id,
+                message: `Съжалявам, часът на ${text} е отменен. Можете да запишете друг час.`,
+                is_from_student: false,
+            });
+            showToast("Часът е отказен.");
+            await loadLessonsData();
+            await loadBookedLessonDates();
+            await loadEvents();
+        } catch (e) {
+            console.error(e);
+            showToast("Грешка при отказ.");
+        } finally {
+            setActingOnBookingId(null);
         }
     };
 
@@ -130,13 +476,166 @@ export const Home = () => {
     const formatDateKey = (day: number) => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-        return `${year}-${month + 1}-${day}`;
+        const monthStr = String(month + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        return `${year}-${monthStr}-${dayStr}`;
     };
+
+    const getTodayDateKey = () => {
+        const t = new Date();
+        const year = t.getFullYear();
+        const month = String(t.getMonth() + 1).padStart(2, '0');
+        const day = String(t.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const getTodayStudyTasks = () => {
+        if (!studyPlan) return null;
+        const todayKey = getTodayDateKey();
+        return studyPlan.plan.find(day => day.date === todayKey);
+    };
+
+    const getUpcomingStudyTopics = () => {
+        if (!studyPlan) return [];
+        const todayKey = getTodayDateKey();
+        const todayDate = new Date(todayKey);
+        const upcoming: Array<{ date: string; studyDay: StudyPlanType['plan'][0] }> = [];
+        for (let i = 1; i <= 5; i++) {
+            const nextDate = new Date(todayDate);
+            nextDate.setDate(todayDate.getDate() + i);
+            const year = nextDate.getFullYear();
+            const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+            const day = String(nextDate.getDate()).padStart(2, '0');
+            const dateKey = `${year}-${month}-${day}`;
+            const studyDay = studyPlan.plan.find(d => d.date === dateKey);
+            if (studyDay && studyDay.topics.length > 0 && !studyDay.completed && !studyDay.missed) {
+                upcoming.push({ date: dateKey, studyDay });
+                if (upcoming.length >= 5) break;
+            }
+        }
+        return upcoming;
+    };
+
+    const getStudyPlanProgress = () => {
+        if (!studyPlan) return null;
+        const totalDays = studyPlan.plan.length;
+        const completedDays = studyPlan.plan.filter(d => d.completed).length;
+        const missedDays = studyPlan.plan.filter(d => d.missed).length;
+        const totalTopics = studyPlan.plan.reduce((sum, day) => sum + day.topics.length, 0);
+        const completedTopics = studyPlan.plan
+            .filter(d => d.completed)
+            .reduce((sum, day) => sum + day.topics.length, 0);
+        return {
+            totalDays,
+            completedDays,
+            missedDays,
+            totalTopics,
+            completedTopics,
+            completionPercentage: totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0,
+            topicsCompletionPercentage: totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0,
+        };
+    };
+
+    const studyPlanHasContent = studyPlan && hasPlanContent(studyPlan.preferences.examSubject) && studyPlan.plan.length > 0;
+
+    const handleMarkStudyDayCompleted = async (date: string) => {
+        if (!user || !studyPlan) return;
+
+        try {
+            await ensureValidSession();
+
+            const updatedPlan = {
+                ...studyPlan,
+                plan: studyPlan.plan.map(d =>
+                    d.date === date ? { ...d, completed: !d.completed, missed: false } : d
+                ),
+            };
+
+            const { error } = await supabase
+                .from('study_plans')
+                .update({
+                    plan: updatedPlan.plan,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id)
+                .eq('id', studyPlan.id);
+
+            if (error) {
+                console.error('Error updating study plan:', error);
+                showToast('Възникна грешка при актуализирането на плана.');
+            } else {
+                setStudyPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+            }
+        } catch (error) {
+            console.error('Failed to mark day as completed:', error);
+            showToast('Възникна грешка. Моля, опитайте отново.');
+        }
+    };
+
+    const handleMarkStudyDayMissed = async (date: string) => {
+        if (!user || !studyPlan) return;
+
+        const dayToMark = studyPlan.plan.find(d => d.date === date);
+        if (!dayToMark) return;
+
+        if (dayToMark.completed) {
+            showToast('Не можете да маркирате завършен ден като пропускан.');
+            return;
+        }
+
+        if (dayToMark.missed) {
+            showToast('Този ден вече е маркиран като пропускан.');
+            return;
+        }
+
+        if (!confirm('Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени автоматично.')) {
+            return;
+        }
+
+        try {
+            await ensureValidSession();
+
+            const updatedPlan = rescheduleMissedDay(studyPlan, date);
+
+            const missedDay = updatedPlan.plan.find(d => d.date === date);
+            if (!missedDay || !missedDay.missed) {
+                showToast('Възникна грешка при маркирането на деня като пропускан.');
+                return;
+            }
+
+            const { error } = await supabase
+                .from('study_plans')
+                .update({
+                    plan: updatedPlan.plan,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id)
+                .eq('id', studyPlan.id);
+
+            if (error) {
+                console.error('Error updating study plan:', error);
+                showToast('Възникна грешка при актуализирането на плана.');
+            } else {
+                setStudyPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+            }
+        } catch (error) {
+            console.error('Failed to mark day as missed:', error);
+            showToast('Възникна грешка. Моля, опитайте отново.');
+        }
+    };
+
+    const eventsForDate = (dateKey: string) => eventsList.filter(e => e.date === dateKey);
+    const hasEventOnDate = (dateKey: string) => eventsForDate(dateKey).length > 0;
+    const hasBookedLessonOnDate = (dateKey: string) => bookedLessonDates.includes(dateKey);
+    const hasDotOnDate = (dateKey: string) => hasBookedLessonOnDate(dateKey) || hasEventOnDate(dateKey);
 
     const handleDayClick = (day: number) => {
         const dateKey = formatDateKey(day);
         setSelectedDay(dateKey);
-        setEventText(events[dateKey] || "");
+        const dayEvents = eventsForDate(dateKey);
+        const first = dayEvents[0];
+        setSelectedEventId(first?.id ?? null);
+        setEventText(first?.event_text ?? "");
     };
 
     const handleSaveEvent = async () => {
@@ -147,46 +646,36 @@ export const Home = () => {
             await ensureValidSession();
 
             if (eventText.trim()) {
-                // check if event already exists
-                const { data: existingEvent } = await supabase
-                    .from('calendar_events')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('date', selectedDay)
-                    .single();
-
                 let error;
-                if (existingEvent) {
-                    // update existing event
+                if (selectedEventId) {
                     const result = await supabase
                         .from('calendar_events')
                         .update({ event_text: eventText })
-                        .eq('user_id', user.id)
-                        .eq('date', selectedDay);
+                        .eq('id', selectedEventId)
+                        .eq('user_id', user.id);
                     error = result.error;
                 } else {
-                    // insert new event
                     const result = await supabase
                         .from('calendar_events')
-                        .insert({ 
-                            user_id: user.id, 
-                            date: selectedDay, 
-                            event_text: eventText 
+                        .insert({
+                            user_id: user.id,
+                            date: selectedDay!,
+                            event_text: eventText
                         });
                     error = result.error;
                 }
 
                 if (error) {
                     console.error('Error saving event:', error);
-                    alert('Failed to save event. Check console for details.');
+                    showToast('Грешка при запазване на събитието. Моля, опитайте отново.');
                 } else {
-                    setEvents({ ...events, [selectedDay]: eventText });
+                    loadEvents();
                 }
             } else {
-                // delete event if text is empty
                 await handleDeleteEvent();
             }
             setSelectedDay(null);
+            setSelectedEventId(null);
             setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
@@ -199,24 +688,28 @@ export const Home = () => {
         if (!selectedDay || !user) return;
 
         try {
-            // ensure we have a valid access token before making request
             await ensureValidSession();
 
-            const { error } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('user_id', user.id)
-                .eq('date', selectedDay);
-
-            if (error) {
-                console.error('Error deleting event:', error);
+            if (selectedEventId) {
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('id', selectedEventId)
+                    .eq('user_id', user.id);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             } else {
-                const newEvents = { ...events };
-                delete newEvents[selectedDay];
-                setEvents(newEvents);
-                setSelectedDay(null);
-                setEventText("");
+                const { error } = await supabase
+                    .from('calendar_events')
+                    .delete()
+                    .eq('user_id', user.id)
+                    .eq('date', selectedDay);
+                if (error) console.error('Error deleting event:', error);
+                else loadEvents();
             }
+            setSelectedDay(null);
+            setSelectedEventId(null);
+            setEventText("");
         } catch (error) {
             console.error('Failed to ensure valid session:', error);
             await supabase.auth.signOut();
@@ -228,24 +721,74 @@ export const Home = () => {
 
     const getUpcomingEvents = () => {
         const today = new Date();
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
+        today.setHours(0, 0, 0, 0);
+
+        const regularEvents = eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                const eventDate = new Date(y, m - 1, d);
+                eventDate.setHours(0, 0, 0, 0);
+                return { id: e.id, date: eventDate, dateStr: e.date, event: e.event_text, type: 'event' as const };
             })
-            .filter(item => item.date >= today)
+            .filter(item => item.date >= today);
+
+        const studyPlanEvents: Array<{ id: string; date: Date; dateStr: string; event: string; type: 'study' }> = [];
+        if (studyPlan) {
+            studyPlan.plan.forEach(studyDay => {
+                if (studyDay.topics.length > 0 && !studyDay.completed && !studyDay.missed) {
+                    const [year, month, day] = studyDay.date.split('-').map(Number);
+                    const studyDate = new Date(year, month - 1, day);
+                    studyDate.setHours(0, 0, 0, 0);
+                    if (studyDate >= today) {
+                        const topicsText = studyDay.topics.map(t => `${t.subject}: ${t.name}`).join(', ');
+                        studyPlanEvents.push({
+                            id: `study-${studyDay.date}`,
+                            date: studyDate,
+                            dateStr: studyDay.date,
+                            event: `📚 ${topicsText}`,
+                            type: 'study'
+                        });
+                    }
+                }
+            });
+        }
+
+        const allEvents = [...regularEvents, ...studyPlanEvents]
             .sort((a, b) => a.date.getTime() - b.date.getTime())
-            .slice(0, 5);
+            .slice(0, 10);
+        return allEvents;
     };
 
     const getAllEvents = () => {
-        return Object.entries(events)
-            .map(([date, event]) => {
-                const [year, month, day] = date.split('-').map(Number);
-                return { date: new Date(year, month - 1, day), dateStr: date, event };
-            })
+        const regularEvents = eventsList
+            .map(e => {
+                const [y, m, d] = e.date.split('-').map(Number);
+                return { id: e.id, date: new Date(y, m - 1, d), dateStr: e.date, event: e.event_text, type: 'event' as const };
+            });
+
+        const studyPlanEvents: Array<{ id: string; date: Date; dateStr: string; event: string; type: 'study' }> = [];
+        if (studyPlan) {
+            studyPlan.plan.forEach(studyDay => {
+                if (studyDay.topics.length > 0) {
+                    const [year, month, day] = studyDay.date.split('-').map(Number);
+                    const studyDate = new Date(year, month - 1, day);
+                    const topicsText = studyDay.topics.map(t => `${t.subject}: ${t.name}`).join(', ');
+                    const statusIcon = studyDay.completed ? '✓' : studyDay.missed ? '✗' : '📚';
+                    studyPlanEvents.push({
+                        id: `study-${studyDay.date}`,
+                        date: studyDate,
+                        dateStr: studyDay.date,
+                        event: `${statusIcon} ${topicsText}`,
+                        type: 'study'
+                    });
+                }
+            });
+        }
+
+        const allEvents = [...regularEvents, ...studyPlanEvents]
             .sort((a, b) => b.date.getTime() - a.date.getTime())
-            .slice(0, 10);
+            .slice(0, 15);
+        return allEvents;
     };
 
 
@@ -281,6 +824,24 @@ export const Home = () => {
                 </svg>
             )
         },
+        {
+            id: 'lessons' as const,
+            label: 'Часове',
+            icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            )
+        },
+        ...(role === 'teacher' ? [{
+            id: 'messages' as const,
+            label: 'Съобщения',
+            icon: (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+            )
+        }] : []),
     ];
 
 
@@ -399,7 +960,7 @@ export const Home = () => {
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-xl border border-purple-100/50">
                                     <span className="text-xs font-medium text-slate-600">Общо събития</span>
-                                    <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                    <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                                 </div>
                             </div>
                         </div>
@@ -422,6 +983,20 @@ export const Home = () => {
                                     </p>
                                 </div>
 
+                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 shadow-md border-2 border-purple-200/40 max-w-md">
+                                    <h3 className="text-lg font-bold text-slate-900 mb-3">Часове</h3>
+                                    <ul className="space-y-1.5 text-slate-700 mb-4">
+                                        <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{teacherPendingCount}</span></li>
+                                    </ul>
+                                    <button
+                                        onClick={() => setActiveMenu('lessons')}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                    >
+                                        Виж всички
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </div>
+
                                 {/* statistics row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Total events card */}
@@ -435,7 +1010,7 @@ export const Home = () => {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{Object.keys(events).length}</p>
+                                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{eventsList.length}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -514,17 +1089,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().slice(0, 5).map(({ date, dateStr, event }) => (
+                                            getAllEvents().slice(0, 5).map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -601,7 +1178,7 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
                                             
                                             return (
@@ -615,9 +1192,9 @@ export const Home = () => {
                                                     }`}
                                                 >
                                                     {day}
-                                                    {hasEvent && !isToday && (
+                                                    {hasDot && (
                                                         <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                            <span className={`w-2 h-2 rounded-full block ${isToday ? 'bg-white/90' : 'bg-purple-600'}`} aria-hidden />
                                                         </div>
                                                     )}
                                                 </button>
@@ -668,16 +1245,18 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event }) => (
                                                             <div 
-                                                                key={dateStr} 
+                                                                key={id} 
                                                                 className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
+                                                                    setSelectedEventId(id);
                                                                     setEventText(event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
+                                                                    <span className="flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-purple-600" aria-hidden />
                                                                     <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -727,17 +1306,19 @@ export const Home = () => {
                                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                             </div>
                                         ) : (
-                                            getAllEvents().map(({ date, dateStr, event }) => (
+                                            getAllEvents().map(({ id, date, dateStr, event }) => (
                                                 <div 
-                                                    key={dateStr} 
+                                                    key={id} 
                                                     className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                     onClick={() => {
                                                         setActiveMenu('calendar');
                                                         setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
                                                         setEventText(event);
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-4">
+                                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                             <span className="uppercase leading-tight">
                                                                 {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -758,6 +1339,250 @@ export const Home = () => {
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* messages view - only for teachers */}
+                        {activeMenu === 'messages' && role === 'teacher' && (
+                            <div className="space-y-8">
+                                <div className="mb-10">
+                                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Съобщения</h2>
+                                    <p className="text-base font-semibold text-slate-600">Прегледайте съобщенията от ученици</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-200/15 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="flex items-center justify-between mb-6 relative">
+                                        <h3 className="text-xl font-bold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                            Всички съобщения ({messages.length})
+                                        </h3>
+                                        <button
+                                            onClick={loadMessages}
+                                            disabled={loadingMessages}
+                                            className="px-4 py-2 text-sm font-semibold text-purple-900 hover:bg-purple-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        >
+                                            <svg 
+                                                className={`w-4 h-4 ${loadingMessages ? 'animate-spin' : ''}`} 
+                                                fill="none" 
+                                                stroke="currentColor" 
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            Обнови
+                                        </button>
+                                    </div>
+                                    <div className="space-y-3 relative">
+                                        {loadingMessages ? (
+                                            <div className="text-center py-12">
+                                                <div className="w-16 h-16 border-4 border-purple-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                                <p className="text-sm font-semibold text-slate-700">Зареждане на съобщения...</p>
+                                            </div>
+                                        ) : messages.length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-200/40">
+                                                    <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <p className="text-sm font-normal text-slate-500">Няма получени съобщения</p>
+                                            </div>
+                                        ) : (
+                                            messages.map((message) => {
+                                                const messageDate = new Date(message.created_at);
+                                                const isRead = message.read_at !== null;
+                                                
+                                                const markAsRead = async () => {
+                                                    if (isRead || !user) return;
+                                                    
+                                                    try {
+                                                        await ensureValidSession();
+                                                        const { error } = await supabase
+                                                            .from('messages')
+                                                            .update({ read_at: new Date().toISOString() })
+                                                            .eq('id', message.id);
+                                                        
+                                                        if (!error) {
+                                                            // Update local state
+                                                            setMessages(prev => 
+                                                                prev.map(msg => 
+                                                                    msg.id === message.id 
+                                                                        ? { ...msg, read_at: new Date().toISOString() }
+                                                                        : msg
+                                                                )
+                                                            );
+                                                        }
+                                                    } catch (error) {
+                                                        console.error('Error marking message as read:', error);
+                                                    }
+                                                };
+                                                
+                                                return (
+                                                    <div
+                                                        key={message.id}
+                                                        onClick={markAsRead}
+                                                        className={`group bg-gradient-to-br ${isRead ? 'from-slate-50/60 to-white' : 'from-purple-50/80 to-white'} hover:from-purple-100/70 hover:to-white border-2 ${isRead ? 'border-slate-200/60' : 'border-purple-300/60'} rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:border-purple-400/70 relative overflow-hidden cursor-pointer`}
+                                                    >
+                                                        <div className="absolute inset-0 bg-gradient-to-br from-purple-100/0 to-purple-200/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                        <div className="flex items-start gap-4 relative z-10">
+                                                            <div className="flex-shrink-0">
+                                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                                                                    {(message.student_name ?? 'У').charAt(0).toUpperCase()}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div>
+                                                                        <p className="text-base font-bold text-slate-900">
+                                                                            {message.student_name ?? 'Ученик'}
+                                                                        </p>
+                                                                        {message.student_email && (
+                                                                            <p className="text-xs font-medium text-slate-500">
+                                                                                {message.student_email}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        {!isRead && (
+                                                                            <span className="w-2 h-2 bg-purple-600 rounded-full animate-pulse"></span>
+                                                                        )}
+                                                                        <span className="text-xs font-medium text-slate-500">
+                                                                            {messageDate.toLocaleDateString('bg-BG', { 
+                                                                                day: 'numeric', 
+                                                                                month: 'short', 
+                                                                                year: 'numeric',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit'
+                                                                            })}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                                                    {message.message}
+                                                                </p>
+                                                                {!isRead && (
+                                                                    <p className="text-xs font-semibold text-purple-600 mt-2">
+                                                                        Кликнете, за да маркирате като прочетено
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* lessons view - teacher */}
+                        {activeMenu === 'lessons' && role === 'teacher' && (
+                            <div className="max-w-3xl">
+                                <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                    </div>
+                                    <p className="text-slate-500 text-[15px] ml-[52px]">Чакащи потвърждение и потвърдени часове. Можете да откажете час при нужда.</p>
+                                </header>
+                                {lessonsLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                        <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                        <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                    </div>
+                                ) : pendingBookings.length === 0 ? (
+                                    <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                        <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                            <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-slate-800 mb-2">Няма записани часове</h3>
+                                        <p className="text-slate-500 text-[15px] max-w-sm mx-auto">Нови записи от ученици ще се появят тук. Можете да ги потвърдите или откажете.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-10">
+                                        {(() => {
+                                            const pending = pendingBookings.filter((b) => (b.status ?? "pending") === "pending");
+                                            const confirmed = pendingBookings.filter((b) => b.status === "confirmed");
+                                            const renderBooking = (b: { id: string; lesson_date: string; lesson_time: string; message: string | null; student_id: string; status: string; student_name?: string }, showConfirm: boolean) => {
+                                                const lessonDate = new Date(b.lesson_date + "T12:00");
+                                                const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                                const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                                const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                                return (
+                                                    <li
+                                                        key={b.id}
+                                                        className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                                    >
+                                                        <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                            <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                                <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                                    <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                                    <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                                    <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-semibold text-slate-900 text-[15px]">
+                                                                        {String(b.lesson_time).slice(0, 5)} ч.
+                                                                    </p>
+                                                                    <p className="text-slate-600 text-[15px] mt-0.5 truncate">{b.student_name}</p>
+                                                                    {b.message && (
+                                                                        <p className="text-sm text-slate-400 mt-2 truncate max-w-sm" title={b.message}>{b.message}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2.5 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                                {showConfirm && (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={actingOnBookingId !== null}
+                                                                        onClick={() => handleConfirmBooking(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
+                                                                    >
+                                                                        {actingOnBookingId === b.id ? "Изчакване..." : "Потвърди"}
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={actingOnBookingId !== null}
+                                                                    onClick={() => handleCancelByTeacher(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                                                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
+                                                                >
+                                                                    Откажи час
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            };
+                                            return (
+                                                <>
+                                                    {pending.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-3">Чакащи потвърждение</h3>
+                                                            <ul className="space-y-3">
+                                                                {pending.map((b) => renderBooking(b, true))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                    {confirmed.length > 0 && (
+                                                        <section>
+                                                            <h3 className="text-sm font-bold text-emerald-800 uppercase tracking-wider mb-3">Потвърдени часове</h3>
+                                                            <ul className="space-y-3">
+                                                                {confirmed.map((b) => renderBooking(b, false))}
+                                                            </ul>
+                                                        </section>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -790,11 +1615,12 @@ export const Home = () => {
                             <div className="mb-6">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                        {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                        {selectedEventId || eventsForDate(selectedDay).length > 0 ? 'Редактирай събитие' : 'Ново събитие'}
                                     </h3>
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="p-2 hover:bg-slate-50 rounded-xl transition-all duration-300 hover:scale-110"
@@ -819,7 +1645,7 @@ export const Home = () => {
                                 autoFocus
                             />
                             <div className="flex items-center justify-between gap-3">
-                                {events[selectedDay] && (
+                                {(selectedEventId || eventsForDate(selectedDay).length > 0) && (
                                     <button
                                         onClick={handleDeleteEvent}
                                         className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
@@ -834,6 +1660,7 @@ export const Home = () => {
                                     <button
                                         onClick={() => {
                                             setSelectedDay(null);
+                                            setSelectedEventId(null);
                                             setEventText("");
                                         }}
                                         className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
@@ -983,12 +1810,16 @@ export const Home = () => {
                         </div>
                         <div className="space-y-2.5 relative">
                             <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
-                                <span className="text-xs font-bold text-purple-700">Серия</span>
+                                <span className="text-xs font-bold text-purple-700">Текуща серия</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{currentStreak} дни</span>
+                            </div>
+                            <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
+                                <span className="text-xs font-bold text-purple-700">Най-дълга</span>
                                 <span className="text-base font-bold text-purple-900 tabular-nums">{longestStreak} дни</span>
                             </div>
                             <div className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-purple-100/60 to-purple-50/40 rounded-lg border border-purple-200/40">
                                 <span className="text-xs font-bold text-purple-700">Събития</span>
-                                <span className="text-base font-bold text-purple-900 tabular-nums">{Object.keys(events).length}</span>
+                                <span className="text-base font-bold text-purple-900 tabular-nums">{eventsList.length}</span>
                             </div>
                         </div>
                     </div>
@@ -1002,6 +1833,168 @@ export const Home = () => {
                     {activeMenu === 'dashboard' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
                             <div className="max-w-2xl w-full px-8">
+                                {role === 'student' && pendingBookingsCount > 0 && (
+                                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200 flex items-center justify-between gap-4 flex-wrap">
+                                        <p className="text-amber-800 font-semibold">
+                                            ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? 'час' : 'часа'}, който чака потвърждение от учителя.
+                                        </p>
+                                        <button
+                                            onClick={() => setActiveMenu('lessons')}
+                                            className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors"
+                                        >
+                                            Виж всички
+                                        </button>
+                                    </div>
+                                )}
+
+                                {role === 'student' && (
+                                    <div className="mb-8 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-6 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
+                                        <h2 className="text-xl font-bold text-slate-900 mb-4">📚 Часове</h2>
+                                        <ul className="space-y-2 text-slate-700 mb-4">
+                                            <li>• Днес: <span className="font-bold text-purple-900">{todayBookingsCount}</span></li>
+                                            <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{pendingBookingsCount}</span></li>
+                                        </ul>
+                                        <button
+                                            onClick={() => setActiveMenu('lessons')}
+                                            className="w-full px-4 py-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                                        >
+                                            Виж всички
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* plan selector - when multiple plans */}
+                                {role === 'student' && plansWithId.length > 1 && (
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-bold text-slate-600 mb-2">План по предмет</label>
+                                        <select
+                                            value={plansWithId.some(p => p.id === selectedPlanId) ? (selectedPlanId ?? '') : effectivePlanId}
+                                            onChange={(e) => {
+                                                const id = e.target.value;
+                                                if (id && plansWithId.some(p => p.id === id)) {
+                                                    setSelectedPlanId(id);
+                                                    if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', id);
+                                                }
+                                            }}
+                                            className="px-4 py-3 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+                                        >
+                                            {plansWithId.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.preferences.examSubject}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* create plan / add another plan card */}
+                                {role === 'student' && (
+                                    <div className="mb-8 bg-white/70 backdrop-blur-xl rounded-3xl p-8 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-bold text-slate-800 mb-2">
+                                                    {studyPlans.length > 0 ? 'Добави план по друг предмет' : 'Създай своя персонален учебен план'}
+                                                </h3>
+                                                <p className="text-sm text-slate-600">
+                                                    {studyPlans.length > 0 ? 'Създай учебен план по още един матурен предмет.' : 'Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време и цел за матурата.'}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate('/study-plan/intro')}
+                                                className="px-6 py-4 rounded-xl font-bold bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-400 hover:to-violet-400 text-white transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                {studyPlans.length > 0 ? 'Нов план' : 'Направи ми план'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* plan exists but no content for this subject */}
+                                {role === 'student' && studyPlan && !studyPlanHasContent && (
+                                    <div className="mb-8 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+                                        <p className="text-amber-900 font-bold text-lg">За предмет „{studyPlan.preferences.examSubject}" все още няма готово съдържание.</p>
+                                        <p className="text-amber-800 text-sm mt-2">Ще активираме плана, когато има теми за учене. До тогава можеш да използваш календара и останалите функции.</p>
+                                    </div>
+                                )}
+
+                                {/* today's study tasks */}
+                                {role === 'student' && studyPlanHasContent && getTodayStudyTasks() && getTodayStudyTasks()!.topics.length > 0 && (
+                                    <div className="mb-8 bg-white/80 rounded-3xl p-8 shadow-xl border-2 border-purple-200/50">
+                                        <h3 className="text-xl font-bold text-slate-800 mb-4">Днешни учебни задачи</h3>
+                                        <p className="text-sm text-slate-600 mb-4">{new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                                        <div className="space-y-3">
+                                            {getTodayStudyTasks()!.topics.map((topic, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`p-4 rounded-xl border-2 ${topic.subject === 'Български език' ? 'border-purple-200 bg-purple-50/50' : 'border-amber-200 bg-amber-50/50'}`}
+                                                >
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded ${topic.subject === 'Български език' ? 'bg-purple-200 text-purple-700' : 'bg-amber-200 text-amber-700'}`}>{topic.subject}</span>
+                                                    <p className="mt-2 font-semibold text-slate-900">{topic.name}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {!getTodayStudyTasks()?.completed && !getTodayStudyTasks()?.missed && (
+                                            <button
+                                                onClick={() => setActiveMenu('calendar')}
+                                                className="mt-6 w-full px-4 py-3 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                                            >
+                                                Започни учене сега
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* study progress - when plan has content */}
+                                {role === 'student' && studyPlanHasContent && getStudyPlanProgress() && (
+                                    <div className="mb-8 bg-white/80 rounded-3xl p-6 shadow-xl border-2 border-emerald-200/50">
+                                        <h3 className="text-lg font-bold text-slate-800 mb-3">Напредък в ученето</h3>
+                                        <div className="flex items-center justify-between gap-4 mb-3">
+                                            <span className="text-sm font-semibold text-slate-600">Общ напредък</span>
+                                            <span className="text-2xl font-bold text-emerald-600 tabular-nums">{getStudyPlanProgress()!.completionPercentage}%</span>
+                                        </div>
+                                        <div className="w-full h-3 bg-emerald-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all" style={{ width: `${getStudyPlanProgress()!.completionPercentage}%` }} />
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2">Завършени теми: {getStudyPlanProgress()!.completedTopics} от {getStudyPlanProgress()!.totalTopics}</p>
+                                    </div>
+                                )}
+
+                                {/* upcoming study topics */}
+                                {role === 'student' && studyPlan && getUpcomingStudyTopics().length > 0 && (
+                                    <div className="mb-8 bg-white/80 rounded-3xl p-8 shadow-xl border-2 border-purple-200/50">
+                                        <h3 className="text-xl font-bold text-slate-800 mb-4">Предстоящи теми</h3>
+                                        <div className="space-y-4">
+                                            {getUpcomingStudyTopics().slice(0, 3).map(({ date, studyDay }) => {
+                                                const [y, m, d] = date.split('-').map(Number);
+                                                const studyDate = new Date(y, m - 1, d);
+                                                const tomorrow = new Date();
+                                                tomorrow.setDate(tomorrow.getDate() + 1);
+                                                tomorrow.setHours(0, 0, 0, 0);
+                                                studyDate.setHours(0, 0, 0, 0);
+                                                const isTomorrow = studyDate.getTime() === tomorrow.getTime();
+                                                return (
+                                                    <button
+                                                        key={date}
+                                                        onClick={() => setActiveMenu('calendar')}
+                                                        className="block w-full text-left p-4 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
+                                                    >
+                                                        <p className="text-xs font-bold text-slate-600 uppercase mb-1">{isTomorrow ? 'Утре' : studyDate.toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                                                        <p className="text-sm font-semibold text-slate-800">{studyDay.topics.length} теми</p>
+                                                        <div className="mt-2 flex flex-wrap gap-1">
+                                                            {studyDay.topics.slice(0, 2).map((t, i) => (
+                                                                <span key={i} className={`text-xs px-2 py-0.5 rounded ${t.subject === 'Български език' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>{t.name}</span>
+                                                            ))}
+                                                            {studyDay.topics.length > 2 && <span className="text-xs text-slate-500">+{studyDay.topics.length - 2}</span>}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <button onClick={() => setActiveMenu('calendar')} className="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700">Виж всички →</button>
+                                    </div>
+                                )}
+
                                 {/* countdown card */}
                                 <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
@@ -1050,7 +2043,7 @@ export const Home = () => {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                                <p className="text-3xl font-bold text-purple-900">{Object.keys(events).length}</p>
+                                                <p className="text-3xl font-bold text-purple-900">{eventsList.length}</p>
                                             </div>
                                         </div>
                                         
@@ -1068,6 +2061,35 @@ export const Home = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* find teacher card */}
+                                <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-8 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-200/20 to-transparent rounded-full blur-3xl"></div>
+                                    <div className="relative">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-lg">
+                                                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM17 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1">
+                                                <h2 className="text-2xl font-bold text-slate-900 mb-1">Намери учител</h2>
+                                                <p className="text-sm font-semibold text-slate-600">
+                                                    Открийте идеалния учител за вашата подготовка
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate('/find-teacher')}
+                                            className="w-full px-6 py-4 bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105 flex items-center justify-center gap-2"
+                                        >
+                                            <span>Прегледай учители</span>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1076,6 +2098,50 @@ export const Home = () => {
                     {activeMenu === 'calendar' && (
                         <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-12">
                             <div className="max-w-7xl w-full">
+                                {/* plan selector - student with multiple plans */}
+                                {role === 'student' && plansWithId.length > 1 && (
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-bold text-slate-600 mb-2">План по предмет</label>
+                                        <select
+                                            value={plansWithId.some(p => p.id === selectedPlanId) ? (selectedPlanId ?? '') : effectivePlanId}
+                                            onChange={(e) => {
+                                                const id = e.target.value;
+                                                if (id && plansWithId.some(p => p.id === id)) {
+                                                    setSelectedPlanId(id);
+                                                    if (typeof window !== 'undefined') sessionStorage.setItem('homeSelectedPlanId', id);
+                                                }
+                                            }}
+                                            className="px-4 py-3 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+                                        >
+                                            {plansWithId.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.preferences.examSubject}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                {/* study plan stats - student with plan and content */}
+                                {role === 'student' && studyPlan && studyPlanHasContent && (
+                                    <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-white/80 rounded-xl p-4 border border-purple-200/60">
+                                            <div className="text-xs font-bold text-slate-600 uppercase">Дни до изпита</div>
+                                            <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                                                {Math.max(0, Math.ceil((studyPlan.preferences.examDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/80 rounded-xl p-4 border border-purple-200/60">
+                                            <div className="text-xs font-bold text-slate-600 uppercase">Учебни дни</div>
+                                            <div className="text-2xl font-bold text-slate-900 tabular-nums">{studyPlan.plan.filter(d => !d.completed && !d.missed).length}</div>
+                                        </div>
+                                        <div className="bg-white/80 rounded-xl p-4 border border-emerald-200/60">
+                                            <div className="text-xs font-bold text-slate-600 uppercase">Завършени</div>
+                                            <div className="text-2xl font-bold text-emerald-600 tabular-nums">{studyPlan.plan.filter(d => d.completed).length}</div>
+                                        </div>
+                                        <div className="bg-white/80 rounded-xl p-4 border border-purple-200/60">
+                                            <div className="text-xs font-bold text-slate-600 uppercase">Теми на ден</div>
+                                            <div className="text-2xl font-bold text-slate-900 tabular-nums">{studyPlan.preferences.topicsPerDay}</div>
+                                        </div>
+                                    </div>
+                                )}
                                 {/* two column layout */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     {/* calendar */}
@@ -1122,25 +2188,43 @@ export const Home = () => {
                                         {Array.from({ length: daysInMonth }).map((_, index) => {
                                             const day = index + 1;
                                             const dateKey = formatDateKey(day);
-                                            const hasEvent = events[dateKey];
+                                            const hasDot = hasDotOnDate(dateKey);
                                             const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
-                                            
+                                            const studyDay = studyPlan?.plan.find(d => d.date === dateKey);
+                                            const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+
                                             return (
                                                 <button
                                                     key={day}
                                                     onClick={() => handleDayClick(day)}
-                                                    className={`relative aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                                                    className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 p-1 ${
                                                         isToday
                                                             ? 'bg-purple-900 text-white shadow-sm'
+                                                            : studyDay?.completed
+                                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                                            : studyDay?.missed
+                                                            ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                                                            : hasStudyTopics
+                                                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                                                             : 'text-slate-700 hover:bg-slate-50'
                                                     }`}
                                                 >
-                                                    {day}
-                                                    {hasEvent && !isToday && (
-                                                        <div className="absolute bottom-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block"></span>
+                                                    <span>{day}</span>
+                                                    {hasDot && !isToday && (
+                                                        <div className="absolute bottom-1.5 right-1.5">
+                                                            <span className="w-1.5 h-1.5 bg-purple-900 rounded-full block" aria-hidden />
                                                         </div>
                                                     )}
+                                                    {hasStudyTopics && (
+                                                        <div className="absolute bottom-1 left-1 flex gap-0.5 items-center">
+                                                            {studyDay!.topics.slice(0, 2).map((topic, idx) => (
+                                                                <span key={idx} className={`w-1 h-1 rounded-full ${topic.subject === 'Български език' ? 'bg-purple-600' : 'bg-amber-500'}`} title={topic.name} />
+                                                            ))}
+                                                            {studyDay!.topics.length > 2 && <span className="text-[8px] leading-none">+{studyDay!.topics.length - 2}</span>}
+                                                        </div>
+                                                    )}
+                                                    {studyDay?.completed && <div className="absolute top-1 right-1 text-xs">✓</div>}
+                                                    {studyDay?.missed && <div className="absolute top-1 right-1 text-xs">✗</div>}
                                                 </button>
                                             );
                                         })}
@@ -1148,7 +2232,7 @@ export const Home = () => {
 
                                     {/* legend and add button */}
                                     <div className="flex items-center justify-between mt-10 pt-8 border-t border-slate-100">
-                                        <div className="flex items-center gap-8 text-xs">
+                                        <div className="flex items-center gap-8 text-xs flex-wrap">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2.5 h-2.5 bg-purple-900 rounded-full"></div>
                                                 <span className="text-slate-600 font-normal">Днес</span>
@@ -1159,6 +2243,18 @@ export const Home = () => {
                                                 </div>
                                                 <span className="text-slate-600 font-normal">Събития</span>
                                             </div>
+                                            {studyPlan && role === 'student' && (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-blue-50 border border-blue-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Учебни теми</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 bg-emerald-50 border border-emerald-300 rounded-full"></div>
+                                                        <span className="text-slate-600 font-normal">Завършено</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                         <button 
                                             onClick={() => handleDayClick(new Date().getDate())}
@@ -1189,24 +2285,28 @@ export const Home = () => {
                                                             <p className="text-xs font-bold text-purple-700">Няма предстоящи събития</p>
                                                         </div>
                                                     ) : (
-                                                        getUpcomingEvents().map(({ date, dateStr, event }) => (
+                                                        getUpcomingEvents().map(({ id, date, dateStr, event, type }) => {
+                                                            const isStudy = type === 'study';
+                                                            return (
                                                             <div 
-                                                                key={dateStr} 
-                                                                className="group bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-2 border-purple-200/40 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md hover:border-purple-300/60"
+                                                                key={id} 
+                                                                className={`group rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-md border-2 ${isStudy ? 'bg-blue-50/80 hover:bg-blue-100/80 border-blue-200/60' : 'bg-gradient-to-br from-purple-50/50 to-white hover:from-purple-100/60 hover:to-white border-purple-200/40 hover:border-purple-300/60'}`}
                                                                 onClick={() => {
                                                                     setSelectedDay(dateStr);
-                                                                    setEventText(event);
+                                                                    setSelectedEventId(isStudy ? null : id);
+                                                                    setEventText(isStudy ? '' : event);
                                                                 }}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-900 to-purple-800 rounded-lg flex flex-col items-center justify-center text-white shadow-md">
+                                                                    <span className={`flex-shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full ${isStudy ? 'bg-blue-600' : 'bg-purple-600'}`} aria-hidden />
+                                                                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center text-white shadow-md ${isStudy ? 'bg-gradient-to-br from-blue-600 to-blue-500' : 'bg-gradient-to-br from-purple-900 to-purple-800'}`}>
                                                                         <span className="text-[9px] font-bold uppercase leading-tight">
                                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
                                                                         </span>
                                                                         <span className="text-sm font-bold leading-none mt-0.5">{date.getDate()}</span>
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
-                                                                        <p className="text-[10px] font-bold text-purple-700 mb-1 uppercase">
+                                                                        <p className={`text-[10px] font-bold mb-1 uppercase ${isStudy ? 'text-blue-700' : 'text-purple-700'}`}>
                                                                             {date.toLocaleDateString('bg-BG', { weekday: 'short' })}
                                                                         </p>
                                                                         <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">
@@ -1215,7 +2315,8 @@ export const Home = () => {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        ))
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
@@ -1251,17 +2352,19 @@ export const Home = () => {
                                             <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                                         </div>
                                     ) : (
-                                        getAllEvents().map(({ date, dateStr, event }) => (
+                                        getAllEvents().map(({ id, date, dateStr, event }) => (
                                             <div 
-                                                key={dateStr} 
+                                                key={id} 
                                                 className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all duration-300 cursor-pointer hover:shadow-sm hover:border-slate-300/60"
                                                 onClick={() => {
                                                     setActiveMenu('calendar');
                                                     setSelectedDay(dateStr);
+                                                    setSelectedEventId(id);
                                                     setEventText(event);
                                                 }}
                                             >
                                                 <div className="flex items-center gap-4">
+                                                    <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" aria-hidden />
                                                     <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
                                                         <span className="uppercase leading-tight">
                                                             {date.toLocaleDateString('bg-BG', { month: 'short' })}
@@ -1282,6 +2385,108 @@ export const Home = () => {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* lessons view - student */}
+                    {activeMenu === 'lessons' && role === 'student' && (
+                        <div className="max-w-3xl">
+                            <header className="mb-14 pb-8 border-b border-slate-200/80">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Часове</h2>
+                                </div>
+                                <p className="text-slate-500 text-[15px] ml-[52px]">Вашите записани уроци. Ще получите съобщение в чата при потвърждение или отказ.</p>
+                            </header>
+                            {lessonsLoading ? (
+                                <div className="flex flex-col items-center justify-center py-28 gap-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                                    <div className="w-10 h-10 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                    <p className="text-sm text-slate-500 font-medium">Зареждане...</p>
+                                </div>
+                            ) : studentBookings.length === 0 ? (
+                                <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-slate-50/80 to-white p-20 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-8 shadow-inner">
+                                        <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">Нямате записани часове</h3>
+                                    <p className="text-slate-500 text-[15px] max-w-sm mx-auto mb-10">Намерете учител и запишете час — той ще се появи тук и ще получите известие при потвърждение.</p>
+                                    <button
+                                        onClick={() => navigate("/find-teacher")}
+                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
+                                    >
+                                        Намери учител
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </div>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {studentBookings.map((b) => {
+                                        const isPending = b.status === "pending";
+                                        const lessonDate = new Date(b.lesson_date + "T12:00");
+                                        const weekday = lessonDate.toLocaleDateString("bg-BG", { weekday: "short" });
+                                        const day = lessonDate.toLocaleDateString("bg-BG", { day: "numeric" });
+                                        const month = lessonDate.toLocaleDateString("bg-BG", { month: "short" });
+                                        return (
+                                            <li
+                                                key={b.id}
+                                                className="group rounded-2xl bg-white border border-slate-200/90 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-200"
+                                            >
+                                                <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-6">
+                                                    <div className="flex items-center gap-5 min-w-0 flex-1">
+                                                        <div className="flex-shrink-0 w-[72px] rounded-xl bg-slate-900 text-white flex flex-col items-center justify-center py-2.5 shadow-sm">
+                                                            <span className="text-[11px] font-semibold uppercase tracking-wider opacity-90">{weekday}</span>
+                                                            <span className="text-2xl font-bold leading-none tabular-nums">{day}</span>
+                                                            <span className="text-[11px] font-medium opacity-80">{month}</span>
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-semibold text-slate-900 text-[15px]">
+                                                                {String(b.lesson_time).slice(0, 5)} ч. · {b.teacher_name}
+                                                            </p>
+                                                            <p className="text-slate-500 text-[15px] mt-0.5">
+                                                                {formatDateLessons(b.lesson_date)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 sm:flex-shrink-0 border-t border-slate-100 pt-5 sm:pt-0 sm:border-t-0">
+                                                        <span
+                                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium ${
+                                                                isPending
+                                                                    ? "bg-amber-50 text-amber-800 border border-amber-200/70"
+                                                                    : "bg-emerald-50 text-emerald-800 border border-emerald-200/70"
+                                                            }`}
+                                                        >
+                                                            {isPending ? (
+                                                                <>
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                                    Чака потвърждение
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                                    Потвърден
+                                                                </>
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelMyBooking(b.id, b.teacher_id ?? '', b.lesson_date, b.lesson_time)}
+                                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 hover:text-red-600 transition-colors"
+                                                        >
+                                                            Откажи час
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
                     )}
 
@@ -1308,87 +2513,109 @@ export const Home = () => {
             </main>
 
             {/* event modal */}
-            {selectedDay && (
+            {selectedDay && (() => {
+                const studyDay = studyPlan?.plan.find(d => d.date === selectedDay);
+                const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+                const hasEvent = eventsForDate(selectedDay).length > 0;
 
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20">
+                return (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300 overflow-y-auto">
+                    <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl shadow-slate-900/20 animate-in zoom-in-95 duration-300 border border-purple-900/20 my-8">
                         <div className="mb-6">
-
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                    {events[selectedDay] ? 'Редактирай събитие' : 'Ново събитие'}
+                                    {hasEvent ? 'Редактирай събитие' : hasStudyTopics ? 'Учебни теми' : 'Ново събитие'}
                                 </h3>
                                 <button
-                                    onClick={() => {
-                                        setSelectedDay(null);
-                                        setEventText("");
-                                    }}
-
+                                    onClick={() => { setSelectedDay(null); setSelectedEventId(null); setEventText(""); }}
                                     className="p-2 hover:bg-slate-50 rounded-xl transition-all duration-300 hover:scale-110"
                                 >
-
                                     <svg className="w-5 h-5 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-
                             <div className="flex items-center gap-2.5 text-sm text-slate-500 bg-gradient-to-r from-slate-50 to-purple-900/10 px-4 py-2.5 rounded-xl border border-purple-900/20">
                                 <svg className="w-4 h-4 text-purple-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-
                                 <span className="font-semibold text-slate-700">{selectedDay}</span>
                             </div>
                         </div>
-                        <textarea
-                            value={eventText}
-                            onChange={(e) => setEventText(e.target.value)}
-                            placeholder="Напр: Учене за матура, Преговор на материал, Решаване на тест..."
 
-                            className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none font-medium text-slate-700 placeholder-slate-400"
-                            autoFocus
-                        />
+                        {/* study plan topics */}
+                        {hasStudyTopics && studyDay && (
+                            <div className="mb-6 space-y-4">
+                                <div className="space-y-3">
+                                    {studyDay.topics.map((topic, idx) => (
+                                        <div
+                                            key={idx}
+                                            className={`p-4 rounded-xl border-2 ${topic.subject === 'Български език' ? 'border-purple-200 bg-purple-50' : 'border-amber-200 bg-amber-50'}`}
+                                        >
+                                            <span className={`text-xs font-semibold px-2 py-1 rounded ${topic.subject === 'Български език' ? 'bg-purple-200 text-purple-700' : 'bg-amber-200 text-amber-700'}`}>{topic.subject}</span>
+                                            <h4 className="mt-2 font-semibold text-slate-900">{topic.name}</h4>
+                                            <p className="text-sm text-slate-600 mt-1">Включва учене и преговор</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {role === 'student' && (
+                                    <div className="flex gap-3 pt-2 border-t border-slate-200">
+                                        {!studyDay.missed && (
+                                            <button
+                                                onClick={() => { handleMarkStudyDayMissed(selectedDay); setSelectedDay(null); }}
+                                                className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-colors text-sm"
+                                            >
+                                                Маркирай като пропуснат
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => { handleMarkStudyDayCompleted(selectedDay); setSelectedDay(null); }}
+                                            className={`flex-1 px-4 py-3 font-semibold rounded-xl transition-colors text-sm ${studyDay.completed ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}
+                                        >
+                                            {studyDay.completed ? 'Маркирай като незавършен' : 'Завърши деня'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* event textarea - when has event or when adding new */}
+                        {(hasEvent || !hasStudyTopics) && (
+                            <>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">{hasEvent ? 'Събитие' : 'Добави събитие'}</label>
+                                <textarea
+                                    value={eventText}
+                                    onChange={(e) => setEventText(e.target.value)}
+                                    placeholder="Напр: Учене за матура, Преговор на материал..."
+                                    className="w-full border-2 border-slate-200 focus:border-purple-900 rounded-2xl px-5 py-4 mb-6 h-36 text-base focus:ring-4 focus:ring-purple-900/10 outline-none resize-none font-medium text-slate-700 placeholder-slate-400"
+                                    autoFocus={!hasStudyTopics}
+                                />
+                            </>
+                        )}
+
                         <div className="flex items-center justify-between gap-3">
-                            {events[selectedDay] && (
-                                <button
-                                    onClick={handleDeleteEvent}
-
-                                    className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Изтрий
+                            {hasEvent && (
+                                <button onClick={handleDeleteEvent} className="px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-all flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    Изтрий събитие
                                 </button>
                             )}
-
                             <div className="flex gap-3 ml-auto">
-                                <button
-                                    onClick={() => {
-                                        setSelectedDay(null);
-                                        setEventText("");
-                                    }}
-
-                                    className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl transition-all duration-300"
-                                >
-                                    Откажи
+                                <button onClick={() => { setSelectedDay(null); setSelectedEventId(null); setEventText(""); }} className="px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-xl">
+                                    Затвори
                                 </button>
-                                <button
-                                    onClick={handleSaveEvent}
-
-                                    className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Запази
-                                </button>
+                                {(hasEvent || eventText.trim()) && (
+                                    <button onClick={handleSaveEvent} className="px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl shadow-lg flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                        Запази
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
-                    </div>
-                )}
+                </div>
+                );
+            })()}
         </div>
     );
 
