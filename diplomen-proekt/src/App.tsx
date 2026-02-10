@@ -13,11 +13,8 @@ import { Navbar } from './components/Navbar'
 import { StudyEntry } from './pages/StudyEntry'
 import { Learning } from './pages/Learning'
 import { TopicTest } from './pages/TopicTest'
-
-function App() {
 import { StudyPlanQuestionnaire } from './components/StudyPlanQuestionnaire'
 import { StudyPlanIntro } from './components/StudyPlanIntro'
-
 
 function App() {
   const { user } = useAuth()
@@ -36,7 +33,7 @@ function App() {
                 <Route path="home" element={<Home />} />
                 <Route path="study" element={<StudyEntry />} />
                 <Route path="study/learn/:subjectId/:topicId" element={<Learning />} />
-                <Route path="study/test/:topicId" element={<TopicTest />} /
+                <Route path="study/test/:topicId" element={<TopicTest />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="signup" element={<SignUp />} />
                 <Route path="login" element={<Login />} />

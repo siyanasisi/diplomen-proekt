@@ -92,12 +92,10 @@ nav[aria-label="Main navigation"]::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 999px;
 }
+
+nav[aria-label="Main navigation"] {
   scrollbar-width: none; /* For Firefox */
   -ms-overflow-style: none; /* For IE and Edge  */
-}
-
-nav[aria-label="Main navigation"]::-webkit-scrollbar {
-  display: none;
 }
 
 
