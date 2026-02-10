@@ -10,6 +10,8 @@ import { FindTeacher } from './pages/FindTeacher'
 import { TeacherProfile } from './pages/TeacherProfile'
 import { Chat } from './pages/Chat'
 import { Navbar } from './components/Navbar'
+import { StudyPlanQuestionnaire } from './components/StudyPlanQuestionnaire'
+import { StudyPlanIntro } from './components/StudyPlanIntro'
 
 
 function App() {
@@ -30,6 +32,8 @@ function App() {
                 <Route path="profile" element={<Profile />} />
                 <Route path="signup" element={<SignUp />} />
                 <Route path="login" element={<Login />} />
+                <Route path="study-plan/intro" element={<StudyPlanIntro />} />
+                <Route path="study-plan/questionnaire" element={<StudyPlanQuestionnaire />} />
                 <Route path="find-teacher" element={<FindTeacher />} />
                 <Route path="teacher/:id" element={<TeacherProfile />} />
                 <Route path="chat" element={<Chat />} />

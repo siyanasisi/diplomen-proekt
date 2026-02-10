@@ -8,6 +8,7 @@ export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+    const [hasStudyPlan, setHasStudyPlan] = useState<boolean | null>(null);
     const location = useLocation();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +61,35 @@ export const Navbar = () => {
     const roleLabel = role === 'student' ? 'Ученик' : role === 'teacher' ? 'Учител' : null;
     const avatarUrl = currentUserProfile?.avatar_url ?? userMetadata?.avatar_url ?? null;
 
+     useEffect(() => {
+        const checkStudyPlan = async () => {
+            if (role === 'student' && user) {
+                try {
+                    await ensureValidSession();
+                    const { data, error } = await supabase
+                        .from('study_plans')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (error) {
+                        console.error('Error checking study plan:', error);
+                        setHasStudyPlan(false);
+                    } else {
+                        setHasStudyPlan(!!data);
+                    }
+                } catch (error) {
+                    console.error('Failed to check study plan:', error);
+                    setHasStudyPlan(false);
+                }
+            } else {
+                setHasStudyPlan(null);
+            }
+        };
+
+        checkStudyPlan();
+    }, [user, role, location.pathname]);
     const loadUnreadMessagesCount = useCallback(async () => {
         if (!user || !role) return;
         try {
@@ -192,6 +222,19 @@ export const Navbar = () => {
                     )}
 
                     {/* desktop auth  */}
+                    <div className="hidden md:flex items-center gap-3">
+                        {!loading && user && role === 'student' && hasStudyPlan === false && (
+                            <Link
+                                to="/study-plan/intro"
+                                className="relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Направи ми план</span>
+                            </Link>
+                    )}
+                    </div>
                     <div className="hidden md:flex items-center gap-3">
                         {!loading && !user && (
                             <>
@@ -338,6 +381,18 @@ export const Navbar = () => {
                                 </Link>
                             </>
                         )}
+                        {role === 'student' && hasStudyPlan === false && (
+                                        <Link
+                                            to="/study-plan/intro"
+                                            className="flex items-center gap-3 px-5 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 active:scale-95"
+                                            onClick={() => setMenuOpen(false)}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span>Направи ми план</span>
+                                        </Link>
+                                    )}
                         <button
                             onClick={() => setMenuOpen(!menuOpen)}
                             className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 active:scale-95"
