@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { useProgress } from '../context/ProgressContext';
+import { useStudyPlan } from '../hooks/useStudyPlan';
 import { getTopicById, getTestForTopic } from '../data/curriculum';
 import type { TopicId } from '../types/learning';
 
@@ -12,7 +14,9 @@ export function TopicTest() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const showToast = useToast();
   const { recordTestSubmitted, getNextTopicInSequence, getRandomUncompletedTopic } = useProgress();
+  const { getNextTopicFromPlan, isLastTopicOfDay, markDayCompleted, getTodayPlanTopicIds, getTodayDateKey } = useStudyPlan(user?.id ?? null);
 
   const topic = topicId ? getTopicById(topicId) : null;
   const test = topicId ? getTestForTopic(topicId) : null;
@@ -22,8 +26,15 @@ export function TopicTest() {
   const [score, setScore] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
 
-  const subjectId = (location.state?.subjectId as string) ?? topic?.subjectId;
-  const savedTopicId = (location.state?.topicId as string) ?? topicId;
+  const locationState = location.state as {
+    subjectId?: string;
+    topicId?: string;
+    todayPlanTopicIds?: string[];
+    todayDate?: string;
+  } | null;
+  const subjectId = locationState?.subjectId ?? topic?.subjectId;
+  const savedTopicId = locationState?.topicId ?? topicId;
+  const todayDate = locationState?.todayDate;
 
   useEffect(() => {
     if (!user) {
@@ -51,6 +62,9 @@ export function TopicTest() {
     setState('result');
   };
 
+  const nextFromPlan = topicId ? getNextTopicFromPlan(topicId) : null;
+  const isLastOfDay = topicId ? isLastTopicOfDay(topicId) : false;
+
   const handleNextTopic = () => {
     if (!subjectId || !savedTopicId) return;
     const next = getNextTopicInSequence(subjectId, savedTopicId);
@@ -59,6 +73,25 @@ export function TopicTest() {
     } else {
       navigate('/study', { replace: true });
     }
+  };
+
+  const handleNextTopicFromPlan = () => {
+    if (!nextFromPlan) return;
+    const todayPlanTopicIds = getTodayPlanTopicIds();
+    const dateKey = todayDate ?? new Date().toISOString().slice(0, 10);
+    navigate(`/study/learn/${nextFromPlan.subjectId}/${nextFromPlan.topicId}`, {
+      replace: true,
+      state: { fromPlan: true, todayPlanTopicIds, todayDate: dateKey },
+    });
+  };
+
+  const handleFinishDay = async () => {
+    const dateToMark = todayDate ?? getTodayDateKey();
+    if (dateToMark) {
+      const ok = await markDayCompleted(dateToMark);
+      if (ok) showToast('Денят е маркиран като научен.');
+    }
+    navigate('/home', { replace: true });
   };
 
   const handleRandomTopic = () => {
@@ -107,9 +140,25 @@ export function TopicTest() {
             </p>
 
             <div className="space-y-3 sm:space-y-4">
+              {nextFromPlan && (
+                <button
+                  onClick={handleNextTopicFromPlan}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-900 to-purple-800 text-white font-semibold hover:from-purple-800 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all min-h-[48px] text-base"
+                >
+                  Следваща тема от плана →
+                </button>
+              )}
+              {isLastOfDay && (
+                <button
+                  onClick={handleFinishDay}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold hover:from-emerald-500 hover:to-emerald-600 shadow-lg shadow-emerald-600/20 transition-all min-h-[48px] text-base"
+                >
+                  Приключи деня (маркирай като научен)
+                </button>
+              )}
               <button
                 onClick={handleNextTopic}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-900 to-purple-800 text-white font-semibold hover:from-purple-800 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all min-h-[48px] text-base"
+                className="w-full py-3.5 sm:py-4 px-6 rounded-2xl border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all min-h-[48px] text-base"
               >
                 Следваща тема в реда
               </button>

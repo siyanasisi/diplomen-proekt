@@ -7,6 +7,7 @@ import type { StudyPlan as StudyPlanType } from "../lib/topics";
 import type { KnowledgeLevel } from "../lib/topics";
 import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
 import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
+import { mapStudyPlanTopicToCurriculum } from "../lib/studyPlanMapping";
 
 type CalendarEventRow = { id: string; date: string; event_text: string };
 
@@ -229,20 +230,34 @@ export const Home = () => {
             }
 
             if (data && data.length > 0) {
-                const transformed: StudyPlanType[] = data.map((row: { id: string; user_id: string; preferences: { exam_subject?: string; exam_date: string; study_days_per_week: number; topics_per_day: number; bel_level: string; literature_level: string }; plan: StudyPlanType['plan']; created_at?: string; updated_at?: string }) => ({
-                    id: row.id,
-                    user_id: row.user_id,
-                    preferences: {
-                        examSubject: normalizeExamSubject(row.preferences.exam_subject),
-                        examDate: new Date(row.preferences.exam_date),
-                        studyDaysPerWeek: row.preferences.study_days_per_week,
-                        topicsPerDay: row.preferences.topics_per_day,
-                        belLevel: row.preferences.bel_level as KnowledgeLevel,
-                        literatureLevel: row.preferences.literature_level as KnowledgeLevel,
-                    },
-                    plan: row.plan,
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const transformed: StudyPlanType[] = await Promise.all(data.map(async (row: { id: string; user_id: string; preferences: { exam_subject?: string; exam_date: string; study_days_per_week: number; topics_per_day: number; bel_level: string; literature_level: string }; plan: StudyPlanType['plan']; created_at?: string; updated_at?: string }) => {
+                    let planObj: StudyPlanType = {
+                        id: row.id,
+                        user_id: row.user_id,
+                        preferences: {
+                            examSubject: normalizeExamSubject(row.preferences.exam_subject),
+                            examDate: new Date(row.preferences.exam_date),
+                            studyDaysPerWeek: row.preferences.study_days_per_week,
+                            topicsPerDay: row.preferences.topics_per_day,
+                            belLevel: row.preferences.bel_level as KnowledgeLevel,
+                            literatureLevel: row.preferences.literature_level as KnowledgeLevel,
+                        },
+                        plan: row.plan,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                    };
+                    const pastUnfinishedDates = row.plan
+                        .filter((d: { date: string; completed?: boolean; missed?: boolean; topics?: unknown[] }) => d.date < todayKey && !d.completed && !d.missed && (d.topics?.length ?? 0) > 0)
+                        .map((d: { date: string }) => d.date)
+                        .sort();
+                    for (const date of pastUnfinishedDates) {
+                        planObj = rescheduleMissedDay(planObj, date);
+                    }
+                    if (pastUnfinishedDates.length > 0) {
+                        await supabase.from('study_plans').update({ plan: planObj.plan, updated_at: new Date().toISOString() }).eq('id', row.id).eq('user_id', user.id);
+                    }
+                    return planObj;
                 }));
                 setStudyPlans(transformed);
                 const savedId = typeof window !== 'undefined' ? sessionStorage.getItem('homeSelectedPlanId') : null;
@@ -1924,19 +1939,37 @@ export const Home = () => {
                                         <h3 className="text-xl font-bold text-slate-800 mb-4">Днешни учебни задачи</h3>
                                         <p className="text-sm text-slate-600 mb-4">{new Date().toLocaleDateString('bg-BG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
                                         <div className="space-y-3">
-                                            {getTodayStudyTasks()!.topics.map((topic, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`p-4 rounded-xl border-2 ${topic.subject === 'Български език' ? 'border-purple-200 bg-purple-50/50' : 'border-amber-200 bg-amber-50/50'}`}
-                                                >
-                                                    <span className={`text-xs font-bold px-2 py-1 rounded ${topic.subject === 'Български език' ? 'bg-purple-200 text-purple-700' : 'bg-amber-200 text-amber-700'}`}>{topic.subject}</span>
-                                                    <p className="mt-2 font-semibold text-slate-900">{topic.name}</p>
-                                                </div>
-                                            ))}
+                                            {getTodayStudyTasks()!.topics.map((topic, idx) => {
+                                                const { subjectId, topicId } = mapStudyPlanTopicToCurriculum(topic);
+                                                const todayPlanTopicIds = getTodayStudyTasks()!.topics.map((t) => mapStudyPlanTopicToCurriculum(t).topicId);
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            if (!getTodayStudyTasks()?.completed && !getTodayStudyTasks()?.missed) {
+                                                                navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: getTodayDateKey() } });
+                                                            }
+                                                        }}
+                                                        disabled={!!getTodayStudyTasks()?.completed || !!getTodayStudyTasks()?.missed}
+                                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${topic.subject === 'Български език' ? 'border-purple-200 bg-purple-50/50 hover:border-purple-300 hover:bg-purple-50' : 'border-amber-200 bg-amber-50/50 hover:border-amber-300 hover:bg-amber-50'} ${(getTodayStudyTasks()?.completed || getTodayStudyTasks()?.missed) ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
+                                                    >
+                                                        <span className={`text-xs font-bold px-2 py-1 rounded ${topic.subject === 'Български език' ? 'bg-purple-200 text-purple-700' : 'bg-amber-200 text-amber-700'}`}>{topic.subject}</span>
+                                                        <p className="mt-2 font-semibold text-slate-900">{topic.name}</p>
+                                                        {!getTodayStudyTasks()?.completed && !getTodayStudyTasks()?.missed && (
+                                                            <p className="mt-1 text-xs text-slate-500">Натисни за учене →</p>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                         {!getTodayStudyTasks()?.completed && !getTodayStudyTasks()?.missed && (
                                             <button
-                                                onClick={() => setActiveMenu('calendar')}
+                                                onClick={() => {
+                                                    const first = getTodayStudyTasks()!.topics[0];
+                                                    const { subjectId, topicId } = mapStudyPlanTopicToCurriculum(first);
+                                                    const todayPlanTopicIds = getTodayStudyTasks()!.topics.map((t) => mapStudyPlanTopicToCurriculum(t).topicId);
+                                                    navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: getTodayDateKey() } });
+                                                }}
                                                 className="mt-6 w-full px-4 py-3 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors"
                                             >
                                                 Започни учене сега

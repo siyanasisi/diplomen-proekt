@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
 import { subjects, getTopicById, getSubjectById } from '../data/curriculum';
@@ -7,6 +7,7 @@ import { subjects, getTopicById, getSubjectById } from '../data/curriculum';
 export function Learning() {
   const { subjectId, topicId } = useParams<{ subjectId: string; topicId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { markSectionViewed, hasViewedFinalSection, getTopicProgress } = useProgress();
 
@@ -48,12 +49,24 @@ export function Learning() {
 
   const handleContinue = () => {
     if (!topicId) return;
-    navigate(`/study/test/${topicId}`, { state: { subjectId, topicId } });
+    const planState = location.state as { todayPlanTopicIds?: string[]; todayDate?: string } | null;
+    navigate(`/study/test/${topicId}`, {
+      state: {
+        subjectId,
+        topicId,
+        todayPlanTopicIds: planState?.todayPlanTopicIds,
+        todayDate: planState?.todayDate,
+      },
+    });
   };
 
   const handleTopicClick = (subId: string, topId: string) => {
     setLeftNavOpen(false);
-    navigate(`/study/learn/${subId}/${topId}`, { replace: true });
+    const planState = location.state as { todayPlanTopicIds?: string[]; todayDate?: string } | null;
+    navigate(`/study/learn/${subId}/${topId}`, {
+      replace: true,
+      state: planState ? { todayPlanTopicIds: planState.todayPlanTopicIds, todayDate: planState.todayDate } : undefined,
+    });
   };
 
   if (!topic || !subject) {
