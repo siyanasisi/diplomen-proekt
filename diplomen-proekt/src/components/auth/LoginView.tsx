@@ -31,7 +31,7 @@ export function LoginView({
   const [showPw, setShowPw] = useState(false)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F3FF', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', background: '#F5F3FF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* header */}
       <header
         style={{
@@ -90,7 +90,7 @@ export function LoginView({
       </header>
 
       {/* main */}
-      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 16px' }}>
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 440 }}>
           {/* card */}
           <div
