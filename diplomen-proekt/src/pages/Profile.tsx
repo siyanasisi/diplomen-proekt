@@ -420,24 +420,43 @@ export const Profile = () => {
         setLoadingUpdate(true);
 
         try {
-            const updates: any = {};
-            if (editedFirstName) updates.first_name = editedFirstName.trim();
-            if (editedLastName) updates.last_name = editedLastName.trim();
-            if (editedCity) updates.city = editedCity.trim();
-            if (role === 'teacher' && editedQualifications) updates.qualifications = editedQualifications.trim();
-            if (editedFirstName || editedLastName) {
-                updates.full_name = `${editedFirstName.trim()} ${editedLastName.trim()}`.trim();
+            const firstName = editedFirstName.trim();
+            const lastName = editedLastName.trim();
+            const city = editedCity.trim();
+            const qualifications = role === 'teacher' ? editedQualifications.trim() : undefined;
+            const fullName = `${firstName} ${lastName}`.trim() || null;
+
+            const profileUpdates: Record<string, string | null> = {
+                first_name: firstName || null,
+                last_name: lastName || null,
+                city: city || null,
+            };
+            if (role === 'teacher' && qualifications !== undefined) {
+                profileUpdates.qualifications = qualifications || null;
             }
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update(profileUpdates)
+                .eq('id', user.id);
 
-            const { error } = await supabase.auth.updateUser({
-                data: updates
-            });
-
-            if (error) {
-                console.error('Error updating profile:', error);
+            if (profileError) {
+                console.error('Error updating profiles table:', profileError);
                 showToast('Грешка при обновяване на профила');
                 setLoadingUpdate(false);
                 return;
+            }
+            const authUpdates: Record<string, string | null> = {
+                first_name: firstName || null,
+                last_name: lastName || null,
+                city: city || null,
+                full_name: fullName,
+            };
+            if (role === 'teacher' && qualifications !== undefined) {
+                authUpdates.qualifications = qualifications || null;
+            }
+            const { error: authError } = await supabase.auth.updateUser({ data: authUpdates });
+            if (authError) {
+                console.error('Error updating auth metadata:', authError);
             }
 
             if (role === 'teacher') {
@@ -447,6 +466,7 @@ export const Profile = () => {
                 const { error: tpError } = await supabase
                     .from('teacher_profiles')
                     .update({
+                        full_name: fullName || undefined,
                         hourly_rate: hourlyRateNum,
                         price_note: priceNoteVal,
                         offers_online_lessons: editedOffersOnline,
@@ -460,6 +480,7 @@ export const Profile = () => {
             }
 
             await new Promise(resolve => setTimeout(resolve, 300));
+            await refreshProfile();
             await loadUserData();
             setEditMode(false);
             showToast('Профилът е обновен успешно!');
