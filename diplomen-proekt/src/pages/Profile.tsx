@@ -80,7 +80,6 @@ export const Profile = () => {
         currentAvatarUrl,
         uploadingAvatar,
         navigate,
-        loadUserData,
         handleSignOut,
         handleDeleteAccount,
         formatDate,
@@ -104,11 +103,11 @@ export const Profile = () => {
         return (
             <div
                 className={`min-h-screen flex items-center justify-center ${
-                    role === "teacher" ? "bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
+                    role === "teacher" ? "bg-[#F9FAFB]" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
                 }`}
             >
                 <div className="text-center">
-                    <svg className="animate-spin w-12 h-12 text-purple-900 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin w-12 h-12 text-[#6D28D9] mx-auto mb-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path
                             className="opacity-75"
@@ -124,8 +123,6 @@ export const Profile = () => {
 
     if (!user) return null;
 
-    const firstName = userMetadata?.first_name as string | undefined;
-    const lastName = userMetadata?.last_name as string | undefined;
     const roleLabel = role === "student" ? "Ученик" : role === "teacher" ? "Учител" : null;
     const grade = userMetadata?.grade as string | undefined;
     const city = userMetadata?.city as string | undefined;
@@ -133,28 +130,32 @@ export const Profile = () => {
 
     const displayEvents = role === "teacher" && showAllEvents ? allEvents : upcomingEvents;
 
+    const isTeacher = role === "teacher";
+
     return (
         <div
             className={`min-h-screen ${
-                role === "teacher" ? "bg-gradient-to-br from-slate-50 via-purple-50/20 to-blue-50/10" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
+                isTeacher ? "bg-[#F9FAFB] font-['Inter',sans-serif]" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
             } relative overflow-x-hidden`}
         >
-            {/* Background */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse" />
-                <div
-                    className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse"
-                    style={{ animationDelay: "1s" }}
-                />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl" />
-            </div>
+            {/* background */}
+            {!isTeacher && (
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse" />
+                    <div
+                        className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse"
+                        style={{ animationDelay: "1s" }}
+                    />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl" />
+                </div>
+            )}
 
-            {/* Loading overlay */}
+            {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
                     <div className="bg-white rounded-3xl p-8 shadow-2xl border border-slate-200/60">
                         <div className="flex flex-col items-center gap-4">
-                            <svg className="animate-spin w-12 h-12 text-purple-900" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin w-12 h-12 text-[#6D28D9]" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path
                                     className="opacity-75"
@@ -168,16 +169,17 @@ export const Profile = () => {
                 </div>
             )}
 
-            <main className="max-w-7xl mx-auto px-8 py-16 relative z-10">
+            <main className={`max-w-7xl mx-auto relative z-10 ${isTeacher ? "px-4 py-8" : "px-8 py-16"}`}>
                 <ProfileHeader
                     role={role}
                     currentStreak={currentStreak}
                     onNavigateHome={() => navigate("/home")}
+                    variant={isTeacher ? "teacher" : "default"}
                 />
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className={`grid grid-cols-1 lg:grid-cols-3 ${isTeacher ? "gap-8" : "gap-6"}`}>
                     {/* Left Column */}
-                    <div className="lg:col-span-2 space-y-6">
+                    <div className="lg:col-span-2 space-y-8">
                         <ProfileCard
                             displayName={displayName}
                             role={role}
@@ -193,9 +195,10 @@ export const Profile = () => {
                             onEditClick={openEditMode}
                             onAvatarUpload={handleAvatarUpload}
                             onRemoveAvatar={handleRemoveAvatar}
+                            variant={isTeacher ? "teacher" : "default"}
                         />
 
-                        {role === "teacher" && (
+                        {isTeacher && (
                             <ProfileAvailability
                                 initialAvailability={teacherAvailability}
                                 initialSettings={teacherBookingSettings}
@@ -203,15 +206,17 @@ export const Profile = () => {
                                 initialExceptions={teacherExceptions}
                                 onSave={handleSaveAvailability}
                                 saving={savingAvailability}
+                                variant="teacher"
                             />
                         )}
 
-                        {role === "teacher" && (
+                        {isTeacher && (
                             <PendingBookings
                                 bookings={futurePendingBookings}
                                 actingOnBookingId={actingOnBookingId}
                                 onConfirm={handleConfirmBooking}
                                 onCancel={handleCancelBooking}
+                                variant="teacher"
                             />
                         )}
 
@@ -231,19 +236,22 @@ export const Profile = () => {
                             />
                         )}
 
-                        <ProfileSettings
-                            onChangePassword={() => setShowChangePassword(true)}
-                            onSignOut={handleSignOut}
-                            onDeleteAccount={() => setShowDeleteAccount(true)}
-                        />
+                        {!isTeacher && (
+                            <ProfileSettings
+                                onChangePassword={() => setShowChangePassword(true)}
+                                onSignOut={handleSignOut}
+                                onDeleteAccount={() => setShowDeleteAccount(true)}
+                            />
+                        )}
                     </div>
 
                     {/* Right Column */}
-                    <div className="space-y-6">
+                    <div className={isTeacher ? "space-y-8" : "space-y-6"}>
                         <ProfileQuickActions
                             role={role}
                             onAddEvent={() => navigate("/home")}
                             onViewStats={() => navigate("/home")}
+                            variant={isTeacher ? "teacher" : "default"}
                         />
 
                         <ProfileEvents
@@ -256,14 +264,41 @@ export const Profile = () => {
                             formatDate={formatDate}
                             formatFullDate={formatFullDate}
                             onDeleteEvent={handleDeleteEvent}
+                            variant={isTeacher ? "teacher" : "default"}
                         />
 
                         {role === "student" && (
                             <ProfileRecentActivity events={recentActivity} formatDate={formatDate} />
                         )}
+
+                        {isTeacher && (
+                            <ProfileSettings
+                                onChangePassword={() => setShowChangePassword(true)}
+                                onSignOut={handleSignOut}
+                                onDeleteAccount={() => setShowDeleteAccount(true)}
+                                variant="teacher"
+                            />
+                        )}
                     </div>
                 </div>
             </main>
+
+            {isTeacher && (
+                <footer className="mt-20 border-t border-slate-200 py-12 bg-white">
+                    <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="flex items-center gap-2 text-[#6D28D9] font-bold opacity-50">
+                            <span className="material-icons">school</span>
+                            <span>Matura+</span>
+                        </div>
+                        <div className="flex gap-8">
+                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Общи условия</a>
+                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Политика за поверителност</a>
+                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Помощ</a>
+                        </div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">© 2026 Всички права запазени</p>
+                    </div>
+                </footer>
+            )}
 
             <ProfileModals
                 showChangePassword={showChangePassword}

@@ -2,9 +2,58 @@ interface ProfileSettingsProps {
     onChangePassword: () => void;
     onSignOut: () => void;
     onDeleteAccount: () => void;
+    variant?: "default" | "teacher";
 }
 
-export function ProfileSettings({ onChangePassword, onSignOut, onDeleteAccount }: ProfileSettingsProps) {
+export function ProfileSettings({ onChangePassword, onSignOut, onDeleteAccount, variant = "default" }: ProfileSettingsProps) {
+    const isTeacher = variant === "teacher";
+
+    if (isTeacher) {
+        return (
+            <section className="space-y-3">
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-2">Настройки</h3>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y divide-slate-100">
+                    <button
+                        onClick={onChangePassword}
+                        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#6D28D9] group-hover:text-white transition-colors">
+                                <span className="material-icons text-lg">vpn_key</span>
+                            </div>
+                            <span className="font-bold text-sm">Смени парола</span>
+                        </div>
+                        <span className="material-icons text-slate-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    </button>
+                    <button
+                        onClick={onSignOut}
+                        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#6D28D9] group-hover:text-white transition-colors">
+                                <span className="material-icons text-lg">logout</span>
+                            </div>
+                            <span className="font-bold text-sm">Изход от профил</span>
+                        </div>
+                        <span className="material-icons text-slate-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    </button>
+                    <button
+                        onClick={onDeleteAccount}
+                        className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 transition-colors group rounded-b-2xl"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
+                                <span className="material-icons text-lg">delete_forever</span>
+                            </div>
+                            <span className="font-bold text-sm text-red-600">Изтрий акаунт</span>
+                        </div>
+                        <span className="material-icons text-red-400 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                    </button>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none" />

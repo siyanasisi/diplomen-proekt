@@ -5,10 +5,67 @@ interface PendingBookingsProps {
     actingOnBookingId: string | null;
     onConfirm: (id: string, studentId: string, lessonDate: string, lessonTime: string) => void;
     onCancel: (id: string, studentId: string, lessonDate: string, lessonTime: string) => void;
+    variant?: "default" | "teacher";
 }
 
-export function PendingBookings({ bookings, actingOnBookingId, onConfirm, onCancel }: PendingBookingsProps) {
+export function PendingBookings({ bookings, actingOnBookingId, onConfirm, onCancel, variant = "default" }: PendingBookingsProps) {
     if (bookings.length === 0) return null;
+
+    const isTeacher = variant === "teacher";
+
+    if (isTeacher) {
+        return (
+            <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 className="text-lg font-bold mb-4">Чакащи часове за потвърждение</h3>
+                <div className="space-y-3">
+                    {bookings.map((b) => {
+                        const initials = (b.student_name ?? "У")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2);
+                        return (
+                            <div
+                                key={b.id}
+                                className="flex flex-wrap items-center justify-between p-4 bg-[#6D28D9]/5 border border-[#6D28D9]/20 rounded-xl gap-4"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold text-sm">
+                                        {initials}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold">{b.student_name ?? "Ученик"}</p>
+                                        <p className="text-xs text-slate-500">
+                                            {b.lesson_date} {String(b.lesson_time).slice(0, 5)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={actingOnBookingId !== null}
+                                        onClick={() => onConfirm(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                        className="px-4 py-2 bg-[#6D28D9] text-white rounded-lg text-xs font-bold hover:bg-[#8B5CF6] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {actingOnBookingId === b.id ? "..." : "Потвърди"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={actingOnBookingId !== null}
+                                        onClick={() => onCancel(b.id, b.student_id, b.lesson_date, b.lesson_time)}
+                                        className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {actingOnBookingId === b.id ? "..." : "Откажи"}
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+        );
+    }
 
     return (
         <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700">

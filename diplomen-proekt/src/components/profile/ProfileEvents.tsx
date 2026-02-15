@@ -10,6 +10,19 @@ interface ProfileEventsProps {
     formatDate: (dateStr: string) => string;
     formatFullDate: (dateStr: string) => string;
     onDeleteEvent: (eventId: string) => void;
+    variant?: "default" | "teacher";
+}
+
+function getMonthAbbr(dateStr: string): string {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    const abbr = date.toLocaleDateString("bg-BG", { month: "short" });
+    return (abbr.replace(".", "") || "ЯНУ").slice(0, 3).toUpperCase();
+}
+
+function getDayNum(dateStr: string): string {
+    const [, , day] = dateStr.split("-");
+    return day || "";
 }
 
 export function ProfileEvents({
@@ -22,9 +35,77 @@ export function ProfileEvents({
     formatDate,
     formatFullDate,
     onDeleteEvent,
+    variant = "default",
 }: ProfileEventsProps) {
     const title = role === "teacher" ? "Събития" : "Предстоящи събития";
     const emptyMessage = showAllEvents ? "Няма събития" : "Няма предстоящи събития";
+    const isTeacher = variant === "teacher";
+
+    if (isTeacher) {
+        return (
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-bold text-lg">Събития</h3>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={onToggleShowAll}
+                            className="text-xs font-bold text-[#6D28D9] hover:underline"
+                        >
+                            Всички
+                        </button>
+                        <button
+                            onClick={onNavigateHome}
+                            className="text-xs font-bold text-[#6D28D9] flex items-center gap-1 hover:underline"
+                        >
+                            Добави <span className="material-icons text-sm">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <div className="p-4 space-y-4">
+                    {events.length > 0 ? (
+                        <>
+                            {events.map((event, index) => (
+                                <div
+                                    key={event.id || index}
+                                    className="flex gap-4 group cursor-pointer"
+                                >
+                                    <div className="flex flex-col items-center justify-center w-14 h-14 bg-[#6D28D9] text-white rounded-2xl shadow-md group-hover:scale-105 transition-transform">
+                                        <span className="text-xs font-bold leading-none">
+                                            {getMonthAbbr(event.date)}
+                                        </span>
+                                        <span className="text-xl font-extrabold leading-none">
+                                            {getDayNum(event.date)}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-bold text-[#6D28D9] uppercase">
+                                            {formatFullDate(event.date)}
+                                        </p>
+                                        <p className="font-bold text-slate-800">{event.event_text}</p>
+                                        {(event as { location?: string }).location && (
+                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1">
+                                                <span className="material-icons text-[12px]">location_on</span>
+                                                {(event as { location?: string }).location}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="py-12 flex flex-col items-center justify-center text-slate-300">
+                                <span className="material-icons text-5xl mb-2">event_available</span>
+                                <p className="text-sm font-medium">Няма други събития за днес</p>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="py-12 flex flex-col items-center justify-center text-slate-300">
+                            <span className="material-icons text-5xl mb-2">event_available</span>
+                            <p className="text-sm font-medium">Няма други събития за днес</p>
+                        </div>
+                    )}
+                </div>
+            </section>
+        );
+    }
 
     return (
         <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">

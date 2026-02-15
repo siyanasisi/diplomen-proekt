@@ -2,9 +2,27 @@ interface ProfileQuickActionsProps {
     role: string | null;
     onAddEvent: () => void;
     onViewStats: () => void;
+    variant?: "default" | "teacher";
 }
 
-export function ProfileQuickActions({ role, onAddEvent, onViewStats }: ProfileQuickActionsProps) {
+export function ProfileQuickActions({ role, onAddEvent, onViewStats, variant = "default" }: ProfileQuickActionsProps) {
+    const isTeacher = variant === "teacher";
+
+    if (isTeacher) {
+        return (
+            <section className="bg-[#6D28D9] rounded-2xl p-6 text-white shadow-xl shadow-[#6D28D9]/20">
+                <h3 className="text-lg font-bold mb-4">Бързи действия</h3>
+                <button
+                    onClick={onAddEvent}
+                    className="w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 transition-colors py-3 rounded-xl font-bold border border-white/30 backdrop-blur-sm"
+                >
+                    <span className="material-icons">add</span>
+                    Добави събитие
+                </button>
+            </section>
+        );
+    }
+
     return (
         <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-900/10 border-2 border-purple-200/40 p-10 hover:shadow-purple-900/20 hover:border-purple-300/60 transition-all duration-700 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-50/40 via-transparent to-purple-50/30 pointer-events-none" />

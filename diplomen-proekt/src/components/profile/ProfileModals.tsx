@@ -52,7 +52,6 @@ interface ProfileModalsProps {
 export function ProfileModals(props: ProfileModalsProps) {
     const {
         showChangePassword,
-        setShowChangePassword,
         currentPassword,
         setCurrentPassword,
         newPassword,
@@ -66,7 +65,6 @@ export function ProfileModals(props: ProfileModalsProps) {
         handleChangePassword,
         closeChangePassword,
         showDeleteAccount,
-        setShowDeleteAccount,
         deletePassword,
         setDeletePassword,
         deleteConfirmText,

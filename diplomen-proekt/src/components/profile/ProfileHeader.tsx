@@ -2,9 +2,28 @@ interface ProfileHeaderProps {
     role: string | null;
     currentStreak: number;
     onNavigateHome: () => void;
+    variant?: "default" | "teacher";
 }
 
-export function ProfileHeader({ role, currentStreak, onNavigateHome }: ProfileHeaderProps) {
+export function ProfileHeader({ role, currentStreak, onNavigateHome, variant = "default" }: ProfileHeaderProps) {
+    const isTeacher = variant === "teacher";
+
+    if (isTeacher) {
+        return (
+            <div className="mb-8">
+                <button
+                    onClick={onNavigateHome}
+                    className="flex items-center gap-1 text-sm text-slate-500 hover:text-[#6D28D9] transition-colors mb-2"
+                >
+                    <span className="material-icons text-sm">chevron_left</span>
+                    Назад към начало
+                </button>
+                <h1 className="text-4xl font-extrabold text-slate-900 mb-2">Профил</h1>
+                <p className="text-slate-500">Управление на акаунта и настройки</p>
+            </div>
+        );
+    }
+
     return (
         <div className="mb-16">
             <button

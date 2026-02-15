@@ -6,6 +6,9 @@
   --accent-hover: #7e22ce;
   --accent-muted: rgba(147, 51, 234, 0.12);
   --accent-muted-hover: rgba(147, 51, 234, 0.18);
+  --primary: #6D28D9;
+  --primary-light: #8B5CF6;
+  --background-light: #F9FAFB;
 }
 
 * {
