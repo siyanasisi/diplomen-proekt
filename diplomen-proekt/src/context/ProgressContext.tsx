@@ -20,7 +20,7 @@ function saveProgress(userId: string | null, data: Record<TopicId, TopicProgress
   if (!userId) return;
   try {
     localStorage.setItem(`${STORAGE_KEY}-${userId}`, JSON.stringify(data));
-  } catch (_) {}
+  } catch {}
 }
 
 export interface ProgressContextType {

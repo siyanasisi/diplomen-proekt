@@ -1,4 +1,3 @@
-// conversation info, view profile
 import { AvatarImage } from "../AvatarImage";
 import type { Conversation } from "../../types/chat";
 import { getDisplayName } from "../../types/chat";
@@ -30,8 +29,8 @@ export function ChatInfoPanel({
             />
             <div
                 ref={(el) => {
-                    (chatHeaderInfoRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-                    (modalRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    if (chatHeaderInfoRef && 'current' in chatHeaderInfoRef) (chatHeaderInfoRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    if (modalRef && 'current' in modalRef) (modalRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
                 }}
                 className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-white shadow-xl z-50 flex flex-col border-l border-slate-200 chat-info-panel"
                 role="dialog"

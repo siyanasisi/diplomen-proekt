@@ -334,47 +334,70 @@ export const Profile = () => {
                 return;
             }
 
-            const { error: eventsError } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('user_id', user.id);
+            await ensureValidSession();
 
-            if (eventsError) {
-                console.error('Error deleting events:', eventsError);
+            const tablesToDelete: Array<{ table: string; column: string }> = [
+                { table: 'user_hidden_messages', column: 'user_id' },
+                { table: 'hidden_conversations', column: 'user_id' },
+                { table: 'blocked_users', column: 'blocker_id' },
+                { table: 'blocked_users', column: 'blocked_id' },
+                { table: 'study_plans', column: 'user_id' },
+                { table: 'calendar_events', column: 'user_id' },
+                { table: 'user_stats', column: 'user_id' },
+            ];
+            for (const { table, column } of tablesToDelete) {
+                const { error } = await supabase.from(table).delete().eq(column, user.id);
+                if (error) console.warn(`Error deleting from ${table}:`, error);
+            }
+            await supabase.from('bookings').delete().eq('student_id', user.id);
+            await supabase.from('bookings').delete().eq('teacher_id', user.id);
+
+            // Messages (student or teacher)
+            await supabase.from('messages').delete().eq('student_id', user.id);
+            await supabase.from('messages').delete().eq('teacher_id', user.id);
+
+            if (role === 'teacher') {
+                const { data: tp } = await supabase.from('teacher_profiles').select('id').eq('user_id', user.id).maybeSingle();
+                if (tp?.id) {
+                    await supabase.from('teacher_reviews').delete().eq('teacher_id', tp.id);
+                    await supabase.from('teacher_profiles').delete().eq('id', tp.id);
+                }
+                await supabase.from('teacher_availability').delete().eq('teacher_id', user.id);
+                await supabase.from('teacher_booking_settings').delete().eq('teacher_id', user.id);
+                await supabase.from('teacher_blocked_slots').delete().eq('teacher_id', user.id);
+                await supabase.from('teacher_schedule_exceptions').delete().eq('teacher_id', user.id);
+            } else {
+                await supabase.from('teacher_profiles').delete().eq('user_id', user.id);
             }
 
-            const { error: statsError } = await supabase
-                .from('user_stats')
-                .delete()
-                .eq('user_id', user.id);
+            await supabase.from('profiles').delete().eq('id', user.id);
 
-            if (statsError) {
-                console.error('Error deleting stats:', statsError);
-            }
-
-            // delete profile picture from storage
-            const userMetadata = user.user_metadata as any;
+            const userMetadata = user.user_metadata as { avatar_url?: string };
             const avatarUrl = userMetadata?.avatar_url;
             if (avatarUrl) {
                 try {
                     const urlParts = avatarUrl.split('/');
                     const filePath = urlParts.slice(-2).join('/');
-                    await supabase.storage
-                        .from('profile-pictures')
-                        .remove([filePath]);
+                    await supabase.storage.from('profile-pictures').remove([filePath]);
                 } catch (storageError) {
-                    console.error('Error deleting avatar:', storageError);
+                    console.warn('Error deleting avatar:', storageError);
                 }
             }
 
 
-            showToast('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
+            const { error: deleteAuthError } = await supabase.rpc('delete_user_account', { user_id_to_delete: user.id });
+            if (deleteAuthError) {
+                console.error('Delete user error:', deleteAuthError);
+                showToast(`Грешка при изтриване на акаунта: ${deleteAuthError.message}`);
+            } else {
+                showToast('Акаунтът ви е изтрит успешно. Всички ваши данни са премахнати.');
+            }
 
             await signOut();
             navigate("/");
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting account:', error);
-            showToast(`Грешка при изтриване на акаунта: ${error.message}`);
+            showToast(`Грешка при изтриване на акаунта: ${error instanceof Error ? error.message : 'Неизвестна грешка'}`);
         } finally {
             setDeletingAccount(false);
         }
