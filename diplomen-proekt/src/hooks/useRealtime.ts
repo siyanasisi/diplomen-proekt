@@ -19,11 +19,10 @@ export function useRealtime(
 ) {
     const channelRef = useRef<RealtimeChannel | null>(null);
     const selectedOtherIdRef = useRef<string | null>(null);
-    selectedOtherIdRef.current = selectedConv?.otherUserId ?? null;
 
     useEffect(() => {
+        selectedOtherIdRef.current = selectedConv?.otherUserId ?? null;
         if (!user || !role || !selectedConv) {
-            selectedOtherIdRef.current = null;
             if (channelRef.current) {
                 supabase.removeChannel(channelRef.current);
                 channelRef.current = null;

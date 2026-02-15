@@ -189,7 +189,7 @@ export default function SignUp() {
                 errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си.';
               }
             }
-          } catch (checkError) {
+          } catch {
             errorMessage = 'Този имейл адрес вече е регистриран. Моля опитайте да влезете в акаунта си или използвайте друг имейл.';
           }
         } else if (errorLower.includes('invalid email') || errorLower.includes('email format')) {
@@ -265,7 +265,7 @@ export default function SignUp() {
         };
         setTimeout(checkSession, 100);
       }
-    } catch (error) {
+    } catch {
       setMessage('Нещо се обърка!');
       setMessageType('error');
       showToast('Нещо се обърка!');

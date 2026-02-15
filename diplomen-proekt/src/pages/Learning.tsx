@@ -3,6 +3,53 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
 import { subjects, getTopicById, getSubjectById } from '../data/curriculum';
+import type { Topic } from '../types/learning';
+
+function TopicsNav({
+  topic,
+  onTopicClick,
+}: {
+  topic: Topic;
+  onTopicClick: (subId: string, topId: string) => void;
+}) {
+  return (
+    <>
+      <div className="p-4 sm:p-5 border-b border-slate-100">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+          Съдържание
+        </span>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Topics">
+        {subjects.map((sub) => (
+          <div key={sub.id} className="mb-6">
+            <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              {sub.nameBg}
+            </div>
+            <ul className="space-y-0.5">
+              {sub.topics.map((t) => {
+                const isActive = t.id === topic.id;
+                return (
+                  <li key={t.id}>
+                    <button
+                      onClick={() => onTopicClick(sub.id, t.id)}
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg shadow-purple-900/20'
+                          : 'text-slate-600 hover:bg-purple-50/80 hover:text-slate-900'
+                      }`}
+                    >
+                      {t.titleBg}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </>
+  );
+}
 
 export function Learning() {
   const { subjectId, topicId } = useParams<{ subjectId: string; topicId: string }>();
@@ -64,44 +111,6 @@ export function Learning() {
     );
   }
 
-  const TopicsNav = () => (
-    <>
-      <div className="p-4 sm:p-5 border-b border-slate-100">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          Съдържание
-        </span>
-      </div>
-      <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Topics">
-        {subjects.map((sub) => (
-          <div key={sub.id} className="mb-6">
-            <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              {sub.nameBg}
-            </div>
-            <ul className="space-y-0.5">
-              {sub.topics.map((t) => {
-                const isActive = t.id === topic.id;
-                return (
-                  <li key={t.id}>
-                    <button
-                      onClick={() => handleTopicClick(sub.id, t.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        isActive
-                          ? 'bg-gradient-to-r from-purple-900 to-purple-800 text-white shadow-lg shadow-purple-900/20'
-                          : 'text-slate-600 hover:bg-purple-50/80 hover:text-slate-900'
-                      }`}
-                    >
-                      {t.titleBg}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-    </>
-  );
-
   return (
     <div className="flex h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-4rem)] bg-gradient-to-br from-slate-50 via-purple-50/30 to-purple-100/20 relative">
       {leftNavOpen && (
@@ -121,7 +130,7 @@ export function Learning() {
           ${leftNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        <TopicsNav />
+        <TopicsNav topic={topic} onTopicClick={handleTopicClick} />
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
