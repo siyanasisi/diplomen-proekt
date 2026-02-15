@@ -101,11 +101,7 @@ export const Profile = () => {
 
     if (loading) {
         return (
-            <div
-                className={`min-h-screen flex items-center justify-center ${
-                    role === "teacher" ? "bg-[#F9FAFB]" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
-                }`}
-            >
+            <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
                 <div className="text-center">
                     <svg className="animate-spin w-12 h-12 text-[#6D28D9] mx-auto mb-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -128,28 +124,11 @@ export const Profile = () => {
     const city = userMetadata?.city as string | undefined;
     const qualifications = userMetadata?.qualifications as string | undefined;
 
-    const displayEvents = role === "teacher" && showAllEvents ? allEvents : upcomingEvents;
-
     const isTeacher = role === "teacher";
+    const displayEvents = isTeacher && showAllEvents ? allEvents : upcomingEvents;
 
     return (
-        <div
-            className={`min-h-screen ${
-                isTeacher ? "bg-[#F9FAFB] font-['Inter',sans-serif]" : "bg-gradient-to-br from-slate-50 via-purple-50/30 to-slate-50"
-            } relative overflow-x-hidden`}
-        >
-            {/* background */}
-            {!isTeacher && (
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-br from-purple-200/30 via-purple-100/20 to-transparent rounded-full blur-3xl animate-pulse" />
-                    <div
-                        className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-blue-200/20 via-purple-100/15 to-transparent rounded-full blur-3xl animate-pulse"
-                        style={{ animationDelay: "1s" }}
-                    />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-gradient-radial from-purple-100/10 via-transparent to-transparent rounded-full blur-3xl" />
-                </div>
-            )}
-
+        <div className="min-h-screen bg-[#F9FAFB] font-['Inter',sans-serif] relative overflow-x-hidden">
             {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
@@ -169,17 +148,16 @@ export const Profile = () => {
                 </div>
             )}
 
-            <main className={`max-w-7xl mx-auto relative z-10 ${isTeacher ? "px-4 py-8" : "px-8 py-16"}`}>
+            <div className="max-w-[1440px] mx-auto px-6 py-8 relative z-10">
                 <ProfileHeader
                     role={role}
                     currentStreak={currentStreak}
                     onNavigateHome={() => navigate("/home")}
-                    variant={isTeacher ? "teacher" : "default"}
                 />
 
-                <div className={`grid grid-cols-1 lg:grid-cols-3 ${isTeacher ? "gap-8" : "gap-6"}`}>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Left Column */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-8 space-y-8">
                         <ProfileCard
                             displayName={displayName}
                             role={role}
@@ -195,7 +173,6 @@ export const Profile = () => {
                             onEditClick={openEditMode}
                             onAvatarUpload={handleAvatarUpload}
                             onRemoveAvatar={handleRemoveAvatar}
-                            variant={isTeacher ? "teacher" : "default"}
                         />
 
                         {isTeacher && (
@@ -216,7 +193,6 @@ export const Profile = () => {
                                 actingOnBookingId={actingOnBookingId}
                                 onConfirm={handleConfirmBooking}
                                 onCancel={handleCancelBooking}
-                                variant="teacher"
                             />
                         )}
 
@@ -236,22 +212,19 @@ export const Profile = () => {
                             />
                         )}
 
-                        {!isTeacher && (
-                            <ProfileSettings
-                                onChangePassword={() => setShowChangePassword(true)}
-                                onSignOut={handleSignOut}
-                                onDeleteAccount={() => setShowDeleteAccount(true)}
-                            />
-                        )}
+                        <ProfileSettings
+                            onChangePassword={() => setShowChangePassword(true)}
+                            onSignOut={handleSignOut}
+                            onDeleteAccount={() => setShowDeleteAccount(true)}
+                        />
                     </div>
 
                     {/* Right Column */}
-                    <div className={isTeacher ? "space-y-8" : "space-y-6"}>
+                    <div className="lg:col-span-4 space-y-8">
                         <ProfileQuickActions
                             role={role}
                             onAddEvent={() => navigate("/home")}
                             onViewStats={() => navigate("/home")}
-                            variant={isTeacher ? "teacher" : "default"}
                         />
 
                         <ProfileEvents
@@ -264,41 +237,29 @@ export const Profile = () => {
                             formatDate={formatDate}
                             formatFullDate={formatFullDate}
                             onDeleteEvent={handleDeleteEvent}
-                            variant={isTeacher ? "teacher" : "default"}
                         />
 
                         {role === "student" && (
                             <ProfileRecentActivity events={recentActivity} formatDate={formatDate} />
                         )}
-
-                        {isTeacher && (
-                            <ProfileSettings
-                                onChangePassword={() => setShowChangePassword(true)}
-                                onSignOut={handleSignOut}
-                                onDeleteAccount={() => setShowDeleteAccount(true)}
-                                variant="teacher"
-                            />
-                        )}
                     </div>
                 </div>
-            </main>
+            </div>
 
-            {isTeacher && (
-                <footer className="mt-20 border-t border-slate-200 py-12 bg-white">
-                    <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="flex items-center gap-2 text-[#6D28D9] font-bold opacity-50">
-                            <span className="material-icons">school</span>
-                            <span>Matura+</span>
-                        </div>
-                        <div className="flex gap-8">
-                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Общи условия</a>
-                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Политика за поверителност</a>
-                            <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Помощ</a>
-                        </div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">© 2026 Всички права запазени</p>
+            <footer className="mt-20 border-t border-slate-200 py-12 bg-white">
+                <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div className="flex items-center gap-2 text-[#6D28D9] font-bold opacity-50">
+                        <span className="material-icons">school</span>
+                        <span>Matura+</span>
                     </div>
-                </footer>
-            )}
+                    <div className="flex gap-8">
+                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Общи условия</a>
+                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Политика за поверителност</a>
+                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Помощ</a>
+                    </div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">© 2026 Всички права запазени</p>
+                </div>
+            </footer>
 
             <ProfileModals
                 showChangePassword={showChangePassword}
