@@ -1,5 +1,6 @@
 export type HomeMenuId =
     | "dashboard"
+    | "find-teacher"
     | "study-plan"
     | "calendar"
     | "events"

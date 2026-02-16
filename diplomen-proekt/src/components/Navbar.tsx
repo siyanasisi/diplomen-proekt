@@ -12,47 +12,22 @@ export const Navbar = () => {
     const location = useLocation();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const navLinks = [
-        { 
-            to: "/home", 
-            label: "Начало", 
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-            )
-        },
-        { 
-            to: "/calendar", 
-            label: "Календар", 
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-            )
-        },
-        { 
-            to: "/study", 
-            label: "Учене", 
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-            )
-        },
-        { 
-            to: "/find-teacher", 
-            label: "Намери учител", 
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM17 10a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            )
-        },
-    ];
-
     const isActive = (path: string) => location.pathname === path;
     const { signOut, user, role, loading, currentUserProfile } = useAuth();
+
+    const studentNavLinks = [
+        { to: "/home", label: "Начало", materialIcon: "home" },
+        { to: "/calendar", label: "Календар", materialIcon: "calendar_today" },
+        { to: "/study", label: "Учене", materialIcon: "school" },
+    ];
+
+    const teacherNavLinks = [
+        { to: "/home", label: "Начало", materialIcon: "home" },
+        { to: "/study", label: "Учене", materialIcon: "school" },
+        { to: "/find-teacher", label: "Намери учител", materialIcon: "person_search" },
+    ];
+
+    const navLinks = role === 'student' ? studentNavLinks : teacherNavLinks;
     const userMetadata = user?.user_metadata as any;
     const fullName = (currentUserProfile?.first_name != null || currentUserProfile?.last_name != null)
         ? `${currentUserProfile?.first_name ?? ""} ${currentUserProfile?.last_name ?? ""}`.trim()
@@ -179,62 +154,52 @@ export const Navbar = () => {
     }, [location.pathname]);
 
     return (
-        <nav className="bg-white/90 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-50 shadow-sm shadow-slate-900/5">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 h-16">
+            <div className="h-full px-6">
                 <div className="flex justify-between items-center h-16">
-                    {/* Logo */}
-                    <Link 
-                        to={user ? "/home" : "/"} 
-                        className="flex items-center gap-2.5 group"
-                    >
-                        <div className="relative">
-                            <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center shadow-lg shadow-slate-900/20 group-hover:shadow-xl group-hover:shadow-slate-900/30 transition-all duration-300 group-hover:scale-105">
-                                <span className="text-white text-lg font-bold">М</span>
+                    {/* logo + search */}
+                    <div className="flex items-center gap-8">
+                        <Link 
+                            to={user ? "/home" : "/"} 
+                            className="flex items-center gap-2 group"
+                        >
+                            <div className="w-8 h-8 bg-[#7C3AED] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-[#7C3AED]/20 group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                                M
                             </div>
-                            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 to-orange-500/20 rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
-                        </div>
-                        <span className="text-xl font-bold text-slate-900 hidden sm:block tracking-tight">
-                            Матура<span className="text-rose-600">+</span>
-                        </span>
-                    </Link>
+                            <span className="text-xl font-bold text-slate-900 hidden sm:block tracking-tight">
+                                Матура<span className="text-[#7C3AED]">+</span>
+                            </span>
+                        </Link>
+                        {!loading && user && role === 'student' && (
+                            <Link 
+                                to="/find-teacher"
+                                className="hidden md:flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-full border border-transparent hover:border-[#7C3AED]/30 transition-all"
+                            >
+                                <span className="material-icons-round text-[#7C3AED] text-sm">person_search</span>
+                                <span className="text-sm text-slate-400 w-64">Намери учител...</span>
+                            </Link>
+                        )}
+                    </div>
 
                     {/* desktop navigation */}
                     {!loading && user && (
-                        <div className="hidden md:flex items-center gap-1.5">
+                        <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
                             {navLinks.map((link) => (
-<Link
-                                        key={link.to}
-                                        to={link.to}
-                                        className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${
-                                            isActive(link.to)
-                                                ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
-                                                : 'text-slate-600 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
+                                <Link
+                                    key={link.to}
+                                    to={link.to}
+                                    className={`hover:text-[#7C3AED] transition-colors flex items-center gap-1 ${
+                                        isActive(link.to) ? 'text-[#7C3AED] font-semibold' : ''
                                     }`}
                                 >
-                                    <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
-                                    <span>{link.label}</span>
-                                    {isActive(link.to) && (
-                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
-                                    )}
+                                    <span className="material-icons-round text-[20px]">{link.materialIcon}</span>
+                                    {link.label}
                                 </Link>
                             ))}
                         </div>
                     )}
 
                     {/* desktop auth  */}
-                    <div className="hidden md:flex items-center gap-3">
-                        {!loading && user && role === 'student' && hasStudyPlan === false && (
-                            <Link
-                                to="/study-plan/intro"
-                                className="relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2.5 bg-gradient-to-r from-purple-500 via-purple-400 to-violet-500 hover:from-purple-400 hover:via-purple-300 hover:to-violet-400 text-white shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 active:scale-95"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>Направи ми план</span>
-                            </Link>
-                    )}
-                    </div>
                     <div className="hidden md:flex items-center gap-3">
                         {!loading && !user && (
                             <>
@@ -246,61 +211,49 @@ export const Navbar = () => {
                                 </Link>
                                 <Link
                                     to="/signup"
-                                    className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-rose-500/30 hover:shadow-lg hover:shadow-rose-500/40 transition-all duration-200 hover:scale-105 active:scale-100"
+                                    className="px-5 py-2.5 bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white text-sm font-semibold rounded-xl shadow-md shadow-[#7C3AED]/30 hover:shadow-lg hover:shadow-[#7C3AED]/40 transition-all duration-200 hover:scale-105 active:scale-100"
                                 >
                                     Регистрация
                                 </Link>
                             </>
                         )}
                         {!loading && user && (
-                            <>
+                            <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
                                 <Link
                                     to="/chat"
-                                    className={`relative p-2.5 rounded-xl transition-all duration-200 active:scale-95 ${
-                                        location.pathname === "/chat"
-                                            ? "text-purple-600 bg-purple-50"
-                                            : "text-slate-600 hover:text-purple-600 hover:bg-purple-50/80"
-                                    }`}
+                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors relative"
                                 >
-                                    <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
+                                    <span className="material-icons-round">notifications</span>
                                     {unreadMessagesCount > 0 && (
-                                        <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold flex items-center justify-center shadow-md shadow-purple-500/30">
-                                            {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
-                                        </span>
+                                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
                                     )}
                                 </Link>
                                 <div className="relative" ref={dropdownRef}>
                                 <button
                                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                                    className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100/80 transition-all duration-200 active:scale-95"
+                                    className="flex items-center gap-2 cursor-pointer group"
                                 >
                                     <div className="relative">
                                         <AvatarImage
                                             url={avatarUrl}
                                             fallback={
-                                                <div className="w-10 h-10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                <div className="w-9 h-9 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] rounded-full flex items-center justify-center text-white text-sm font-bold">
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </div>
                                             }
-                                            className="w-10 h-10 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#7C3AED]/20"
                                             imgClassName="w-full h-full object-cover"
                                             alt={displayName}
                                         />
-                                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                                     </div>
-                                    <span className="text-sm font-semibold text-slate-900 max-w-[140px] truncate">
-                                        {displayName}
-                                    </span>
-                                    <svg 
-                                        className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                    <div className="hidden lg:block text-right">
+                                        <p className="text-sm font-bold leading-none">{displayName}</p>
+                                        <p className="text-[10px] text-[#7C3AED] uppercase font-bold tracking-wider mt-1">
+                                            {role === 'student' ? 'Student' : role === 'teacher' ? 'Teacher' : ''}
+                                        </p>
+                                    </div>
+                                    <span className="material-icons-round text-slate-400 group-hover:text-[#7C3AED] transition-colors">expand_more</span>
                                 </button>
 
                                 {/* dropdown menu */}
@@ -359,7 +312,7 @@ export const Navbar = () => {
                                     </div>
                                 )}
                                 </div>
-                            </>
+                            </div>
                         )}
                     </div>
 
@@ -420,12 +373,12 @@ export const Navbar = () => {
                                             to={link.to}
                                             className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                                                 isActive(link.to)
-                                                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
-                                                    : 'text-slate-700 hover:text-purple-600 hover:bg-purple-50 active:scale-95'
+                                                    ? 'bg-[#7C3AED] text-white shadow-md shadow-[#7C3AED]/30'
+                                                    : 'text-slate-700 hover:text-[#7C3AED] hover:bg-purple-50 active:scale-95'
                                             }`}
                                             onClick={() => setMenuOpen(false)}
                                         >
-                                            <span className={isActive(link.to) ? 'text-white' : 'text-inherit'}>{link.icon}</span>
+                                            <span className={`material-icons-round text-[20px] ${isActive(link.to) ? 'text-white' : 'text-inherit'}`}>{link.materialIcon}</span>
                                             <span>{link.label}</span>
                                         </Link>
                                     ))}

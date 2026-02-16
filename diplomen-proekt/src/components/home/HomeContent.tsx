@@ -85,13 +85,13 @@ export function HomeContent(props: HomeContentProps) {
         setSelectedPlanId,
         effectivePlanId,
         studyPlan,
-        studyPlanHasContent,
+        studyPlanHasContent: _studyPlanHasContent,
         getTodayStudyTasks,
         getTodayDateKey,
         getStudyPlanProgress,
         getUpcomingStudyTopics,
         daysUntilExam,
-        longestStreak,
+        longestStreak: _longestStreak,
         currentDate,
         daysInMonth,
         startingDayOfWeek,
@@ -121,115 +121,130 @@ export function HomeContent(props: HomeContentProps) {
     // dashboard - teacher
     if (activeMenu === "dashboard" && isTeacher) {
         return (
-            <div className="space-y-8">
-                <div className="mb-10">
-                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
-                        Добре дошли обратно!
-                    </h2>
-                    <p className="text-base font-semibold text-slate-600">Преглед на днешната активност</p>
-                </div>
-                <div className="flex flex-wrap gap-6 mb-8">
-                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-6 shadow-md border-2 border-purple-200/40 max-w-md">
-                        <h3 className="text-lg font-bold text-slate-900 mb-3">Часове</h3>
-                        <ul className="space-y-1.5 text-slate-700 mb-4">
-                            <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{teacherPendingCount}</span></li>
-                        </ul>
+            <div className="max-w-6xl mx-auto">
+                {/* header */}
+                <header className="mb-10">
+                    <h1 className="text-4xl font-bold text-[#6B21A8] mb-2">Добре дошли обратно!</h1>
+                    <p className="text-slate-500 text-lg">Преглед на днешната активност</p>
+                </header>
+
+                {/* confirmation bar */}
+                {teacherPendingCount > 0 && (
+                    <div
+                        className="mb-8 flex items-center justify-between bg-white p-4 rounded-xl border border-slate-100"
+                        style={{ boxShadow: "0 4px 20px -2px rgba(0,0,0,0.05)" }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="w-2 h-2 rounded-full bg-orange-500" />
+                            <span className="font-medium">Чакащи потвърждение: <span className="text-orange-600">{teacherPendingCount}</span></span>
+                        </div>
                         <button
                             onClick={() => setActiveMenu("lessons")}
-                            className="w-full px-4 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+                            className="text-[#6B21A8] font-semibold flex items-center gap-1 hover:underline"
                         >
-                            Виж всички
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            Виж всички <span className="material-symbols-outlined text-sm">chevron_right</span>
                         </button>
                     </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-                        <div className="relative flex items-center gap-5">
-                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
-                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Общо събития</p>
-                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{eventsList.length}</p>
-                            </div>
+                )}
+
+                {/* stats cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                    <div
+                        className="bg-white p-6 rounded-2xl flex items-center gap-6 border border-slate-100"
+                        style={{ boxShadow: "0 4px 20px -2px rgba(0,0,0,0.05)" }}
+                    >
+                        <div className="w-16 h-16 bg-[#6B21A8] rounded-2xl flex items-center justify-center text-white">
+                            <span className="material-symbols-outlined text-3xl">calendar_month</span>
+                        </div>
+                        <div>
+                            <p className="text-[#6B21A8] font-bold text-xs uppercase tracking-wider mb-1">Общо събития</p>
+                            <p className="text-5xl font-bold">{eventsList.length}</p>
                         </div>
                     </div>
-                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-                        <div className="relative flex items-center gap-5">
-                            <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900">
-                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-purple-700 mb-1.5 uppercase tracking-wide">Предстоящи</p>
-                                <p className="text-4xl font-bold text-purple-900 tracking-tight">{getUpcomingEvents().length}</p>
-                            </div>
+                    <div
+                        className="bg-white p-6 rounded-2xl flex items-center gap-6 border border-slate-100"
+                        style={{ boxShadow: "0 4px 20px -2px rgba(0,0,0,0.05)" }}
+                    >
+                        <div className="w-16 h-16 bg-[#6B21A8] rounded-2xl flex items-center justify-center text-white">
+                            <span className="material-symbols-outlined text-3xl">schedule</span>
+                        </div>
+                        <div>
+                            <p className="text-[#6B21A8] font-bold text-xs uppercase tracking-wider mb-1">Предстоящи</p>
+                            <p className="text-5xl font-bold">{getUpcomingEvents().length}</p>
                         </div>
                     </div>
                 </div>
-                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                    <h3 className="text-xl font-bold text-slate-900 mb-5 tracking-tight">Бързи действия</h3>
+
+                {/* Quick actions */}
+                <section className="mb-10">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">Бързи действия</h2>
                     <div className="flex flex-wrap gap-4">
                         <button
                             onClick={() => { setActiveMenu("calendar"); handleDayClick(new Date().getDate()); }}
-                            className="px-6 py-3.5 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2.5 text-base shadow-lg bg-gradient-to-r from-purple-900 to-purple-800 text-white hover:shadow-xl"
+                            className="bg-[#6B21A8] hover:bg-purple-800 text-white px-6 py-3 rounded-full flex items-center gap-2 font-medium transition-all shadow-lg shadow-purple-200"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            <span className="material-symbols-outlined">add_circle</span>
                             Добави събитие
                         </button>
                         <button
                             onClick={() => { setActiveMenu("calendar"); goToToday(); }}
-                            className="px-6 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl font-medium transition-all flex items-center gap-2.5 text-base border border-slate-200/60"
+                            className="bg-white text-slate-700 px-6 py-3 rounded-full flex items-center gap-2 font-medium border border-slate-200 hover:bg-slate-50 transition-all"
+                            style={{ boxShadow: "0 4px 20px -2px rgba(0,0,0,0.05)" }}
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <span className="material-symbols-outlined">calendar_today</span>
                             Днес
                         </button>
                     </div>
-                </div>
-                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold text-slate-900 tracking-tight">Последни събития</h3>
-                        <button onClick={() => setActiveMenu("calendar")} className="text-sm font-medium text-slate-500 hover:text-slate-700">
-                            Виж всички →
+                </section>
+
+                {/* recent events */}
+                <section>
+                    <div className="flex justify-between items-end mb-6">
+                        <h2 className="text-xl font-bold">Последни събития</h2>
+                        <button
+                            onClick={() => setActiveMenu("events")}
+                            className="text-[#6B21A8] font-semibold flex items-center gap-1 hover:underline"
+                        >
+                            Виж всички <span className="material-symbols-outlined text-sm">arrow_forward</span>
                         </button>
                     </div>
                     <div className="space-y-3">
                         {getAllEvents().slice(0, 5).length === 0 ? (
                             <div className="text-center py-12">
                                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
+                                    <span className="material-symbols-outlined text-3xl text-slate-400">calendar_month</span>
                                 </div>
-                                <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
+                                <p className="text-sm text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
                             </div>
                         ) : (
-                            getAllEvents().slice(0, 5).map(({ id, date, dateStr, event }) => (
-                                <div
-                                    key={id}
-                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all cursor-pointer"
-                                    onClick={() => { setActiveMenu("calendar"); setSelectedDay(dateStr); setSelectedEventId(id); setEventText(event); }}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" />
-                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
-                                            <span className="uppercase">{date.toLocaleDateString("bg-BG", { month: "short" })}</span>
-                                            <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium text-slate-500 mb-1 uppercase">{date.toLocaleDateString("bg-BG", { weekday: "long" })}</p>
-                                            <p className="text-base font-medium text-slate-900 line-clamp-1">{event}</p>
+                            getAllEvents().slice(0, 5).map(({ id, date, dateStr, event }) => {
+                                const monthNum = String(date.getMonth() + 1).padStart(2, "0");
+                                const dayNum = String(date.getDate()).padStart(2, "0");
+                                const weekday = date.toLocaleDateString("bg-BG", { weekday: "long" });
+                                return (
+                                    <div
+                                        key={id}
+                                        className="group flex items-center bg-white p-4 rounded-xl border border-slate-50 hover:border-[#6B21A8]/30 transition-all cursor-pointer"
+                                        style={{ boxShadow: "0 4px 20px -2px rgba(0,0,0,0.05)" }}
+                                        onClick={() => { setActiveMenu("calendar"); setSelectedDay(dateStr); setSelectedEventId(id); setEventText(event); }}
+                                    >
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="w-2 h-2 rounded-full bg-[#6B21A8] shrink-0" />
+                                            <div className="bg-[#6B21A8] text-white w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0">
+                                                <span className="text-[10px] uppercase font-bold leading-none opacity-80">{monthNum}</span>
+                                                <span className="text-xl font-bold leading-none">{dayNum}</span>
+                                            </div>
+                                            <div className="ml-2">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{weekday}</p>
+                                                <h3 className="text-lg font-semibold text-[#6B21A8]">{event}</h3>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
-                </div>
+                </section>
             </div>
         );
     }
@@ -240,216 +255,277 @@ export function HomeContent(props: HomeContentProps) {
         const progress = getStudyPlanProgress();
         const upcomingTopics = getUpcomingStudyTopics();
 
+        const MONTH_ABBREV: Record<string, string> = {
+            "януари": "ЯНУ", "февруари": "ФЕВ", "март": "МАР", "април": "АПР",
+            "май": "МАЙ", "юни": "ЮНИ", "юли": "ЮЛИ", "август": "АВГ",
+            "септември": "СЕП", "октомври": "ОКТ", "ноември": "НОЕ", "декември": "ДЕК",
+        };
+        const SUBJECT_ORDER = ["БЕЛ", "Математика", "Английски", "История"];
+        const examSubject = studyPlan?.preferences.examSubject ?? "БЕЛ";
+        const belProgress = progress?.completionPercentage ?? 0;
+
         return (
-            <div className="flex items-center justify-center min-h-[calc(100vh-200px)] py-16">
-                <div className="max-w-2xl w-full px-8">
-                    {pendingBookingsCount > 0 && (
-                        <div className="mb-6 p-4 rounded-xl bg-amber-50 border-2 border-amber-200 flex items-center justify-between gap-4 flex-wrap">
-                            <p className="text-amber-800 font-semibold">
-                                ⏳ Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? "час" : "часа"}, който чака потвърждение от учителя.
+            <div className="max-w-[1200px] mx-auto pb-16" style={{ marginTop: "3rem" }}>
+                {/* bookings banner */}
+                {pendingBookingsCount > 0 && (
+                    <div className="mb-6 flex items-center justify-between bg-amber-50/80 backdrop-blur-md border border-amber-200/60 p-4 rounded-2xl" style={{ marginBottom: "2rem" }}>
+                        <div className="flex items-center gap-3">
+                            <span className="material-icons-round text-amber-500 text-xl">hourglass_empty</span>
+                            <p className="text-sm font-medium text-amber-800">
+                                Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? "час" : "часа"}, който чака потвърждение от учителя.
                             </p>
-                            <button onClick={() => setActiveMenu("lessons")} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg transition-colors">
-                                Виж всички
-                            </button>
                         </div>
-                    )}
-                    <div className="mb-8 bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-6 shadow-xl border-2 border-purple-200/50">
-                        <h2 className="text-xl font-bold text-slate-900 mb-4">📚 Часове</h2>
-                        <ul className="space-y-2 text-slate-700 mb-4">
-                            <li>• Днес: <span className="font-bold text-purple-900">{todayBookingsCount}</span></li>
-                            <li>• Чакащи потвърждение: <span className="font-bold text-amber-800">{pendingBookingsCount}</span></li>
-                        </ul>
-                        <button onClick={() => setActiveMenu("lessons")} className="w-full px-4 py-3 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 font-semibold transition-colors text-sm flex items-center justify-center gap-2">
-                            Виж всички <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <button onClick={() => setActiveMenu("lessons")} className="text-amber-700 text-sm font-semibold hover:underline">
+                            Виж всички
                         </button>
                     </div>
-                    {plansWithId.length > 1 && (
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-slate-600 mb-2">План по предмет</label>
-                            <select
-                                value={plansWithId.some((p) => p.id === selectedPlanId) ? selectedPlanId ?? "" : effectivePlanId}
-                                onChange={(e) => {
-                                    const id = e.target.value;
-                                    if (id && plansWithId.some((p) => p.id === id)) {
-                                        setSelectedPlanId(id);
-                                        if (typeof window !== "undefined") sessionStorage.setItem("homeSelectedPlanId", id);
-                                    }
-                                }}
-                                className="px-4 py-3 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
-                            >
-                                {plansWithId.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.preferences.examSubject}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                    <div className="mb-8 bg-white/70 backdrop-blur-xl rounded-3xl p-8 shadow-xl border-2 border-purple-200/50">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                            <div className="flex-1">
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">
-                                    {studyPlan ? "Добави план по друг предмет" : "Създай своя персонален учебен план"}
-                                </h3>
-                                <p className="text-sm text-slate-600">
-                                    {studyPlan ? "Създай учебен план по още един матурен предмет." : "Отговори на няколко кратки въпроса и ще създадем учебен план, съобразен с твоето време и цел за матурата."}
-                                </p>
+                )}
+
+                {/* main */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* left column */}
+                    <div className="lg:col-span-8 space-y-6">
+                        {/* top small cards row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ marginBottom: "1.5rem" }}>
+                            {/* lessons card */}
+                            <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-5 min-h-[120px] flex flex-col">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-violet-600">
+                                            <span className="material-icons-round text-xl">auto_stories</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-slate-900">Часове</h3>
+                                            <p className="text-xs uppercase tracking-wide text-slate-500">Днешна активност</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2 flex-1">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-500">Днес:</span>
+                                        <span className="text-2xl font-bold text-slate-900">{todayBookingsCount}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-500">Чакащи:</span>
+                                        <span className="text-2xl font-bold text-violet-600">{pendingBookingsCount}</span>
+                                    </div>
+                                </div>
+                                <button onClick={() => setActiveMenu("lessons")} className="mt-4 h-9 px-3 rounded-xl text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors w-full">
+                                    Виж всички часове
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => navigate("/study-plan/intro")}
-                                className="px-6 py-4 rounded-xl font-bold bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-400 hover:to-violet-400 text-white transition-all shadow-lg flex items-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                {studyPlan ? "Нов план" : "Направи ми план"}
-                            </button>
+
+                            {/* study plan card */}
+                            <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-5 min-h-[120px] flex flex-col">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                            <span className="material-icons-round text-xl">add_task</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-slate-900">Учебен план</h3>
+                                            <p className="text-xs uppercase tracking-wide text-slate-500">Нов предмет</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-slate-500 mb-4 flex-1">Създай учебен план по още един матурен предмет.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/study-plan/intro")}
+                                    className="h-9 px-3 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white shadow-sm shadow-violet-600/20 transition-all w-full flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-icons-round text-base">add</span> Добави план
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    {studyPlan && !studyPlanHasContent && (
-                        <div className="mb-8 p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl">
-                            <p className="text-amber-900 font-bold text-lg">За предмет „{studyPlan.preferences.examSubject}" все още няма готово съдържание.</p>
-                            <p className="text-amber-800 text-sm mt-2">Ще активираме плана, когато има теми за учене. До тогава можеш да използваш календара и останалите функции.</p>
-                        </div>
-                    )}
-                    {studyPlanHasContent && todayTasks && todayTasks.topics.length > 0 && (
-                        <div className="mb-8 bg-white/80 rounded-3xl p-8 shadow-xl border-2 border-purple-200/50">
-                            <h3 className="text-xl font-bold text-slate-800 mb-4">Днешни учебни задачи</h3>
-                            <p className="text-sm text-slate-600 mb-4">{new Date().toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })}</p>
-                            <div className="space-y-3">
-                                {todayTasks.topics.map((topic, idx) => {
-                                    const { subjectId, topicId } = mapStudyPlanTopicToCurriculum(topic as Topic);
-                                    const todayPlanTopicIds = todayTasks.topics.map((t) => mapStudyPlanTopicToCurriculum(t as Topic).topicId);
+
+                        {/* progress section */}
+                        <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-6">
+                            <div className="flex items-start justify-between mb-6">
+                                <div>
+                                    <h3 className="text-xl font-semibold text-slate-900">Напредък в ученето</h3>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        Завършени теми: <span className="font-semibold text-slate-900">{progress?.completedTopics ?? 0} от {progress?.totalTopics ?? 22}</span>
+                                    </p>
+                                </div>
+                                <div className="text-4xl font-extrabold text-emerald-500">{progress?.completionPercentage ?? 0}%</div>
+                            </div>
+                            <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="bg-violet-600 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, progress?.completionPercentage ?? 0)}%` }} />
+                            </div>
+                            {/* subject tabs */}
+                            <div className="mt-6 bg-slate-100 rounded-2xl p-1 flex gap-1">
+                                {SUBJECT_ORDER.map((label) => {
+                                    const isActive = label === "БЕЛ" && examSubject === "БЕЛ";
+                                    const pct = isActive ? belProgress : "-";
                                     return (
-                                        <button
-                                            key={idx}
-                                            onClick={() => {
-                                                if (!todayTasks.completed && !todayTasks.missed) {
-                                                    navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: getTodayDateKey() } });
-                                                }
-                                            }}
-                                            disabled={!!todayTasks.completed || !!todayTasks.missed}
-                                            className={`w-full text-left p-4 rounded-xl border-2 transition-all ${topic.subject === "Български език" ? "border-purple-200 bg-purple-50/50 hover:border-purple-300" : "border-amber-200 bg-amber-50/50 hover:border-amber-300"} ${(todayTasks.completed || todayTasks.missed) ? "opacity-60 cursor-default" : "cursor-pointer"}`}
-                                        >
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${topic.subject === "Български език" ? "bg-purple-200 text-purple-700" : "bg-amber-200 text-amber-700"}`}>{topic.subject}</span>
-                                            <p className="mt-2 font-semibold text-slate-900">{topic.name}</p>
-                                            {!todayTasks.completed && !todayTasks.missed && <p className="mt-1 text-xs text-slate-500">Натисни за учене →</p>}
-                                        </button>
+                                        <div key={label} className={`flex-1 py-2 rounded-xl text-center text-sm font-semibold transition-all ${isActive ? "bg-white shadow-sm text-slate-900" : "text-slate-500"}`}>
+                                            <p>{label}</p>
+                                            <p className={`text-xs mt-0.5 ${isActive ? "text-violet-600 font-bold" : "text-slate-400"}`}>{typeof pct === "number" ? `${pct}%` : pct}</p>
+                                        </div>
                                     );
                                 })}
                             </div>
-                            {!todayTasks.completed && !todayTasks.missed && (
-                                <button
-                                    onClick={() => {
+                        </div>
+
+                        {/* upcoming topics */}
+                        <div style={{ marginTop: "1.5rem" }}>
+                            <div className="flex items-center justify-between mb-4 px-1">
+                                <h3 className="text-xl font-semibold text-slate-900">Предстоящи теми</h3>
+                                <button onClick={() => setActiveMenu("calendar")} className="text-sm font-semibold text-violet-600 hover:text-violet-700 inline-flex items-center gap-1">
+                                    Виж всички <span className="material-icons-round text-base">arrow_forward</span>
+                                </button>
+                            </div>
+                            {studyPlan && upcomingTopics.length > 0 ? (
+                                <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden divide-y divide-slate-100">
+                                    {upcomingTopics.slice(0, 3).map(({ date, studyDay }) => {
+                                        const [y, m, d] = date.split("-").map(Number);
+                                        const studyDate = new Date(y, m - 1, d);
+                                        const dayNum = studyDate.getDate();
+                                        const monthKey = studyDate.toLocaleDateString("bg-BG", { month: "long" }).toLowerCase();
+                                        const monthAbbrev = MONTH_ABBREV[monthKey] ?? monthKey.slice(0, 3).toUpperCase();
+                                        const firstTopic = studyDay.topics[0];
+                                        const litTopic = studyDay.topics.find((t) => t.subject === "Литература");
+                                        const { subjectId, topicId } = mapStudyPlanTopicToCurriculum(firstTopic as Topic);
+                                        const todayPlanTopicIds = studyDay.topics.map((t) => mapStudyPlanTopicToCurriculum(t as Topic).topicId);
+                                        return (
+                                            <div
+                                                key={date}
+                                                className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                                                onClick={() => {
+                                                    if (!todayTasks?.completed && !todayTasks?.missed) {
+                                                        navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: date } });
+                                                    } else {
+                                                        setActiveMenu("calendar");
+                                                    }
+                                                }}
+                                            >
+                                                {/* date badge */}
+                                                <div className="w-14 shrink-0 text-center rounded-xl bg-slate-100 py-2">
+                                                    <p className="text-lg font-bold text-slate-900">{dayNum}</p>
+                                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">{monthAbbrev}</p>
+                                                </div>
+                                                {/* content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide mb-0.5">{studyDay.topics.length} теми</p>
+                                                    <h4 className="text-base font-semibold text-slate-900 group-hover:text-violet-600 transition-colors truncate">{firstTopic.name}</h4>
+                                                    {litTopic && (
+                                                        <p className="text-sm text-orange-500 font-medium truncate">{litTopic.name}</p>
+                                                    )}
+                                                </div>
+                                                {/* action icon button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (!todayTasks?.completed && !todayTasks?.missed) {
+                                                            navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: date } });
+                                                        }
+                                                    }}
+                                                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 group-hover:bg-violet-600 group-hover:text-white transition-all shrink-0"
+                                                >
+                                                    <span className="material-icons-round text-xl">play_arrow</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-6 text-center text-slate-500">
+                                    Няма предстоящи теми. <button onClick={() => navigate("/study-plan/intro")} className="text-violet-600 font-semibold hover:underline">Създай учебен план</button>.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* right sidebar */}
+                    <div className="lg:col-span-4 space-y-6">
+                        {/* exam countdown card */}
+                        <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-6 flex flex-col items-center text-center">
+                            <h2 className="text-xl font-semibold text-slate-900">ДЗИ БЕЛ 2026</h2>
+                            <p className="text-sm text-slate-500 mt-1">20 май 2026</p>
+                            {/* countdown circle */}
+                            <div className="my-5 relative w-40 h-40 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
+                                    <circle className="text-slate-100" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor" strokeWidth="10" />
+                                    <circle
+                                        className="text-violet-600"
+                                        cx="80"
+                                        cy="80"
+                                        fill="transparent"
+                                        r="72"
+                                        stroke="currentColor"
+                                        strokeDasharray={2 * Math.PI * 72}
+                                        strokeDashoffset={2 * Math.PI * 72 - (2 * Math.PI * 72 * Math.min(100, progress?.completionPercentage ?? 0)) / 100}
+                                        strokeLinecap="round"
+                                        strokeWidth="10"
+                                    />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-5xl font-bold text-violet-600">{daysUntilExam}</span>
+                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Дни остават</span>
+                                </div>
+                            </div>
+                            {/* stats cards */}
+                            <div className="grid grid-cols-2 gap-3 w-full">
+                                <div className="bg-slate-100 rounded-xl p-3 text-center">
+                                    <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Прогрес</p>
+                                    <p className="text-lg font-bold text-slate-900">{progress?.completionPercentage ?? 0}%</p>
+                                </div>
+                                <div className="bg-slate-100 rounded-xl p-3 text-center">
+                                    <p className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Задачи</p>
+                                    <p className="text-lg font-bold text-slate-900">{progress?.completedTopics ?? 0}/{progress?.totalTopics ?? 32}</p>
+                                </div>
+                            </div>
+                            {/* CTA button */}
+                            <button
+                                onClick={() => {
+                                    if (todayTasks && todayTasks.topics.length > 0 && !todayTasks.completed && !todayTasks.missed) {
                                         const first = todayTasks.topics[0];
                                         const { subjectId, topicId } = mapStudyPlanTopicToCurriculum(first as Topic);
                                         const todayPlanTopicIds = todayTasks.topics.map((t) => mapStudyPlanTopicToCurriculum(t as Topic).topicId);
                                         navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: getTodayDateKey() } });
-                                    }}
-                                    className="mt-6 w-full px-4 py-3 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-                                >
-                                    Започни учене сега
-                                </button>
-                            )}
+                                    } else {
+                                        navigate("/study");
+                                    }
+                                }}
+                                className="mt-4 h-11 w-full rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold transition-all shadow-sm shadow-violet-600/20"
+                            >
+                                Започни ученето
+                            </button>
                         </div>
-                    )}
-                    {studyPlanHasContent && progress && (
-                        <div className="mb-8 bg-white/80 rounded-3xl p-6 shadow-xl border-2 border-emerald-200/50">
-                            <h3 className="text-lg font-bold text-slate-800 mb-3">Напредък в ученето</h3>
-                            <div className="flex items-center justify-between gap-4 mb-3">
-                                <span className="text-sm font-semibold text-slate-600">Общ напредък</span>
-                                <span className="text-2xl font-bold text-emerald-600 tabular-nums">{progress.completionPercentage}%</span>
-                            </div>
-                            <div className="w-full h-3 bg-emerald-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all" style={{ width: `${progress.completionPercentage}%` }} />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-2">Завършени теми: {progress.completedTopics} от {progress.totalTopics}</p>
-                        </div>
-                    )}
-                    {studyPlan && upcomingTopics.length > 0 && (
-                        <div className="mb-8 bg-white/80 rounded-3xl p-8 shadow-xl border-2 border-purple-200/50">
-                            <h3 className="text-xl font-bold text-slate-800 mb-4">Предстоящи теми</h3>
-                            <div className="space-y-4">
-                                {upcomingTopics.slice(0, 3).map(({ date, studyDay }) => {
-                                    const [y, m, d] = date.split("-").map(Number);
-                                    const studyDate = new Date(y, m - 1, d);
-                                    const tomorrow = new Date();
-                                    tomorrow.setDate(tomorrow.getDate() + 1);
-                                    tomorrow.setHours(0, 0, 0, 0);
-                                    studyDate.setHours(0, 0, 0, 0);
-                                    const isTomorrow = studyDate.getTime() === tomorrow.getTime();
-                                    return (
-                                        <button key={date} onClick={() => setActiveMenu("calendar")} className="block w-full text-left p-4 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors">
-                                            <p className="text-xs font-bold text-slate-600 uppercase mb-1">{isTomorrow ? "Утре" : studyDate.toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "short" })}</p>
-                                            <p className="text-sm font-semibold text-slate-800">{studyDay.topics.length} теми</p>
-                                            <div className="mt-2 flex flex-wrap gap-1">
-                                                {studyDay.topics.slice(0, 2).map((t, i) => (
-                                                    <span key={i} className={`text-xs px-2 py-0.5 rounded ${t.subject === "Български език" ? "bg-purple-100 text-purple-700" : "bg-amber-100 text-amber-700"}`}>{t.name}</span>
-                                                ))}
-                                                {studyDay.topics.length > 2 && <span className="text-xs text-slate-500">+{studyDay.topics.length - 2}</span>}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <button onClick={() => setActiveMenu("calendar")} className="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700">Виж всички →</button>
-                        </div>
-                    )}
-                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-16 shadow-xl border-2 border-purple-200/50 mb-12 relative overflow-hidden">
-                        <div className="text-center relative">
-                            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">ДЗИ БЕЛ 2026</h1>
-                            <p className="text-base font-bold text-purple-700 mb-12">20 май 2026</p>
-                            <div className="mb-12">
-                                <div className="text-[10rem] md:text-[14rem] font-bold text-purple-900 tabular-nums tracking-tighter leading-none mb-4">{daysUntilExam}</div>
-                                <p className="text-xl font-bold text-purple-700">дни остават</p>
-                            </div>
-                            <div className="max-w-lg mx-auto">
-                                <div className="flex items-center gap-4 mb-2">
-                                    <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full transition-all duration-700 bg-purple-900" style={{ width: `${Math.min(100, Math.max(0, ((365 - daysUntilExam) / 365) * 100))}%` }} />
+
+                        {/* recommended teachers */}
+                        <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-2xl shadow-sm p-5" style={{ marginTop: "1.5rem" }}>
+                            <h3 className="text-base font-semibold text-slate-900 mb-4">Препоръчани учители</h3>
+                            <div className="space-y-1">
+                                <button onClick={() => navigate("/find-teacher")} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors w-full text-left">
+                                    <img alt="Tutor" className="w-10 h-10 rounded-xl object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGXdge3E-tPU4RMSzJ1g1StM6FyWjMx9pugeMSjnCiT-l1I1WPoXlBFL9Eh7jhkMFnIAe4poPFO0A9jasl4NYx_CJCnNbgsByRRTT9Xwnl9woh2IDosilVIcI2usnf1nCIhzTCGmA1MYvEKHIFJTiBXtTcVOSwfrL2XeJMV_7tI88zfvZGzbanN9q6om2sBG1ue8_gS_XGOrBSmSldOCjgHQxKEBmi5MrGm2GyQzgBx4pnDX7i2RgIa63N_tXxzZ6Dsiw-ROccvhZi" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900">Проф. Иванова</p>
+                                        <p className="text-xs text-slate-500">Български език</p>
                                     </div>
-                                    <span className="text-sm font-medium text-slate-600 tabular-nums whitespace-nowrap">
-                                        {Math.min(100, Math.max(0, Math.round(((365 - daysUntilExam) / 365) * 100)))}%
-                                    </span>
-                                </div>
-                                <p className="text-xs font-normal text-slate-400 mt-2">Готовност</p>
+                                    <div className="flex items-center gap-1">
+                                        <span className="material-icons-round text-amber-400 text-sm">star</span>
+                                        <span className="text-sm font-bold text-slate-900">4.9</span>
+                                    </div>
+                                </button>
+                                <button onClick={() => navigate("/find-teacher")} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors w-full text-left">
+                                    <img alt="Tutor" className="w-10 h-10 rounded-xl object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfy5-FeemOOpPbXp7Qu5JsplbSIjagP_vPxC4j0vHTK3NGV_xQ1YdoNiimn7Cs7l8ztMYPTeRHVTBpcl3vWV6zXAVeszl6LFBcgTPY3I5ktha0SWOJvAIElordYVPMcslFgiAMn8dY4OyaQs2ebttgeH30yVPbNWLPcus2vBdQ3waQUprqfawm4XDrt_D36n00MIyVxKHEVHQTSz8TBNsKv-enGluo8OpWNX8cVtIloJPRSUlWdq8zk9AYQs-9MOjZlKp-MMWRBWYZ" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900">Д-р Петров</p>
+                                        <p className="text-xs text-slate-500">Литература</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className="material-icons-round text-amber-400 text-sm">star</span>
+                                        <span className="text-sm font-bold text-slate-900">5.0</span>
+                                    </div>
+                                </button>
                             </div>
+                            <button onClick={() => navigate("/find-teacher")} className="mt-4 h-10 w-full rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-semibold text-slate-700 transition-colors">
+                                Разгледай всички
+                            </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t-2 border-purple-200/40">
-                            <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
-                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
-                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Запланирани събития</p>
-                                    <p className="text-3xl font-bold text-purple-900">{eventsList.length}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3 bg-gradient-to-br from-purple-50/50 to-white rounded-xl p-4 border border-purple-200/40">
-                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-md">
-                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Най-дълга серия</p>
-                                    <p className="text-3xl font-bold text-purple-900">{longestStreak} <span className="text-lg font-bold text-purple-700">дни</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-gradient-to-br from-white via-purple-50/30 to-white rounded-3xl p-8 shadow-xl border-2 border-purple-200/50 relative overflow-hidden">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-900 to-purple-800 flex items-center justify-center flex-shrink-0 shadow-lg">
-                                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM17 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-slate-900 mb-1">Намери учител</h2>
-                                <p className="text-sm font-semibold text-slate-600">Открийте идеалния учител за вашата подготовка</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => navigate("/find-teacher")}
-                            className="w-full px-6 py-4 bg-gradient-to-r from-purple-900 to-purple-800 hover:from-purple-800 hover:to-purple-700 text-white font-semibold rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-                        >
-                            <span>Прегледай учители</span>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -613,14 +689,14 @@ export function HomeContent(props: HomeContentProps) {
     // events view
     if (activeMenu === "events") {
         return (
-            <div className="space-y-8">
-                <div className="mb-10">
-                    <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Събития</h2>
-                    <p className="text-base font-semibold text-slate-600">Прегледайте всички ваши събития</p>
+            <div className="space-y-12">
+                <div className="mb-14">
+                    <h2 className="text-5xl font-bold text-slate-900 tracking-tight mb-4 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">Събития</h2>
+                    <p className="text-xl font-semibold text-slate-600">Прегледайте всички ваши събития</p>
                 </div>
-                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-2xl p-7 shadow-md border-2 border-purple-200/40">
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-6">Всички събития</h3>
-                    <div className="space-y-3">
+                <div className="bg-gradient-to-br from-white via-purple-50/20 to-white rounded-3xl p-10 shadow-lg border-2 border-purple-200/40">
+                    <h3 className="text-2xl font-bold text-slate-900 tracking-tight mb-8">Всички събития</h3>
+                    <div className="space-y-4">
                         {getAllEvents().length === 0 ? (
                             <div className="text-center py-12">
                                 <p className="text-sm font-normal text-slate-500">Няма събития. Добавете ново събитие от календара.</p>
@@ -629,18 +705,18 @@ export function HomeContent(props: HomeContentProps) {
                             getAllEvents().map(({ id, date, dateStr, event }) => (
                                 <div
                                     key={id}
-                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-xl p-4.5 transition-all cursor-pointer"
+                                    className="group bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-2xl p-6 transition-all cursor-pointer"
                                     onClick={() => { setActiveMenu("calendar"); setSelectedDay(dateStr); setSelectedEventId(id); setEventText(event); }}
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-purple-600 mt-1" />
-                                        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-semibold shadow-sm bg-purple-900">
+                                    <div className="flex items-center gap-5">
+                                        <span className="flex-shrink-0 w-3 h-3 rounded-full bg-purple-600 mt-1" />
+                                        <div className="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center text-white text-sm font-semibold shadow-sm bg-purple-900">
                                             <span className="uppercase">{date.toLocaleDateString("bg-BG", { month: "short" })}</span>
-                                            <span className="text-base font-bold leading-none mt-0.5">{date.getDate()}</span>
+                                            <span className="text-lg font-bold leading-none mt-0.5">{date.getDate()}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium text-slate-500 mb-1 uppercase">{date.toLocaleDateString("bg-BG", { weekday: "long" })}</p>
-                                            <p className="text-base font-medium text-slate-900 line-clamp-1">{event}</p>
+                                            <p className="text-sm font-medium text-slate-500 mb-1 uppercase">{date.toLocaleDateString("bg-BG", { weekday: "long" })}</p>
+                                            <p className="text-lg font-medium text-slate-900 line-clamp-1">{event}</p>
                                         </div>
                                     </div>
                                 </div>

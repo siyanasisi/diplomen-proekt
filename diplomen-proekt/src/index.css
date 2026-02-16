@@ -6,6 +6,17 @@
   --accent-hover: #7e22ce;
   --accent-muted: rgba(147, 51, 234, 0.12);
   --accent-muted-hover: rgba(147, 51, 234, 0.18);
+  --primary: #7C3AED;
+  --secondary: #10B981;
+  --background-light: #F8FAFC;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.gradient-progress {
+  background: linear-gradient(90deg, #10B981 0%, #7C3AED 100%);
 }
 
 * {
