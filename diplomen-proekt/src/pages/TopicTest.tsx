@@ -182,8 +182,8 @@ export function TopicTest() {
         style={{ height: '4rem' }}
       >
         <div
-          className="h-full mx-auto flex items-center justify-between"
-          style={{ maxWidth: '48rem', padding: '0 1.5rem' }}
+          className="h-full flex items-center justify-between"
+          style={{ maxWidth: '48rem', padding: '0 1.5rem', marginLeft: '8rem', marginRight: '4rem' }}
         >
           <div className="flex items-center min-w-0" style={{ gap: '0.75rem' }}>
             <button
@@ -221,7 +221,7 @@ export function TopicTest() {
       </header>
 
       {/* main content */}
-      <main style={{ maxWidth: '48rem', padding: '2.5rem 1.5rem 5rem', marginLeft: 'clamp(2rem, 12vw, 16rem)', marginRight: 'auto' }}>
+      <main style={{ maxWidth: '48rem', padding: '2.5rem 1.5rem 5rem', marginLeft: '8rem', marginRight: '4rem' }}>
         {/* title block */}
         <div style={{ marginBottom: '2.5rem' }}>
           <h1
