@@ -10,6 +10,7 @@ import type {
 const DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 const DURATIONS = [30, 45, 60] as const;
 const BUFFERS = [0, 5, 10, 15] as const;
+const BUFFERS_TEACHER = [0, 10, 15] as const;
 
 export interface TeacherAvailabilityFormData {
   availability: { day_of_week: number; start_time: string; end_time: string }[];
@@ -34,6 +35,7 @@ interface TeacherAvailabilityFormProps {
   initialExceptions: TeacherScheduleExceptionRow[];
   onSave: (data: TeacherAvailabilityFormData) => Promise<void>;
   saving: boolean;
+  variant?: "default" | "teacher";
 }
 
 export function TeacherAvailabilityForm({
@@ -43,7 +45,10 @@ export function TeacherAvailabilityForm({
   initialExceptions,
   onSave,
   saving,
+  variant = "default",
 }: TeacherAvailabilityFormProps) {
+  const isTeacher = variant === "teacher";
+  const bufferOptions = isTeacher ? BUFFERS_TEACHER : BUFFERS;
   const [availability, setAvailability] = useState<
     { day_of_week: number; start_time: string; end_time: string; enabled: boolean }[]
   >(
@@ -104,7 +109,8 @@ export function TeacherAvailabilityForm({
       })
     );
     setDuration(initialSettings?.lesson_duration_minutes ?? 45);
-    setBuffer(initialSettings?.buffer_minutes ?? 0);
+    const buf = initialSettings?.buffer_minutes ?? 0;
+    setBuffer(isTeacher && buf === 5 ? 10 : buf);
     setAutoAcceptBookings(initialSettings?.auto_accept_bookings ?? false);
     setBlockedSlots(
       initialBlocked.map((b) => ({
@@ -126,6 +132,7 @@ export function TeacherAvailabilityForm({
     initialSettings,
     initialBlocked,
     initialExceptions,
+    isTeacher,
   ]);
 
   const handleSave = () => {
@@ -197,6 +204,135 @@ export function TeacherAvailabilityForm({
       )
     );
   };
+
+  const teacherContent = (
+    <>
+      <div className="space-y-3">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+          Работно време (Дни и часове)
+        </p>
+        <div className="space-y-2">
+          {availability.map((a, i) => (
+            <div
+              key={a.day_of_week}
+              className={`flex flex-wrap items-center gap-4 p-3 rounded-xl transition-colors ${
+                a.enabled
+                  ? "hover:bg-slate-50"
+                  : "bg-slate-50"
+              }`}
+            >
+              <label className="flex items-center gap-3 min-w-[120px]">
+                <input
+                  type="checkbox"
+                  checked={a.enabled}
+                  onChange={(e) =>
+                    setAvailability((prev) =>
+                      prev.map((p, j) =>
+                        j === i ? { ...p, enabled: e.target.checked } : p
+                      )
+                    )
+                  }
+                  className="rounded text-[#6D28D9] focus:ring-[#6D28D9] h-5 w-5"
+                />
+                <span className={`font-medium text-sm ${!a.enabled ? "text-slate-400" : ""}`}>
+                  {getDayNameBg(a.day_of_week)}
+                </span>
+              </label>
+              {a.enabled ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={a.start_time}
+                    onChange={(e) =>
+                      setAvailability((prev) =>
+                        prev.map((p, j) =>
+                          j === i ? { ...p, start_time: e.target.value } : p
+                        )
+                      )
+                    }
+                    className="bg-transparent border border-slate-200 rounded-lg text-sm focus:ring-[#6D28D9] focus:border-[#6D28D9] px-2 py-1"
+                  />
+                  <span className="text-slate-400">–</span>
+                  <input
+                    type="time"
+                    value={a.end_time}
+                    onChange={(e) =>
+                      setAvailability((prev) =>
+                        prev.map((p, j) =>
+                          j === i ? { ...p, end_time: e.target.value } : p
+                        )
+                      )
+                    }
+                    className="bg-transparent border border-slate-200 rounded-lg text-sm focus:ring-[#6D28D9] focus:border-[#6D28D9] px-2 py-1"
+                  />
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400 italic">Неработен ден</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+            Продължителност на урок
+          </p>
+          <div className="flex gap-2">
+            {DURATIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDuration(d)}
+                className={`px-4 py-2 rounded-lg text-sm ${
+                  duration === d
+                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/20"
+                    : "bg-slate-100 hover:bg-slate-200"
+                }`}
+              >
+                {d} мин
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+            Буфер между уроци
+          </p>
+          <div className="flex gap-2">
+            {bufferOptions.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBuffer(b)}
+                className={`px-4 py-2 rounded-lg text-sm ${
+                  buffer === b
+                    ? "bg-[#6D28D9] text-white shadow-md shadow-[#6D28D9]/20"
+                    : "bg-slate-100 hover:bg-slate-200"
+                }`}
+              >
+                {b} мин
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="pt-4">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || availability.every((a) => !a.enabled)}
+          className="w-full py-3 bg-[#6D28D9] text-white rounded-xl font-bold hover:bg-[#8B5CF6] transition-all shadow-lg shadow-[#6D28D9]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? "Запазване..." : "Запази наличност"}
+        </button>
+      </div>
+    </>
+  );
+
+  if (isTeacher) {
+    return <div className="space-y-6">{teacherContent}</div>;
+  }
 
   return (
     <div className="space-y-6">

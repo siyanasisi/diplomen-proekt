@@ -349,8 +349,13 @@ export const Home = () => {
                 const list = raw.filter((b, i, arr) => arr.findIndex((x) => slotKeyT(x) === slotKeyT(b)) === i);
                 if (list.length > 0) {
                     const ids = [...new Set(list.map((b) => b.student_id))];
-                    const { data: pr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
-                    const map = new Map((pr ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Ученик"]));
+                    const { data: pr } = await supabase.from("profiles").select("id, first_name, last_name").in("id", ids);
+                    const map = new Map(
+                        (pr ?? []).map((p: { id: string; first_name: string | null; last_name: string | null }) => [
+                            p.id,
+                            [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || "Ученик",
+                        ])
+                    );
                     setPendingBookings(list.map((b) => ({ ...b, student_name: map.get(b.student_id) ?? "Ученик", status: b.status })));
                 } else {
                     setPendingBookings([]);
