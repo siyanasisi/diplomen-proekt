@@ -31,15 +31,20 @@ export function ChatSidebar({
             aria-label="Списък със съобщения"
         >
             <div className="chat-sidebar-top shrink-0 flex flex-col z-10">
-                <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-4 sm:pb-5 safe-area-sidebar">
-                    <h1 className="text-[20px] sm:text-[22px] font-semibold text-slate-900 tracking-tight">
-                        Съобщения
-                    </h1>
-                    <p className="text-[12px] sm:text-[13px] text-slate-400 mt-1.5">
-                        {conversations.length === 0
-                            ? "Все още нямате чатове"
-                            : `${conversations.length} ${conversations.length === 1 ? "чат" : "чата"}`}
-                    </p>
+                <div className="safe-area-sidebar" style={{ padding: '1.25rem 1.25rem 1rem' }}>
+                    <div className="flex items-center" style={{ gap: '0.75rem' }}>
+                        <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem' }}>
+                            <span className="material-icons" style={{ fontSize: '1.25rem' }}>chat</span>
+                        </div>
+                        <div>
+                            <h1 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}>Съобщения</h1>
+                            <p className="text-slate-500" style={{ fontSize: '0.75rem', fontWeight: 500, marginTop: '0.125rem' }}>
+                                {conversations.length === 0
+                                    ? "Все още нямате чатове"
+                                    : `${conversations.length} ${conversations.length === 1 ? "чат" : "чата"}`}
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 {conversations.length > 0 && (
                     <div className="px-3 sm:px-4 pb-4 sm:pb-5 pt-1 sm:pt-2">
@@ -86,15 +91,13 @@ export function ChatSidebar({
                         ))}
                     </div>
                 ) : conversations.length === 0 ? (
-                    <div className="h-full flex items-center justify-center px-4 sm:px-5 text-center min-h-[180px] py-6 chat-sidebar-empty">
-                        <div className="max-w-[200px]">
-                            <div className="chat-empty-icon-wrap w-11 h-11 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
+                    <div className="h-full flex items-center justify-center text-center chat-sidebar-empty" style={{ padding: '2rem 1.25rem', minHeight: '11rem' }}>
+                        <div style={{ maxWidth: '13rem' }}>
+                            <div className="flex items-center justify-center bg-slate-100 text-slate-400 mx-auto" style={{ width: '3rem', height: '3rem', borderRadius: '0.625rem', marginBottom: '0.75rem' }}>
+                                <span className="material-icons" style={{ fontSize: '1.25rem' }}>chat_bubble_outline</span>
                             </div>
-                            <p className="text-[13px] font-medium text-slate-600 mb-0.5">Все още няма разговори</p>
-                            <p className="text-[12px] text-slate-400 leading-relaxed">
+                            <p className="text-slate-700" style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>Все още няма разговори</p>
+                            <p className="text-slate-400" style={{ fontSize: '0.75rem', lineHeight: 1.5 }}>
                                 {isStudent ? "Започнете разговор от профил на учител." : "Учениците ще могат да ви пишат от вашия профил."}
                             </p>
                         </div>

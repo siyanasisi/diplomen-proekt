@@ -45,7 +45,7 @@ export function ChatInput({
     const maxMb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024);
 
     return (
-        <div className="chat-input-wrap flex-none px-4 pb-5 pt-4 w-full border-t border-slate-200/80">
+        <div className="chat-input-wrap flex-none w-full border-t border-slate-200/80" style={{ padding: '1rem 1.5rem 1.5rem' }}>
             <div className="chat-input-inner w-full max-w-3xl mx-auto">
                 <input
                     ref={fileInputRef}
@@ -72,7 +72,7 @@ export function ChatInput({
                         </button>
                     </div>
                 )}
-                <div className="chat-input-row flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200">
+                <div className="chat-input-row flex items-center border border-slate-200 bg-slate-50/50 focus-within:bg-white focus-within:border-slate-300 focus-within:ring-2 focus-within:ring-slate-200/50 focus-within:shadow-sm transition-all duration-200" style={{ gap: '0.75rem', padding: '0.875rem 1rem', borderRadius: '1rem' }}>
                     <button
                         type="button"
                         onClick={handleAttachmentClick}
@@ -129,7 +129,8 @@ export function ChatInput({
                         type="button"
                         onClick={handleSend}
                         disabled={(!newMessage.trim() && !attachmentFile) || sending}
-                        className="chat-send-btn shrink-0 min-w-[100px] h-12 px-5 rounded-lg text-[15px] font-semibold flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                        className="chat-send-btn shrink-0 flex items-center justify-center disabled:cursor-not-allowed"
+                        style={{ minWidth: '6.5rem', height: '3rem', padding: '0 1.25rem', borderRadius: '0.75rem', fontSize: '0.9375rem', fontWeight: 600, gap: '0.5rem' }}
                     >
                         {sending ? (
                             <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />

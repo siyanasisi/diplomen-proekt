@@ -19,9 +19,9 @@ interface TeacherFiltersProps {
     onClearFilters: () => void;
 }
 
-const filterInputClass =
-    "w-full min-h-[44px] sm:min-h-[48px] px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all text-slate-800 text-base bg-white hover:border-slate-300";
-const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+const selectClass =
+    "w-full text-slate-700 bg-slate-50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:bg-white outline-none transition-all hover:border-slate-300 hover:bg-white";
+const selectStyle = { padding: '0.625rem 0.875rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 500 as const };
 
 function ToggleSwitch({
     checked,
@@ -37,7 +37,8 @@ function ToggleSwitch({
     return (
         <label
             htmlFor={id}
-            className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] sm:min-h-0 py-1 sm:py-0 touch-manipulation"
+            className="flex items-center cursor-pointer select-none"
+            style={{ gap: '0.625rem' }}
         >
             <button
                 id={id}
@@ -45,17 +46,17 @@ function ToggleSwitch({
                 role="switch"
                 aria-checked={checked}
                 onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center ${
+                className={`relative inline-flex shrink-0 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
                     checked ? "bg-purple-700" : "bg-slate-200"
                 }`}
+                style={{ width: '2.75rem', height: '1.5rem', borderRadius: '0.75rem' }}
             >
                 <span
-                    className={`pointer-events-none absolute top-1 left-1 inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                        checked ? "translate-x-5" : "translate-x-0"
-                    }`}
+                    className="pointer-events-none absolute bg-white shadow-sm transition-transform"
+                    style={{ top: '0.1875rem', left: '0.1875rem', width: '1.125rem', height: '1.125rem', borderRadius: '50%', transform: checked ? 'translateX(1.25rem)' : 'translateX(0)' }}
                 />
             </button>
-            <span className="text-sm font-medium text-slate-700">{label}</span>
+            <span className="text-slate-700" style={{ fontSize: '0.875rem', fontWeight: 500 }}>{label}</span>
         </label>
     );
 }
@@ -93,97 +94,54 @@ export function TeacherFilters({
     }, [filtersOpen]);
 
     return (
-        <section className="mb-6 sm:mb-8" aria-label="Филтри за учители">
-            {/* search bar */}
-            <div className="mb-4 sm:mb-5">
-                <label htmlFor="teacher-search" className="sr-only">
-                    Търсене на учители
-                </label>
-                <div className="relative">
-                    <input
-                        id="teacher-search"
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                        placeholder="Търсете по име, предмет или описание..."
-                        className="w-full min-h-[56px] sm:min-h-[60px] pr-4 py-4 text-slate-800 text-base sm:text-lg placeholder:text-slate-400 rounded-2xl border-2 border-slate-200 bg-white shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/25 outline-none transition-all hover:border-slate-300"
-                        style={{ paddingLeft: "4.25rem" }}
-                        autoComplete="off"
-                    />
-                    <span
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                        aria-hidden
-                    >
-                        <svg
-                            className="w-6 h-6 sm:w-7 sm:h-7"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                        </svg>
-                    </span>
-                </div>
-            </div>
-
-            {/* active filter chips */}
-            {activeFilterChips.length > 0 && (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                    {activeFilterChips.map((chip) => (
+        <section style={{ marginBottom: '1.25rem' }} aria-label="Филтри за учители">
+            {/* unified search + filters card */}
+            <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: '1rem' }}>
+                {/* search bar integrated into card */}
+                <div style={{ padding: '1.25rem 1.25rem 0' }}>
+                    <label htmlFor="teacher-search" className="sr-only">
+                        Търсене на учители
+                    </label>
+                    <div className="relative">
                         <span
-                            key={chip.key}
-                            className="inline-flex items-center gap-1.5 min-h-[44px] pl-3 pr-1 sm:pr-1.5 py-2 sm:py-1.5 rounded-lg bg-purple-100 text-purple-800 text-sm font-medium"
+                            className="pointer-events-none absolute flex items-center justify-center text-purple-500"
+                            style={{ left: '0.875rem', top: '50%', transform: 'translateY(-50%)', width: '2rem', height: '2rem', background: '#faf5ff', borderRadius: '0.5rem' }}
+                            aria-hidden
                         >
-                            <span className="max-w-[180px] truncate" title={chip.label}>
-                                {chip.label}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={chip.onRemove}
-                                className="flex-shrink-0 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2.5 sm:p-1 flex items-center justify-center rounded-md hover:bg-purple-200/80 text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
-                                aria-label={`Премахни филтър: ${chip.label}`}
-                            >
-                                <span className="sr-only">Премахни</span>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                            <span className="material-icons" style={{ fontSize: '1.125rem' }}>search</span>
                         </span>
-                    ))}
+                        <input
+                            id="teacher-search"
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            placeholder="Търсете по име, предмет или описание..."
+                            className="w-full text-slate-800 bg-slate-50 border border-slate-200 placeholder:text-slate-400 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/15 focus:bg-white outline-none transition-all hover:border-slate-300 hover:bg-white"
+                            style={{ paddingLeft: '3.5rem', paddingRight: '1rem', paddingTop: '0.875rem', paddingBottom: '0.875rem', borderRadius: '0.75rem', fontSize: '0.9375rem' }}
+                            autoComplete="off"
+                        />
+                    </div>
                 </div>
-            )}
 
-            {/* filters */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 sm:bg-slate-50/90 shadow-sm overflow-hidden">
                 {/* toggle filters on mobile */}
                 <button
                     type="button"
                     onClick={() => setFiltersOpen((o) => !o)}
-                    className="md:hidden w-full flex items-center justify-between gap-2 min-h-[44px] min-w-[44px] px-4 py-3 text-slate-700 font-medium hover:bg-slate-100/80 transition-colors touch-manipulation"
+                    className="md:hidden w-full flex items-center justify-between text-slate-700 hover:bg-slate-50 transition-colors"
+                    style={{ padding: '0.875rem 1.25rem', fontSize: '0.9375rem', fontWeight: 600 }}
                     aria-expanded={filtersOpen}
                     aria-controls="teacher-filters-panel"
                 >
-                    <span>
+                    <span className="flex items-center" style={{ gap: '0.5rem' }}>
+                        <span className="material-icons text-slate-400" style={{ fontSize: '1.125rem' }}>tune</span>
                         Филтри
                         {activeFiltersCount > 0 && (
-                            <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-purple-200 text-purple-800 text-xs font-semibold">
+                            <span className="bg-purple-700 text-white flex items-center justify-center" style={{ minWidth: '1.25rem', height: '1.25rem', borderRadius: '0.375rem', fontSize: '0.6875rem', fontWeight: 700, padding: '0 0.25rem' }}>
                                 {activeFiltersCount}
                             </span>
                         )}
                     </span>
-                    <svg
-                        className={`w-5 h-5 text-slate-500 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <span className={`material-icons text-slate-400 transition-transform ${filtersOpen ? "rotate-180" : ""}`} style={{ fontSize: '1.25rem' }}>expand_more</span>
                 </button>
 
                 {/* filters panel */}
@@ -194,10 +152,28 @@ export function TeacherFilters({
                         filtersOpen ? "max-h-[1200px]" : "max-h-0"
                     }`}
                 >
-                    <div className="p-4 sm:p-5 lg:p-6" role="group" aria-label="Настройки на филтри">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                    <div style={{ padding: '1rem 1.25rem 1.25rem' }} role="group" aria-label="Настройки на филтри">
+                        <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '0.875rem' }}>
+                            <span className="flex items-center justify-center text-slate-400" style={{ width: '1.5rem', height: '1.5rem' }}>
+                                <span className="material-icons" style={{ fontSize: '1rem' }}>tune</span>
+                            </span>
+                            <span className="text-slate-400 uppercase" style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.06em' }}>Филтри</span>
+                            <span className="flex-1 bg-slate-100" style={{ height: '1px' }} aria-hidden />
+                            {hasActiveFilters && (
+                                <button
+                                    type="button"
+                                    onClick={onClearFilters}
+                                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 inline-flex items-center transition-colors"
+                                    style={{ gap: '0.25rem', padding: '0.25rem 0.625rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                >
+                                    <span className="material-icons" style={{ fontSize: '0.75rem' }}>close</span>
+                                    Изчисти
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: '0.875rem' }}>
                             <div>
-                                <label className={labelClass} htmlFor="filter-subject">
+                                <label className="text-slate-500 block" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.375rem', letterSpacing: '0.01em' }} htmlFor="filter-subject">
                                     Предмет
                                 </label>
                                 <select
@@ -205,7 +181,8 @@ export function TeacherFilters({
                                     id="filter-subject"
                                     value={selectedSubject}
                                     onChange={(e) => onSubjectChange(e.target.value)}
-                                    className={filterInputClass}
+                                    className={selectClass}
+                                    style={selectStyle}
                                     aria-label="Филтър по предмет"
                                 >
                                     <option value="">Всички предмети</option>
@@ -218,11 +195,12 @@ export function TeacherFilters({
                             </div>
 
                             <div>
-                                <label className={labelClass}>Град / Онлайн</label>
+                                <label className="text-slate-500 block" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.375rem', letterSpacing: '0.01em' }}>Град / Онлайн</label>
                                 <select
                                     value={selectedCity}
                                     onChange={(e) => onCityChange(e.target.value)}
-                                    className={filterInputClass}
+                                    className={selectClass}
+                                    style={selectStyle}
                                     aria-label="Филтър по град"
                                 >
                                     <option value="">Всички локации</option>
@@ -236,14 +214,15 @@ export function TeacherFilters({
                             </div>
 
                             <div>
-                                <label className={labelClass} htmlFor="filter-rating">
+                                <label className="text-slate-500 block" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.375rem', letterSpacing: '0.01em' }} htmlFor="filter-rating">
                                     Минимален рейтинг
                                 </label>
                                 <select
                                     id="filter-rating"
                                     value={selectedRating}
                                     onChange={(e) => onRatingChange(Number(e.target.value))}
-                                    className={filterInputClass}
+                                    className={selectClass}
+                                    style={selectStyle}
                                     aria-label="Филтър по рейтинг"
                                 >
                                     {RATING_FILTER_OPTIONS.map((opt) => (
@@ -254,7 +233,7 @@ export function TeacherFilters({
                                 </select>
                             </div>
 
-                            <div className="flex items-end pb-1">
+                            <div className="flex items-end" style={{ paddingBottom: '0.375rem' }}>
                                 <ToggleSwitch
                                     id="online-only-toggle"
                                     checked={isOnlineOnly}
@@ -263,24 +242,35 @@ export function TeacherFilters({
                                 />
                             </div>
                         </div>
-
-                        {hasActiveFilters && (
-                            <div className="mt-4 pt-4 border-t border-slate-200/80">
-                                <button
-                                    type="button"
-                                    onClick={onClearFilters}
-                                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100/80 rounded-lg transition-colors"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    Изчисти филтрите
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
+
+            {/* active filter */}
+            {activeFilterChips.length > 0 && (
+                <div className="flex flex-wrap items-center" style={{ gap: '0.5rem', marginTop: '0.75rem' }}>
+                    {activeFilterChips.map((chip) => (
+                        <span
+                            key={chip.key}
+                            className="inline-flex items-center bg-purple-50 text-purple-700 border border-purple-100"
+                            style={{ gap: '0.375rem', padding: '0.3125rem 0.375rem 0.3125rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600 }}
+                        >
+                            <span className="truncate" style={{ maxWidth: '10rem' }} title={chip.label}>
+                                {chip.label}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={chip.onRemove}
+                                className="text-purple-600 hover:bg-purple-100 transition-colors flex items-center justify-center"
+                                style={{ width: '1.5rem', height: '1.5rem', borderRadius: '0.25rem' }}
+                                aria-label={`Премахни филтър: ${chip.label}`}
+                            >
+                                <span className="material-icons" style={{ fontSize: '0.875rem' }}>close</span>
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
         </section>
     );
 }

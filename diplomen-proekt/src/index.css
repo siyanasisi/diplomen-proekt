@@ -424,6 +424,7 @@ nav[aria-label="Main navigation"] {
 .chat-main-panel .chat-input-wrap {
   flex-shrink: 0;
   background: #ffffff;
+  border-top: 1px solid #e2e8f0;
 }
 
 
@@ -589,7 +590,7 @@ nav[aria-label="Main navigation"] {
   position: relative;
   z-index: 30;
   background: #ffffff;
-  border-bottom: 1px solid rgba(147, 51, 234, 0.12);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .chat-header-avatar-wrap {
@@ -666,15 +667,15 @@ nav[aria-label="Main navigation"] {
 
 /* message bubbles */
 .chat-bubble-mine {
-  background: #9333ea;
+  background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
   color: #ffffff;
-  border-radius: 14px 14px 4px 14px;
-  box-shadow: 0 1px 3px rgba(147, 51, 234, 0.2);
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  box-shadow: 0 1px 4px rgba(147, 51, 234, 0.2);
   transition: box-shadow 0.15s ease;
 }
 
 .chat-bubble-mine:hover {
-  box-shadow: 0 2px 6px rgba(147, 51, 234, 0.25);
+  box-shadow: 0 2px 8px rgba(147, 51, 234, 0.28);
 }
 
 .chat-avatar-mine {
@@ -683,17 +684,17 @@ nav[aria-label="Main navigation"] {
 
 /* received */
 .chat-bubble-other {
-  background: #f8fafc;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #0f172a;
-  border-radius: 14px 14px 14px 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .chat-bubble-other:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .chat-reaction-pill-wrap {
@@ -721,6 +722,7 @@ nav[aria-label="Main navigation"] {
   opacity: 0;
   pointer-events: none;
   z-index: 1;
+  transition: opacity 0.15s ease;
 }
 
 .chat-reaction-pill-wrap-only-hover.chat-reaction-pill-mine {
@@ -733,8 +735,19 @@ nav[aria-label="Main navigation"] {
   right: auto;
 }
 
-.group\/row:hover .chat-reaction-pill-wrap-only-hover {
+.group\/row:hover .chat-reaction-pill-wrap-only-hover,
+.chat-reaction-pill-wrap-only-hover:hover {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.chat-reaction-pill-wrap-only-hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: -8px;
+  right: -8px;
+  height: 36px;
   pointer-events: auto;
 }
 
@@ -805,16 +818,16 @@ nav[aria-label="Main navigation"] {
 
 /* send button */
 .chat-send-btn {
-  background: #9333ea;
+  background: #7c3aed;
   color: #fff;
-  box-shadow: 0 1px 2px rgba(147, 51, 234, 0.3);
-  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.25);
+  border-radius: 0.75rem;
   transition: box-shadow 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
 }
 
 .chat-send-btn:hover:not(:disabled) {
-  background: #7e22ce;
-  box-shadow: 0 2px 8px rgba(147, 51, 234, 0.4);
+  background: #6d28d9;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
   transform: translateY(-1px);
 }
 
@@ -836,23 +849,26 @@ nav[aria-label="Main navigation"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .chat-date-line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
+  background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
 }
 
 .chat-date-pill {
-  color: #d1d5db;
-  font-size: 0.625rem;
-  font-weight: 500;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  font-weight: 600;
   white-space: nowrap;
   line-height: 1;
-  padding: 0.25rem 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
 }
 
 /* scroll-to-bottom fab */
@@ -879,13 +895,13 @@ nav[aria-label="Main navigation"] {
 
 /* empty state */
 .chat-empty-panel {
-  background: #fafafa;
+  background: #f8fafc;
 }
 
 .chat-empty-icon-wrap {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 0.75rem;
 }
 
 /* skeletons */

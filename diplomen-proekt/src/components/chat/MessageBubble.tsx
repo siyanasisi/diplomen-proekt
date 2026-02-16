@@ -1,4 +1,5 @@
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Message, ChatRole, MessageReaction } from "../../types/chat";
 import { getReadAtForMyMessage, formatTime, formatFullDate, REACTION_EMOJIS } from "../../types/chat";
 import { isFromMe } from "../../types/chat";
@@ -102,24 +103,101 @@ function MessageBubbleInner({
     messageMenuRef,
 }: MessageBubbleProps) {
     const [showReactions, setShowReactions] = useState(false);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+    const dotsBtnRef = useRef<HTMLButtonElement>(null);
     const isDeleted = !!message.deleted_at;
     const showMenu = !isDeleted && !isEditing && !message.optimistic && !message.sendFailed;
     const isMenuOpen = messageMenuOpenId === message.id;
     const replyToMsg = message.reply_to ?? (message.reply_to_id ? allMessages.find((m) => m.id === message.reply_to_id) : null);
 
+    const handleDotsClick = () => {
+        if (isMenuOpen) {
+            setMessageMenuOpenId(null);
+            setMenuPos(null);
+        } else {
+            const rect = dotsBtnRef.current?.getBoundingClientRect();
+            if (rect) {
+                setMenuPos({ top: rect.bottom + 4, left: isMine ? rect.right : rect.left });
+            }
+            setMessageMenuOpenId(message.id);
+        }
+    };
+
+    const menuDropdown = isMenuOpen && menuPos ? createPortal(
+        <div
+            ref={messageMenuRef}
+            className="py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200"
+            style={{
+                position: "fixed",
+                top: menuPos.top,
+                left: isMine ? undefined : menuPos.left,
+                right: isMine ? (window.innerWidth - menuPos.left) : undefined,
+                zIndex: 9999,
+            }}
+        >
+            {onReplyClick && (
+                <button
+                    type="button"
+                    onClick={() => { setMessageMenuOpenId(null); setMenuPos(null); onReplyClick(); }}
+                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2"
+                >
+                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    Отговори
+                </button>
+            )}
+            {isMine && (
+                <button
+                    type="button"
+                    onClick={onEditStart}
+                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                >
+                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Редактирай
+                </button>
+            )}
+            <button
+                type="button"
+                onClick={() => { onCopyText(); setMenuPos(null); }}
+                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+            >
+                <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Копирай текст
+            </button>
+            <button
+                type="button"
+                onClick={() => { onDeleteClick(); setMenuPos(null); }}
+                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2"
+            >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Изтрий
+            </button>
+        </div>,
+        document.body
+    ) : null;
+
     return (
         <div
             className={`flex items-end gap-1.5 ${isMine ? "justify-end" : "justify-start"} group/row`}
+            style={toggleReaction ? { paddingBottom: '2.25rem' } : undefined}
             data-message-id={message.id}
         >
             {showMenu && (
                 <div
-                    className="opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0 flex items-center pb-1 relative"
-                    ref={isMenuOpen ? messageMenuRef : undefined}
+                    className={`transition-opacity shrink-0 flex items-center pb-1 relative ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
+                    style={{ zIndex: 5 }}
                 >
                     <button
+                        ref={dotsBtnRef}
                         type="button"
-                        onClick={() => setMessageMenuOpenId(isMenuOpen ? null : message.id)}
+                        onClick={handleDotsClick}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 touch-manipulation"
                         aria-label="Действия със съобщението"
                     >
@@ -127,59 +205,13 @@ function MessageBubbleInner({
                             <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                         </svg>
                     </button>
-                    {isMenuOpen && (
-                        <div className="absolute right-full top-0 mr-1 py-1 min-w-[150px] bg-white rounded-lg shadow-lg border border-slate-200 z-50">
-                            {onReplyClick && (
-                                <button
-                                    type="button"
-                                    onClick={() => { setMessageMenuOpenId(null); onReplyClick(); }}
-                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 rounded-t-lg flex items-center gap-2"
-                                >
-                                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                    </svg>
-                                    Отговори
-                                </button>
-                            )}
-                            {isMine && (
-                                <button
-                                    type="button"
-                                    onClick={onEditStart}
-                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                                >
-                                    <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    Редактирай
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={onCopyText}
-                                className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                                Копирай текст
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onDeleteClick}
-                                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                Изтрий
-                            </button>
-                        </div>
-                    )}
+                    {menuDropdown}
                 </div>
             )}
             <div className={`shrink-0 max-w-full flex flex-col ${isMine ? "items-end" : "items-start"} relative`}>
                 <div
-                    className={`shrink-0 max-w-full px-3.5 py-2.5 text-[15px] leading-[1.45] ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
+                    className={`shrink-0 max-w-full text-[15px] leading-[1.5] ${isMine ? "chat-bubble-mine" : "chat-bubble-other"} ${message.optimistic ? "opacity-80" : ""}`}
+                    style={{ padding: '0.75rem 1rem' }}
                 >
                 {isDeleted ? (
                     <p className="text-[14px] italic opacity-80">Съобщението е изтрито</p>

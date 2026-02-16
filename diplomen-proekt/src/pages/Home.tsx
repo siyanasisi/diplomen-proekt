@@ -51,8 +51,8 @@ export const Home = () => {
             />
 
             {/* main */}
-            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: isTeacher ? '2.5rem 2rem' : '0' }}>
-                <div style={!isTeacher ? { paddingTop: '2rem', paddingLeft: '2rem', paddingRight: '2rem', paddingBottom: '6rem' } : {}}>
+            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: isTeacher ? '2.5rem 2rem 2.5rem 3rem' : '0' }}>
+                <div style={!isTeacher ? { paddingTop: '2rem', paddingLeft: '3rem', paddingRight: '2rem', paddingBottom: '6rem' } : {}}>
                     <HomeContent
                         activeMenu={activeMenu}
                         setActiveMenu={(id: HomeMenuId) => setActiveMenu(id)}

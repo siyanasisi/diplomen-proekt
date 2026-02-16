@@ -82,7 +82,8 @@ export function MessageList(props: MessageListProps) {
     const renderOneGroup = (group: { isMine: boolean; messages: Message[] }, dateKey: string, gIdx: number) => (
         <div
             key={`${dateKey}-${gIdx}-${group.isMine}-${group.messages[0]?.id}`}
-            className={`flex flex-row w-full items-end gap-3 ${group.isMine ? "justify-end" : "justify-start"} ${gIdx > 0 ? "mt-4" : ""}`}
+            className={`flex flex-row w-full items-end ${group.isMine ? "justify-end" : "justify-start"}`}
+            style={{ gap: '0.75rem', marginTop: gIdx > 0 ? '1.25rem' : undefined }}
         >
             {!group.isMine && selectedConv && (
                 <div className="flex-shrink-0 w-8 h-8 mt-1">
@@ -223,7 +224,7 @@ export function MessageList(props: MessageListProps) {
     }
 
     return (
-        <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll px-4 py-4 relative basis-0">
+        <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden chat-messages-scroll relative basis-0" style={{ padding: '1.25rem 1.5rem' }}>
             <div className="chat-message-column w-full min-h-full max-w-3xl ml-auto pr-0">
                 <div className="w-full space-y-0 pb-2">
                     {loadingOlderMessages && (

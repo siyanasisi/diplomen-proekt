@@ -8,34 +8,38 @@ interface ProfileRecentActivityProps {
 export function ProfileRecentActivity({ events, formatDate }: ProfileRecentActivityProps) {
     return (
         <section>
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Последна активност</h3>
+            <h3 className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 600, marginBottom: '1rem' }}>Последна активност</h3>
 
             {events.length > 0 ? (
-                <div className="relative pl-6 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                    {events.map((event, index) => (
-                        <div key={index} className="relative">
-                            <div className="absolute -left-[23px] top-1 w-6 h-6 bg-white border-2 border-slate-200 rounded-full flex items-center justify-center z-10">
-                                <div className="w-2 h-2 bg-slate-400 rounded-full" />
-                            </div>
-                            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        {formatDate(event.date)}
-                                    </span>
+                <div className="bg-white border border-slate-200 overflow-hidden divide-y divide-slate-100" style={{ borderRadius: '1rem' }}>
+                    {events.map((event, index) => {
+                        const [, monthStr, dayStr] = event.date.split("-");
+                        return (
+                            <div
+                                key={index}
+                                className="flex items-center"
+                                style={{ padding: '1.125rem 1.25rem', gap: '1rem' }}
+                            >
+                                <div className="shrink-0 text-center bg-slate-50 border border-slate-100" style={{ width: '3.5rem', borderRadius: '0.625rem', padding: '0.5rem 0' }}>
+                                    <p className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700 }}>{dayStr}</p>
+                                    <p className="text-slate-500 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.04em' }}>{monthStr}</p>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-700">
-                                    {event.event_text}
-                                </p>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-slate-400 uppercase" style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
+                                        {formatDate(event.date)}
+                                    </p>
+                                    <p className="text-slate-900 truncate" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                                        {event.event_text}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             ) : (
-                <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm text-center">
-                    <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                        <span className="material-icons text-slate-400 text-2xl">history</span>
-                    </div>
-                    <p className="text-sm text-slate-500">Все още няма активност</p>
+                <div className="bg-white border border-slate-200 text-center" style={{ borderRadius: '1rem', padding: '3rem' }}>
+                    <span className="material-icons text-slate-300" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem' }}>history</span>
+                    <p className="text-slate-500" style={{ fontSize: '0.9375rem' }}>Все още няма активност</p>
                 </div>
             )}
         </section>

@@ -18,11 +18,16 @@ export const FindTeacher = () => {
     const [skeletonCount, setSkeletonCount] = useState(4);
 
     useEffect(() => {
-        const mq = window.matchMedia("(min-width: 640px)");
-        const update = () => setSkeletonCount(mq.matches ? 6 : 4);
+        const mqXl = window.matchMedia("(min-width: 1280px)");
+        const mqSm = window.matchMedia("(min-width: 640px)");
+        const update = () => setSkeletonCount(mqXl.matches ? 8 : mqSm.matches ? 6 : 4);
         update();
-        mq.addEventListener("change", update);
-        return () => mq.removeEventListener("change", update);
+        mqXl.addEventListener("change", update);
+        mqSm.addEventListener("change", update);
+        return () => {
+            mqXl.removeEventListener("change", update);
+            mqSm.removeEventListener("change", update);
+        };
     }, []);
 
     const urlOptions = useMemo(
@@ -56,128 +61,135 @@ export const FindTeacher = () => {
     } = useTeacherFilters(teachers, urlOptions);
 
     return (
-        <div className="relative min-h-screen bg-slate-50">
-            {/* header */}
-            <div className="border-b border-slate-200 bg-white">
-                <div className="max-w-6xl mx-auto" style={{ padding: '1.5rem' }}>
-                    <h1 className="text-slate-900 flex items-center" style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', gap: '0.625rem', marginBottom: '0.25rem' }}>
-                        <span className="material-icons text-slate-400" style={{ fontSize: '1.5rem' }}>search</span>
-                        Намери учител
-                    </h1>
-                    <p className="text-slate-500" style={{ fontSize: '0.9375rem' }}>
-                        Открийте идеалния учител за вашата подготовка
-                    </p>
-                </div>
-            </div>
+        <div className="flex min-h-full bg-slate-50 overflow-hidden relative">
+            <div
+                className="pointer-events-none fixed top-0 right-0 -z-10 opacity-30"
+                style={{ width: '30%', height: '100vh', background: 'linear-gradient(to left, rgba(126,34,206,0.04), transparent)' }}
+            />
 
-            <div className="max-w-6xl mx-auto" style={{ padding: '1.5rem' }}>
-
-                <TeacherFilters
-                    searchQuery={filters.searchQuery}
-                    onSearchChange={setSearchQuery}
-                    selectedSubject={filters.selectedSubject}
-                    onSubjectChange={setSelectedSubject}
-                    selectedCity={filters.selectedCity}
-                    onCityChange={setSelectedCity}
-                    selectedRating={filters.selectedRating}
-                    onRatingChange={setSelectedRating}
-                    isOnlineOnly={filters.isOnlineOnly}
-                    onOnlineOnlyChange={setIsOnlineOnly}
-                    hasActiveFilters={hasActiveFilters}
-                    activeFiltersCount={activeFiltersCount}
-                    activeFilterChips={activeFilterChips}
-                    onClearFilters={clearFilters}
-                />
-
-                <TeacherResultsBar
-                    filteredCount={filteredTeachers.length}
-                    totalCount={teachers.length}
-                    sortBy={filters.sortBy}
-                    onSortChange={setSortBy}
-                    onRefresh={refresh}
-                    refreshing={refreshing || loading}
-                />
-
-                {/* separator */}
-                <div className="mb-4 flex items-center gap-3">
-                    <h2 id="teacher-results" className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                        Резултати
-                    </h2>
-                    <span className="flex-1 h-px bg-slate-200" aria-hidden />
-                </div>
-
-                {error && teachers.length === 0 ? (
-                    <div className="rounded-2xl border border-red-200 bg-red-50/80 p-8 sm:p-12 text-center shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
+            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: 0 }}>
+                {/* header */}
+                <div className="border-b border-slate-200 bg-white">
+                    <div style={{ padding: '2rem 2.5rem 1.5rem 2.5rem' }}>
+                        <div className="flex items-center" style={{ gap: '0.75rem', marginBottom: '0.375rem' }}>
+                            <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem' }}>
+                                <span className="material-icons" style={{ fontSize: '1.375rem' }}>person_search</span>
+                            </div>
+                            <div>
+                                <h1 className="text-slate-900" style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                                    Намери учител
+                                </h1>
+                                <p className="text-slate-500" style={{ fontSize: '0.9375rem', marginTop: '0.125rem' }}>
+                                    Открийте идеалния учител за вашата подготовка
+                                </p>
+                            </div>
                         </div>
-                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Неуспешно зареждане</h2>
-                        <p className="text-slate-600 mb-6 max-w-sm mx-auto">
-                            Списъкът с учители не можа да се зареди. Моля, опитайте отново.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={refresh}
-                            disabled={loading}
-                            className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Опитай отново
-                        </button>
                     </div>
-                ) : loading && teachers.length === 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-8 lg:gap-x-8 lg:gap-y-10">
-                        {Array.from({ length: skeletonCount }).map((_, i) => (
-                            <TeacherCardSkeleton key={i} />
-                        ))}
-                    </div>
-                ) : teachers.length === 0 ? (
-                    <FindTeacherEmpty variant="no_teachers" />
-                ) : filteredTeachers.length === 0 ? (
-                    <FindTeacherEmpty
-                        variant="no_results"
+                </div>
+
+                <div style={{ padding: '1.5rem 2.5rem 4rem 2.5rem' }}>
+
+                    <TeacherFilters
+                        searchQuery={filters.searchQuery}
+                        onSearchChange={setSearchQuery}
+                        selectedSubject={filters.selectedSubject}
+                        onSubjectChange={setSelectedSubject}
+                        selectedCity={filters.selectedCity}
+                        onCityChange={setSelectedCity}
+                        selectedRating={filters.selectedRating}
+                        onRatingChange={setSelectedRating}
+                        isOnlineOnly={filters.isOnlineOnly}
+                        onOnlineOnlyChange={setIsOnlineOnly}
+                        hasActiveFilters={hasActiveFilters}
+                        activeFiltersCount={activeFiltersCount}
+                        activeFilterChips={activeFilterChips}
                         onClearFilters={clearFilters}
+                    />
+
+                    <TeacherResultsBar
                         filteredCount={filteredTeachers.length}
                         totalCount={teachers.length}
+                        sortBy={filters.sortBy}
+                        onSortChange={setSortBy}
+                        onRefresh={refresh}
+                        refreshing={refreshing || loading}
                     />
-                ) : (
-                    <div className="relative">
-                        {/* overlay */}
-                        {refreshing && (
-                            <div
-                                className="absolute inset-0 z-10 flex items-start justify-center rounded-2xl bg-white/60 backdrop-blur-[2px] pt-8"
-                                aria-hidden
-                            >
-                                <span className="inline-flex items-center gap-2 rounded-full bg-slate-800/90 px-4 py-2 text-sm font-medium text-white shadow-lg">
-                                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Обновяване…
-                                </span>
+
+                    {/* separator */}
+                    <div className="flex items-center" style={{ gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        <h2 className="text-slate-400 uppercase" style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.06em' }}>
+                            Резултати
+                        </h2>
+                        <span className="flex-1 bg-slate-200" style={{ height: '1px' }} aria-hidden />
+                    </div>
+
+                    {error && teachers.length === 0 ? (
+                        <div className="bg-white border border-red-200 text-center" style={{ borderRadius: '1rem', padding: '3rem 2rem' }}>
+                            <div className="flex items-center justify-center bg-red-50 mx-auto" style={{ width: '3.5rem', height: '3.5rem', borderRadius: '0.75rem', marginBottom: '1rem' }}>
+                                <span className="material-icons text-red-600" style={{ fontSize: '1.5rem' }}>warning</span>
                             </div>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-8 lg:gap-x-8 lg:gap-y-10">
-                            {sortedTeachers.map((teacher, index) => (
-                                <div
-                                    key={teacher.id}
-                                    className="find-teacher-card-enter h-full"
-                                    style={{ animationDelay: `${index * 60}ms` }}
-                                >
-                                    <TeacherCard
-                                        teacher={teacher}
-                                        isLoggedIn={Boolean(user)}
-                                    />
-                                </div>
+                            <h2 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>Неуспешно зареждане</h2>
+                            <p className="text-slate-500" style={{ fontSize: '0.875rem', maxWidth: '20rem', margin: '0 auto 1.5rem' }}>
+                                Списъкът с учители не можа да се зареди. Моля, опитайте отново.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={refresh}
+                                disabled={loading}
+                                className="bg-purple-700 hover:bg-purple-800 text-white inline-flex items-center transition-colors disabled:opacity-50"
+                                style={{ gap: '0.375rem', padding: '0.625rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600 }}
+                            >
+                                <span className="material-icons" style={{ fontSize: '1.125rem' }}>refresh</span>
+                                Опитай отново
+                            </button>
+                        </div>
+                    ) : loading && teachers.length === 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" style={{ gap: '1.5rem' }}>
+                            {Array.from({ length: skeletonCount }).map((_, i) => (
+                                <TeacherCardSkeleton key={i} />
                             ))}
                         </div>
-                    </div>
-                )}
-            </div>
+                    ) : teachers.length === 0 ? (
+                        <FindTeacherEmpty variant="no_teachers" />
+                    ) : filteredTeachers.length === 0 ? (
+                        <FindTeacherEmpty
+                            variant="no_results"
+                            onClearFilters={clearFilters}
+                            filteredCount={filteredTeachers.length}
+                            totalCount={teachers.length}
+                        />
+                    ) : (
+                        <div className="relative">
+                            {refreshing && (
+                                <div
+                                    className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 backdrop-blur-[2px]"
+                                    style={{ borderRadius: '1rem', paddingTop: '2rem' }}
+                                    aria-hidden
+                                >
+                                    <span className="inline-flex items-center bg-slate-800/90 text-white" style={{ gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.875rem', fontWeight: 500 }}>
+                                        <div className="animate-spin" style={{ width: '1.25rem', height: '1.25rem', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%' }} />
+                                        Обновяване…
+                                    </span>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" style={{ gap: '1.5rem' }}>
+                                {sortedTeachers.map((teacher, index) => (
+                                    <div
+                                        key={teacher.id}
+                                        className="find-teacher-card-enter h-full"
+                                        style={{ animationDelay: `${index * 60}ms` }}
+                                    >
+                                        <TeacherCard
+                                            teacher={teacher}
+                                            isLoggedIn={Boolean(user)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </main>
         </div>
     );
 };

@@ -7,54 +7,29 @@ interface ProfileStatsProps {
 
 export function ProfileStats({ currentStreak, longestStreak, earnedPoints, totalEvents }: ProfileStatsProps) {
     const stats = [
-        {
-            value: currentStreak,
-            label: "Текуща серия",
-            icon: "local_fire_department",
-            bgColor: "bg-orange-500",
-            shadowColor: "shadow-orange-500/20",
-        },
-        {
-            value: longestStreak,
-            label: "Най-дълга серия",
-            icon: "emoji_events",
-            bgColor: "bg-yellow-500",
-            shadowColor: "shadow-yellow-500/20",
-        },
-        {
-            value: earnedPoints,
-            label: "Точки",
-            icon: "stars",
-            bgColor: "bg-blue-500",
-            shadowColor: "shadow-blue-500/20",
-        },
-        {
-            value: totalEvents,
-            label: "Събития",
-            icon: "calendar_month",
-            bgColor: "bg-purple-700",
-            shadowColor: "shadow-purple-700/20",
-        },
+        { value: currentStreak, label: "Текуща серия", icon: "local_fire_department", iconBg: "bg-purple-50 text-purple-700" },
+        { value: longestStreak, label: "Най-дълга серия", icon: "emoji_events", iconBg: "bg-amber-50 text-amber-600" },
+        { value: earnedPoints, label: "Точки", icon: "stars", iconBg: "bg-emerald-50 text-emerald-600" },
+        { value: totalEvents, label: "Събития", icon: "calendar_month", iconBg: "bg-purple-50 text-purple-700" },
     ];
 
     return (
         <section>
-            <h3 className="text-xl font-bold mb-4 text-slate-800 px-1">Статистика</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <h3 className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 600, marginBottom: '0.75rem' }}>Статистика</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4" style={{ gap: '1rem' }}>
                 {stats.map((stat, i) => (
                     <div
                         key={i}
-                        className="bg-white p-6 rounded-3xl border border-slate-100 flex flex-col items-center text-center group hover:shadow-md transition-shadow"
+                        className="bg-white border border-slate-200"
+                        style={{ borderRadius: '1rem', padding: '1.25rem' }}
                     >
-                        <div
-                            className={`w-14 h-14 ${stat.bgColor} rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg ${stat.shadowColor}`}
-                        >
-                            <span className="material-icons text-3xl">{stat.icon}</span>
+                        <div className="flex items-center" style={{ gap: '0.75rem', marginBottom: '0.75rem' }}>
+                            <div className={`flex items-center justify-center ${stat.iconBg}`} style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem' }}>
+                                <span className="material-icons" style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
+                            </div>
                         </div>
-                        <span className="text-3xl font-black text-slate-900">{stat.value}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-wider">
-                            {stat.label}
-                        </span>
+                        <p className="text-slate-900" style={{ fontSize: '1.75rem', fontWeight: 800, lineHeight: 1 }}>{stat.value}</p>
+                        <p className="text-slate-500 uppercase" style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.06em', marginTop: '0.375rem' }}>{stat.label}</p>
                     </div>
                 ))}
             </div>

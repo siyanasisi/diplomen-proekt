@@ -2,10 +2,8 @@ import { useProfile } from "../hooks/useProfile";
 import { ProfileHeader } from "../components/profile/ProfileHeader";
 import { ProfileModals } from "../components/profile/ProfileModals";
 import { ProfileCard } from "../components/profile/ProfileCard";
-import { ProfileStats } from "../components/profile/ProfileStats";
 import { PendingBookings, MyBookings } from "../components/profile/ProfileBookings";
 import { ProfileSettings } from "../components/profile/ProfileSettings";
-import { ProfileQuickActions } from "../components/profile/ProfileQuickActions";
 import { ProfileEvents } from "../components/profile/ProfileEvents";
 import { ProfileRecentActivity } from "../components/profile/ProfileRecentActivity";
 import { ProfileAvailability } from "../components/profile/ProfileAvailability";
@@ -121,7 +119,7 @@ export const Profile = () => {
     const displayEvents = isTeacher && showAllEvents ? allEvents : upcomingEvents;
 
     return (
-        <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
+        <div className="flex min-h-full bg-slate-50 overflow-hidden relative">
             {/* loading overlay */}
             {isLoadingData && (
                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 flex items-center justify-center">
@@ -134,16 +132,21 @@ export const Profile = () => {
                 </div>
             )}
 
-            <div className="max-w-6xl mx-auto relative z-10" style={{ padding: '2rem 1.5rem' }}>
-                <ProfileHeader
-                    role={role}
-                    currentStreak={currentStreak}
-                    onNavigateHome={() => navigate("/home")}
-                />
+            <div
+                className="pointer-events-none fixed top-0 right-0 -z-10 opacity-30"
+                style={{ width: '30%', height: '100vh', background: 'linear-gradient(to left, rgba(126,34,206,0.04), transparent)' }}
+            />
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left Column */}
-                    <div className="lg:col-span-8 space-y-8">
+            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: 0 }}>
+                <div className="max-w-5xl mx-auto" style={{ paddingTop: '2rem', paddingLeft: '2rem', paddingRight: '2rem', paddingBottom: '6rem' }}>
+                    <ProfileHeader
+                        role={role}
+                        currentStreak={currentStreak}
+                        onNavigateHome={() => navigate("/home")}
+                    />
+
+                    {/* Profile card – full width hero */}
+                    <div style={{ marginBottom: '1.5rem' }}>
                         <ProfileCard
                             displayName={displayName}
                             role={role}
@@ -160,92 +163,124 @@ export const Profile = () => {
                             onAvatarUpload={handleAvatarUpload}
                             onRemoveAvatar={handleRemoveAvatar}
                         />
-
-                        {isTeacher && (
-                            <ProfileAvailability
-                                initialAvailability={teacherAvailability}
-                                initialSettings={teacherBookingSettings}
-                                initialBlocked={teacherBlockedSlots}
-                                initialExceptions={teacherExceptions}
-                                onSave={handleSaveAvailability}
-                                saving={savingAvailability}
-                                variant="teacher"
-                            />
-                        )}
-
-                        {isTeacher && (
-                            <PendingBookings
-                                bookings={futurePendingBookings}
-                                actingOnBookingId={actingOnBookingId}
-                                onConfirm={handleConfirmBooking}
-                                onCancel={handleCancelBooking}
-                            />
-                        )}
-
-                        {role === "student" && (
-                            <ProfileStats
-                                currentStreak={currentStreak}
-                                longestStreak={longestStreak}
-                                earnedPoints={earnedPoints}
-                                totalEvents={totalEvents}
-                            />
-                        )}
-
-                        {role === "student" && (
-                            <MyBookings
-                                bookings={studentUpcomingBookings}
-                                onCancel={handleCancelMyBooking}
-                            />
-                        )}
-
-                        <ProfileSettings
-                            onChangePassword={() => setShowChangePassword(true)}
-                            onSignOut={handleSignOut}
-                            onDeleteAccount={() => setShowDeleteAccount(true)}
-                        />
                     </div>
 
-                    {/* Right Column */}
-                    <div className="lg:col-span-4 space-y-8">
-                        <ProfileQuickActions
-                            role={role}
-                            onAddEvent={() => navigate("/home")}
-                            onViewStats={() => navigate("/home")}
-                        />
+                    {/* stats + quick actions bar */}
+                    <div className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '1.5rem 2rem', marginBottom: '2rem' }}>
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between" style={{ gap: '1.25rem' }}>
+                            {/* stats inline */}
+                            {role === "student" ? (
+                                <div className="flex items-center flex-wrap" style={{ gap: '1.5rem' }}>
+                                    {[
+                                        { value: currentStreak, label: "Текуща серия", icon: "local_fire_department", iconBg: "bg-purple-50 text-purple-700" },
+                                        { value: longestStreak, label: "Най-дълга серия", icon: "emoji_events", iconBg: "bg-amber-50 text-amber-600" },
+                                        { value: earnedPoints, label: "Точки", icon: "stars", iconBg: "bg-emerald-50 text-emerald-600" },
+                                        { value: totalEvents, label: "Събития", icon: "calendar_month", iconBg: "bg-purple-50 text-purple-700" },
+                                    ].map((stat, i) => (
+                                        <div key={i} className="flex items-center" style={{ gap: '0.75rem' }}>
+                                            <div className={`flex items-center justify-center ${stat.iconBg}`} style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem' }}>
+                                                <span className="material-icons" style={{ fontSize: '1.125rem' }}>{stat.icon}</span>
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-900" style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1 }}>{stat.value}</p>
+                                                <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.06em', marginTop: '0.125rem' }}>{stat.label}</p>
+                                            </div>
+                                            {i < 3 && <div className="hidden lg:block bg-slate-200" style={{ width: '1px', height: '2rem', marginLeft: '0.75rem' }} />}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                                    <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem' }}>
+                                        <span className="material-icons" style={{ fontSize: '1.125rem' }}>school</span>
+                                    </div>
+                                    <span className="text-slate-600" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>Управлявай уроци и наличност от тук</span>
+                                </div>
+                            )}
 
-                        <ProfileEvents
-                            role={role}
-                            events={displayEvents}
-                            showAllEvents={showAllEvents}
-                            allEventsCount={allEvents.length}
-                            onToggleShowAll={() => setShowAllEvents(!showAllEvents)}
-                            onNavigateHome={() => navigate("/home")}
-                            formatDate={formatDate}
-                            formatFullDate={formatFullDate}
-                            onDeleteEvent={handleDeleteEvent}
-                        />
+                            {/* action buttons */}
+                            <div className="flex items-center shrink-0" style={{ gap: '0.625rem' }}>
+                                <button
+                                    onClick={() => navigate("/home")}
+                                    className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors"
+                                    style={{ gap: '0.375rem', padding: '0.625rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600 }}
+                                >
+                                    <span className="material-icons" style={{ fontSize: '1.125rem' }}>add_circle</span>
+                                    Добави събитие
+                                </button>
+                                {role === "student" && (
+                                    <button
+                                        onClick={() => navigate("/home")}
+                                        className="bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 flex items-center transition-colors"
+                                        style={{ gap: '0.375rem', padding: '0.625rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600 }}
+                                    >
+                                        <span className="material-icons" style={{ fontSize: '1.125rem' }}>analytics</span>
+                                        Статистики
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-                        {role === "student" && (
-                            <ProfileRecentActivity events={recentActivity} formatDate={formatDate} />
-                        )}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 items-start" style={{ gap: '2rem' }}>
+                        {/* left column */}
+                        <div className="lg:col-span-7 flex flex-col" style={{ gap: '1.5rem' }}>
+                            {isTeacher && (
+                                <ProfileAvailability
+                                    initialAvailability={teacherAvailability}
+                                    initialSettings={teacherBookingSettings}
+                                    initialBlocked={teacherBlockedSlots}
+                                    initialExceptions={teacherExceptions}
+                                    onSave={handleSaveAvailability}
+                                    saving={savingAvailability}
+                                    variant="teacher"
+                                />
+                            )}
+
+                            {isTeacher && (
+                                <PendingBookings
+                                    bookings={futurePendingBookings}
+                                    actingOnBookingId={actingOnBookingId}
+                                    onConfirm={handleConfirmBooking}
+                                    onCancel={handleCancelBooking}
+                                />
+                            )}
+
+                            {role === "student" && (
+                                <MyBookings
+                                    bookings={studentUpcomingBookings}
+                                    onCancel={handleCancelMyBooking}
+                                />
+                            )}
+
+                            <ProfileSettings
+                                onChangePassword={() => setShowChangePassword(true)}
+                                onSignOut={handleSignOut}
+                                onDeleteAccount={() => setShowDeleteAccount(true)}
+                            />
+                        </div>
+
+                        {/* right column */}
+                        <div className="lg:col-span-5 flex flex-col" style={{ gap: '1.5rem' }}>
+                            <ProfileEvents
+                                role={role}
+                                events={displayEvents}
+                                showAllEvents={showAllEvents}
+                                allEventsCount={allEvents.length}
+                                onToggleShowAll={() => setShowAllEvents(!showAllEvents)}
+                                onNavigateHome={() => navigate("/home")}
+                                formatDate={formatDate}
+                                formatFullDate={formatFullDate}
+                                onDeleteEvent={handleDeleteEvent}
+                            />
+
+                            {role === "student" && (
+                                <ProfileRecentActivity events={recentActivity} formatDate={formatDate} />
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <footer className="border-t border-slate-200 bg-white" style={{ marginTop: '3rem', padding: '2rem 0' }}>
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between" style={{ padding: '0 1.5rem', gap: '1.5rem' }}>
-                    <div className="flex items-center text-purple-700 opacity-50" style={{ gap: '0.375rem', fontWeight: 700 }}>
-                        <span className="material-icons" style={{ fontSize: '1.125rem' }}>school</span>
-                        <span style={{ fontSize: '0.875rem' }}>Matura+</span>
-                    </div>
-                    <div className="flex" style={{ gap: '1.5rem' }}>
-                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Общи условия</a>
-                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Поверителност</a>
-                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Помощ</a>
-                    </div>
-                    <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em' }}>© 2026 Всички права запазени</p>
-                </div>
-            </footer>
+            </main>
 
             <ProfileModals
                 showChangePassword={showChangePassword}

@@ -307,7 +307,7 @@ export const TeacherProfile = () => {
             : (teacher.rating ?? 0);
 
     return (
-        <div className="teacher-profile-page min-h-screen relative py-8 px-4 sm:px-6 lg:py-10">
+        <div className="teacher-profile-page min-h-screen relative" style={{ padding: '2rem 2rem 2rem 3rem' }}>
             <div className="relative z-10 max-w-6xl mx-auto">
                 {/* success message */}
                 {success && (

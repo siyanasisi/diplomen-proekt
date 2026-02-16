@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
@@ -83,7 +83,7 @@ export function Learning() {
     });
   };
   const handleTopicClick = (subId: string, topId: string) => {
-    setLeftNavOpen(false);
+    setSidebarOpen(false);
     const planState = location.state as { todayPlanTopicIds?: string[]; todayDate?: string } | null;
     navigate(`/study/learn/${subId}/${topId}`, {
       replace: true,

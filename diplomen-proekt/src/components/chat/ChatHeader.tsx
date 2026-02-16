@@ -32,7 +32,7 @@ export function ChatHeader({
     const isOnline = isConversationUserOnline(selectedConv);
     const statusLabel = isOnline ? "Онлайн" : `Последна активност: ${formatLastSeen(selectedConv.otherUserLastSeenAt ?? null)}`;
     return (
-        <header className="chat-header-bar flex-none px-4 py-3 flex items-center gap-3 min-h-[56px]">
+        <header className="chat-header-bar flex-none flex items-center min-h-[64px]" style={{ padding: '0.875rem 1.5rem', gap: '0.875rem' }}>
             <button
                 type="button"
                 onClick={() => setSelectedConv(null)}
@@ -43,31 +43,32 @@ export function ChatHeader({
                     <path d="M15 19l-7-7 7-7" />
                 </svg>
             </button>
-            <div className="chat-header-avatar-wrap relative flex-shrink-0 rounded-full w-9 h-9">
+            <div className="chat-header-avatar-wrap relative flex-shrink-0 rounded-full" style={{ width: '2.75rem', height: '2.75rem' }}>
                 <AvatarImage
                     url={selectedConv.otherUserAvatarUrl}
                     fallback={
-                        <div className="chat-header-avatar w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-semibold bg-slate-400">
+                        <div className="chat-header-avatar rounded-full flex items-center justify-center text-white font-semibold bg-slate-400" style={{ width: '2.75rem', height: '2.75rem', fontSize: '0.875rem' }}>
                             {getDisplayName(selectedConv).charAt(0).toUpperCase()}
                         </div>
                     }
-                    imgClassName="chat-header-avatar w-9 h-9 rounded-full object-cover"
+                    imgClassName="chat-header-avatar w-11 h-11 rounded-full object-cover"
                 />
                 <span
-                    className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border-2 border-white ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`}
+                    className={`absolute bottom-0 right-0 rounded-full border-2 border-white ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`}
+                    style={{ width: '0.625rem', height: '0.625rem' }}
                     title={statusLabel}
                     aria-hidden
                 />
             </div>
-            <div className="flex-1 min-w-0">
-                <h2 className="text-[15px] font-semibold text-slate-900 truncate">
+            <div className="flex-1 min-w-0" style={{ marginLeft: '0.25rem' }}>
+                <h2 className="text-slate-900 truncate" style={{ fontSize: '1rem', fontWeight: 700 }}>
                     {getDisplayName(selectedConv)}
                 </h2>
-                <p className="text-[12px] text-slate-500 truncate mt-0.5" title={statusLabel}>
+                <p className="text-slate-500 truncate" style={{ fontSize: '0.8125rem', marginTop: '0.125rem' }} title={statusLabel}>
                     {statusLabel}
                 </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0 mr-6">
+            <div className="flex items-center shrink-0" style={{ gap: '0.5rem', marginRight: '0.5rem' }}>
                 <button
                     type="button"
                     onClick={() => { setChatHeaderMoreOpen(false); setChatHeaderInfoOpen((v) => !v); }}

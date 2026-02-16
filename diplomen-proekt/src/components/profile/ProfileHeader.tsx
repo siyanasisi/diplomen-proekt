@@ -6,29 +6,35 @@ interface ProfileHeaderProps {
 
 export function ProfileHeader({ role, currentStreak, onNavigateHome }: ProfileHeaderProps) {
     return (
-        <header className="flex justify-between items-start mb-8">
-            <div>
-                <button
-                    onClick={onNavigateHome}
-                    className="flex items-center text-sm font-medium text-slate-500 hover:text-purple-700 transition-colors mb-2"
-                >
-                    <span className="material-icons text-lg mr-1">chevron_left</span>
-                    Назад към начало
-                </button>
-                <h1 className="text-5xl font-extrabold text-purple-700 tracking-tight">Профил</h1>
-                <p className="text-slate-500 mt-1">Управление на акаунта и настройки</p>
-            </div>
-            {role === "student" && (
-                <div className="flex items-center bg-white border border-slate-200 rounded-full px-6 py-3 shadow-sm">
-                    <div className="relative flex items-center justify-center mr-3">
-                        <span className="material-icons text-orange-500 text-4xl">local_fire_department</span>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-2xl font-black text-slate-900 leading-none">{currentStreak}</span>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">дни серия</span>
-                    </div>
+        <header style={{ marginBottom: '2rem' }}>
+            <button
+                onClick={onNavigateHome}
+                className="flex items-center text-slate-500 hover:text-purple-700 transition-colors"
+                style={{ fontSize: '0.8125rem', fontWeight: 600, gap: '0.25rem', marginBottom: '0.75rem' }}
+            >
+                <span className="material-icons" style={{ fontSize: '1.125rem' }}>chevron_left</span>
+                Назад към начало
+            </button>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-slate-900" style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em' }}>Профил</h1>
+                    <p className="text-slate-500" style={{ fontSize: '0.9375rem', marginTop: '0.25rem' }}>Управление на акаунта и настройки</p>
                 </div>
-            )}
+                {role === "student" && (
+                    <div
+                        className="flex items-center bg-white border border-slate-200"
+                        style={{ gap: '0.75rem', padding: '0.75rem 1.25rem', borderRadius: '0.75rem' }}
+                    >
+                        <div className="flex items-center justify-center bg-orange-50 text-orange-500" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.625rem' }}>
+                            <span className="material-icons" style={{ fontSize: '1.375rem' }}>local_fire_department</span>
+                        </div>
+                        <div>
+                            <p className="text-slate-900" style={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1 }}>{currentStreak}</p>
+                            <p className="text-slate-500 uppercase" style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.06em' }}>дни серия</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </header>
     );
 }

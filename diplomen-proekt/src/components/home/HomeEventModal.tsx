@@ -95,21 +95,19 @@ export function HomeEventModal({
                 )}
 
                 {/* event textarea */}
-                {(hasEvent || !hasStudyTopics) && (
-                    <>
-                        <label className="text-slate-700" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
-                            {hasEvent ? "Събитие" : "Добави събитие"}
-                        </label>
-                        <textarea
-                            value={eventText}
-                            onChange={(e) => setEventText(e.target.value)}
-                            placeholder="Напр: Учене за матура, Преговор на материал..."
-                            className="w-full border border-slate-200 focus:border-purple-500 text-slate-700 placeholder-slate-400 outline-none resize-none"
-                            style={{ borderRadius: '0.625rem', padding: '0.875rem', marginBottom: '1.5rem', height: '8rem', fontSize: '0.875rem', fontWeight: 500 }}
-                            autoFocus={!hasStudyTopics}
-                        />
-                    </>
-                )}
+                <div>
+                    <label className="text-slate-700" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+                        {hasEvent ? "Събитие" : "Добави събитие"}
+                    </label>
+                    <textarea
+                        value={eventText}
+                        onChange={(e) => setEventText(e.target.value)}
+                        placeholder="Напр: Учене за матура, Преговор на материал..."
+                        className="w-full border border-slate-200 focus:border-purple-500 text-slate-700 placeholder-slate-400 outline-none resize-none"
+                        style={{ borderRadius: '0.625rem', padding: '0.875rem', marginBottom: '1.5rem', height: '8rem', fontSize: '0.875rem', fontWeight: 500 }}
+                        autoFocus={!hasStudyTopics}
+                    />
+                </div>
 
                 {/* actions */}
                 <div className="flex items-center justify-between" style={{ gap: '0.75rem' }}>
@@ -131,16 +129,15 @@ export function HomeEventModal({
                         >
                             Затвори
                         </button>
-                        {(hasEvent || eventText.trim()) && (
-                            <button
-                                onClick={onSave}
-                                className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors"
-                                style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}
-                            >
-                                <span className="material-icons" style={{ fontSize: '1rem' }}>check</span>
-                                Запази
-                            </button>
-                        )}
+                        <button
+                            onClick={onSave}
+                            disabled={!eventText.trim() && !hasEvent}
+                            className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}
+                        >
+                            <span className="material-icons" style={{ fontSize: '1rem' }}>check</span>
+                            Запази
+                        </button>
                     </div>
                 </div>
             </div>

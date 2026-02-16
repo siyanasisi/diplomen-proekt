@@ -30,14 +30,14 @@ export function ProfileAvailability({
 
     if (isTeacher) {
         return (
-            <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-full bg-purple-700/10 flex items-center justify-center text-purple-700">
-                        <span className="material-icons">schedule</span>
+            <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2rem' }}>
+                <div className="flex items-center" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3rem', height: '3rem', borderRadius: '0.75rem' }}>
+                        <span className="material-icons" style={{ fontSize: '1.375rem' }}>schedule</span>
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold">Кога съм на разположение</h3>
-                        <p className="text-xs text-slate-500">Настройте работните си дни и часове.</p>
+                        <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700 }}>Кога съм на разположение</h3>
+                        <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.125rem' }}>Настройте работните си дни и часове.</p>
                     </div>
                 </div>
                 <TeacherAvailabilityForm
@@ -54,14 +54,18 @@ export function ProfileAvailability({
     }
 
     return (
-        <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-purple-700/10 border-2 border-purple-200/40 p-8 hover:shadow-purple-700/20 hover:border-purple-300/60 transition-all duration-700">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 bg-gradient-to-r from-slate-900 via-purple-700 to-slate-900 bg-clip-text text-transparent">
-                Кога съм на разположение
-            </h3>
-            <p className="text-sm text-slate-600 mb-6">
-                Настройте работните си дни и часове, продължителност на урок и почивки. Учениците ще виждат само свободни
-                слотове.
-            </p>
+        <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2rem' }}>
+            <div className="flex items-center" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
+                <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3rem', height: '3rem', borderRadius: '0.75rem' }}>
+                    <span className="material-icons" style={{ fontSize: '1.375rem' }}>schedule</span>
+                </div>
+                <div>
+                    <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700 }}>Кога съм на разположение</h3>
+                    <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.125rem' }}>
+                        Настройте работните си дни и часове, продължителност на урок и почивки.
+                    </p>
+                </div>
+            </div>
             <TeacherAvailabilityForm
                 initialAvailability={initialAvailability}
                 initialSettings={initialSettings}
@@ -70,6 +74,6 @@ export function ProfileAvailability({
                 onSave={onSave}
                 saving={saving}
             />
-        </div>
+        </section>
     );
 }
