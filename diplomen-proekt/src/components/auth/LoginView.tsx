@@ -31,56 +31,57 @@ export function LoginView({
   const [showPw, setShowPw] = useState(false)
 
   return (
-    <div style={{ height: '100vh', background: '#F5F3FF', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* header */}
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 28px',
-          borderBottom: '1px solid #E5E7EB',
-          background: '#fff',
+          padding: '0 1.5rem',
+          height: '4rem',
+          borderBottom: '1px solid #e2e8f0',
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(8px)',
           position: 'sticky',
           top: 0,
           zIndex: 20,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              background: '#7C3AED',
+              width: '2.25rem',
+              height: '2.25rem',
+              borderRadius: '0.625rem',
+              background: '#7c3aed',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#fff',
-              fontWeight: 700,
-              fontSize: 20,
+              fontSize: '1.25rem',
             }}
           >
-            M
+            <span className="material-icons" style={{ fontSize: '1.25rem' }}>auto_stories</span>
           </div>
-          <span style={{ fontSize: 20, fontWeight: 700, color: '#1E293B' }}>
-            Матура<span style={{ color: '#7C3AED' }}>+</span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+            Matura<span style={{ color: '#7c3aed' }}>+</span>
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <Link to="/login" style={{ fontSize: 14, fontWeight: 600, color: '#475569', textDecoration: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <Link to="/login" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textDecoration: 'none' }}>
             Вход
           </Link>
           <Link
             to="/signup"
             style={{
-              fontSize: 14,
+              fontSize: '0.875rem',
               fontWeight: 600,
               color: '#fff',
-              background: '#7C3AED',
-              padding: '10px 24px',
-              borderRadius: 999,
+              background: '#7c3aed',
+              padding: '0.5rem 1.25rem',
+              borderRadius: '0.5rem',
               textDecoration: 'none',
             }}
           >
@@ -97,17 +98,17 @@ export function LoginView({
             style={{
               width: '100%',
               background: '#fff',
-              borderRadius: 20,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-              border: '1px solid #F1F5F9',
-              padding: '48px 40px 40px',
+              borderRadius: '1rem',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+              border: '1px solid #e2e8f0',
+              padding: '3rem 2.5rem 2.5rem',
               position: 'relative',
               overflow: 'visible',
-              marginTop: 32,
+              marginTop: '2rem',
             }}
           >
             {/* accent bar */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: '#7C3AED', borderRadius: '20px 20px 0 0', zIndex: 1 }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: '#7c3aed', borderRadius: '1rem 1rem 0 0', zIndex: 1 }} />
 
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: -80, position: 'relative', zIndex: 2 }}>
               <div

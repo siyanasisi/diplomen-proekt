@@ -32,8 +32,8 @@ export function ProfileStats({ currentStreak, longestStreak, earnedPoints, total
             value: totalEvents,
             label: "Събития",
             icon: "calendar_month",
-            bgColor: "bg-[#6D28D9]",
-            shadowColor: "shadow-[#6D28D9]/20",
+            bgColor: "bg-purple-700",
+            shadowColor: "shadow-purple-700/20",
         },
     ];
 

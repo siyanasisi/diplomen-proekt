@@ -102,11 +102,11 @@ export function ProfileModals(props: ProfileModalsProps) {
             {/* Change password modal */}
             {showChangePassword && (
                 <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-500">
-                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-900/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 relative overflow-hidden">
+                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-700/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 via-transparent to-purple-50/20 pointer-events-none" />
                         <div className="relative">
                             <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-700 to-slate-900 bg-clip-text text-transparent">
                                     Смени парола
                                 </h3>
                                 <button
@@ -136,7 +136,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                         type="password"
                                         value={currentPassword}
                                         onChange={(e) => setCurrentPassword(e.target.value)}
-                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                         placeholder="Въведете текущата парола"
                                         required
                                         disabled={changingPassword}
@@ -151,8 +151,8 @@ export function ProfileModals(props: ProfileModalsProps) {
                                             setNewPassword(e.target.value);
                                             setPasswordError(e.target.value ? validatePassword(e.target.value) : "");
                                         }}
-                                        className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${
-                                            passwordError && newPassword ? "border-red-200 focus:border-red-300" : "border-slate-200 focus:border-purple-900"
+                                        className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${
+                                            passwordError && newPassword ? "border-red-200 focus:border-red-300" : "border-slate-200 focus:border-purple-700"
                                         }`}
                                         placeholder="Минимум 8 символа, главна буква, малка буква, цифра, специален символ"
                                         required
@@ -178,10 +178,10 @@ export function ProfileModals(props: ProfileModalsProps) {
                                                 setPasswordError(validatePassword(newPassword));
                                             }
                                         }}
-                                        className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${
+                                        className={`w-full px-5 py-4 border-2 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 ${
                                             passwordError && confirmPassword && confirmPassword !== newPassword
                                                 ? "border-red-200 focus:border-red-300"
-                                                : "border-slate-200 focus:border-purple-900"
+                                                : "border-slate-200 focus:border-purple-700"
                                         }`}
                                         placeholder="Повтори новата парола"
                                         required
@@ -204,7 +204,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                     <button
                                         type="submit"
                                         disabled={changingPassword}
-                                        className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-700 hover:bg-purple-700 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-700/20 hover:shadow-xl hover:shadow-purple-700/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {changingPassword ? "Запазване..." : "Смени парола"}
                                     </button>
@@ -310,11 +310,11 @@ export function ProfileModals(props: ProfileModalsProps) {
             {/* Edit profile modal */}
             {editMode && (
                 <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-500">
-                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-900/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 max-h-[90vh] overflow-y-auto relative">
+                    <div className="bg-white/95 backdrop-blur-2xl rounded-3xl p-10 max-w-lg w-full shadow-2xl shadow-purple-700/30 animate-in zoom-in-95 duration-500 border-2 border-purple-200/60 max-h-[90vh] overflow-y-auto relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 via-transparent to-purple-50/20 pointer-events-none" />
                         <div className="relative">
                             <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                                <h3 className="text-3xl font-black text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-purple-700 to-slate-900 bg-clip-text text-transparent">
                                     Редактирай профил
                                 </h3>
                                 <button
@@ -340,7 +340,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                             type="text"
                                             value={editedFirstName}
                                             onChange={(e) => setEditedFirstName(e.target.value)}
-                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                             placeholder="Име"
                                             required
                                         />
@@ -351,7 +351,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                             type="text"
                                             value={editedLastName}
                                             onChange={(e) => setEditedLastName(e.target.value)}
-                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                             placeholder="Фамилия"
                                             required
                                         />
@@ -363,7 +363,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                         type="text"
                                         value={editedCity}
                                         onChange={(e) => setEditedCity(e.target.value)}
-                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                        className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                         placeholder="Град"
                                     />
                                 </div>
@@ -374,7 +374,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                             type="text"
                                             value={editedQualifications}
                                             onChange={(e) => setEditedQualifications(e.target.value)}
-                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                             placeholder="Математика, Физика..."
                                         />
                                     </div>
@@ -386,7 +386,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                             value={editedDescription}
                                             onChange={(e) => setEditedDescription(e.target.value)}
                                             rows={5}
-                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 resize-y"
+                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400 resize-y"
                                             placeholder="Кратко представяне за учениците: опит, подход, за какво преподавате..."
                                         />
                                     </div>
@@ -404,7 +404,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                                             setPriceNegotiable(e.target.checked);
                                                             if (e.target.checked) setEditedHourlyRate("");
                                                         }}
-                                                        className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                        className="w-5 h-5 rounded border-2 border-slate-300 text-purple-700 focus:ring-purple-700"
                                                     />
                                                     <span className="text-slate-700 font-medium">По договаряне</span>
                                                 </label>
@@ -417,7 +417,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                                             step="0.01"
                                                             value={editedHourlyRate}
                                                             onChange={(e) => setEditedHourlyRate(e.target.value)}
-                                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                                             placeholder="напр. 25"
                                                         />
                                                     </div>
@@ -429,7 +429,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                                             type="text"
                                                             value={editedPriceNote}
                                                             onChange={(e) => setEditedPriceNote(e.target.value)}
-                                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-900 rounded-2xl text-base focus:ring-4 focus:ring-purple-900/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
+                                                            className="w-full px-5 py-4 border-2 border-slate-200 focus:border-purple-700 rounded-2xl text-base focus:ring-4 focus:ring-purple-700/10 outline-none transition-all font-medium text-slate-700 placeholder-slate-400"
                                                             placeholder="напр. При пакет 10 урока - отстъпка"
                                                         />
                                                     </div>
@@ -439,7 +439,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                                         type="checkbox"
                                                         checked={editedOffersOnline}
                                                         onChange={(e) => setEditedOffersOnline(e.target.checked)}
-                                                        className="w-5 h-5 rounded border-2 border-slate-300 text-purple-600 focus:ring-purple-500"
+                                                        className="w-5 h-5 rounded border-2 border-slate-300 text-purple-700 focus:ring-purple-700"
                                                     />
                                                     <span className="text-slate-700 font-medium">Предлагам онлайн уроци</span>
                                                 </label>
@@ -458,7 +458,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                     <button
                                         type="submit"
                                         disabled={loadingUpdate}
-                                        className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-900 hover:bg-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-900/20 hover:shadow-xl hover:shadow-purple-900/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex-1 px-6 py-3 text-sm font-semibold bg-purple-700 hover:bg-purple-700 text-white rounded-xl transition-all duration-300 shadow-lg shadow-purple-700/20 hover:shadow-xl hover:shadow-purple-700/30 hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {loadingUpdate ? "Запазване..." : "Запази"}
                                     </button>

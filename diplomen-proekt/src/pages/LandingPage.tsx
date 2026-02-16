@@ -4,256 +4,180 @@ export const LandingPage = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="bg-white text-slate-900 transition-colors duration-300">
+        <div className="bg-slate-50 text-slate-900 min-h-screen">
             {/* navbar */}
-            <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
-                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-                            <span className="material-icons text-white">auto_stories</span>
+            <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
+                <div className="max-w-6xl mx-auto flex items-center justify-between" style={{ padding: '0 1.5rem', height: '4rem' }}>
+                    <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                        <div className="flex items-center justify-center bg-purple-700 text-white" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem' }}>
+                            <span className="material-icons" style={{ fontSize: '1.25rem' }}>auto_stories</span>
                         </div>
-                        <span className="text-2xl font-extrabold tracking-tight">
-                            Matura<span className="text-primary">+</span>
+                        <span className="text-slate-900" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                            Matura<span className="text-purple-700">+</span>
                         </span>
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center" style={{ gap: '1.25rem' }}>
                         <button
                             onClick={() => navigate("/login")}
-                            className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors cursor-pointer"
+                            className="text-slate-600 hover:text-purple-700 transition-colors cursor-pointer"
+                            style={{ fontSize: '0.875rem', fontWeight: 600 }}
                         >
                             Вход
                         </button>
                         <button
                             onClick={() => navigate("/signup")}
-                            className="px-6 py-2.5 bg-primary hover:bg-secondary text-white rounded-full font-bold text-sm transition-all shadow-lg shadow-primary/20 cursor-pointer"
+                            className="bg-purple-700 hover:bg-purple-800 text-white cursor-pointer transition-colors"
+                            style={{ padding: '0.5rem 1.25rem', borderRadius: '0.5rem', fontSize: '0.875rem', fontWeight: 600 }}
                         >
-                            Старт
+                            Регистрация
                         </button>
                     </div>
                 </div>
             </nav>
 
-            {/* Main Content */}
             <main className="relative overflow-hidden">
-                <div className="hero-glow" />
+                {/* subtle bg accent */}
+                <div className="pointer-events-none absolute top-0 right-0 opacity-30" style={{ width: '40%', height: '100%', background: 'radial-gradient(ellipse at top right, rgba(126,34,206,0.06), transparent 70%)' }} />
 
-                {/* Hero Section */}
-                <div className="max-w-7xl mx-auto px-6 pt-12 pb-24 lg:pt-24 lg:pb-32 grid lg:grid-cols-2 gap-16 items-center">
-                    {/* left column */}
-                    <div style={{ marginLeft: "4rem" }} className="space-y-8">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20">
-                            <span className="material-icons text-sm">bolt</span>
-                            <span className="text-xs font-bold uppercase tracking-wider">
-                                Нова Версия: БЕЛ + Тестове
-                            </span>
+                {/* Hero */}
+                <div className="max-w-6xl mx-auto grid lg:grid-cols-2 items-center" style={{ padding: '3rem 1.5rem 4rem', gap: '3rem' }}>
+                    {/* left */}
+                    <div style={{ maxWidth: '32rem' }}>
+                        <div className="inline-flex items-center bg-purple-50 border border-purple-100 text-purple-700" style={{ gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '2rem', fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>
+                            <span className="material-icons" style={{ fontSize: '0.875rem' }}>bolt</span>
+                            Нова Версия: БЕЛ + Тестове
                         </div>
 
-                        <h1 className="text-5xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight text-slate-900">
+                        <h1 className="text-slate-900" style={{ fontSize: 'clamp(2.25rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: '1.25rem' }}>
                             Подготви се за матурата{" "}
                             <span className="gradient-text">умно</span>, не наизуст.
                         </h1>
 
-                        <p style={{ marginTop: "2rem", marginBottom: "2rem" }} className="text-lg text-slate-600 max-w-xl leading-relaxed">
+                        <p className="text-slate-600" style={{ fontSize: '1.0625rem', lineHeight: 1.6, marginBottom: '1.5rem', maxWidth: '28rem' }}>
                             Платформа, която обединява уроци, тестове и персонален учебен план.
-                            Добави календар и ясен прогрес за твоята успешна матура на едно
-                            място.
+                            Добави календар и ясен прогрес за твоята успешна матура на едно място.
                         </p>
 
-                        <div style={{ marginBottom: "2rem" }} className="flex flex-wrap gap-4 text-sm font-medium text-slate-500">
-                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                                <span className="material-icons text-primary text-base">
-                                    check_circle
-                                </span>
-                                1200+ задачи
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                                <span className="material-icons text-primary text-base">
-                                    check_circle
-                                </span>
-                                Личен план
-                            </div>
-                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                                <span className="material-icons text-primary text-base">
-                                    check_circle
-                                </span>
-                                Ясен прогрес
-                            </div>
+                        <div className="flex flex-wrap" style={{ gap: '0.5rem', marginBottom: '2rem' }}>
+                            {['1200+ задачи', 'Личен план', 'Ясен прогрес'].map((text) => (
+                                <div key={text} className="flex items-center bg-white border border-slate-200 text-slate-600" style={{ gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '2rem', fontSize: '0.8125rem', fontWeight: 500 }}>
+                                    <span className="material-icons text-purple-700" style={{ fontSize: '0.9375rem' }}>check_circle</span>
+                                    {text}
+                                </div>
+                            ))}
                         </div>
 
-                        <div className="flex items-center gap-6 pt-4">
+                        <div className="flex items-center" style={{ gap: '1.25rem' }}>
                             <button
                                 onClick={() => navigate("/signup")}
-                                className="px-8 py-4 bg-primary hover:bg-secondary text-white rounded-2xl font-bold text-lg transition-all shadow-xl shadow-primary/25 flex items-center gap-3 group cursor-pointer"
+                                className="bg-purple-700 hover:bg-purple-800 text-white flex items-center group cursor-pointer transition-colors"
+                                style={{ padding: '0.875rem 1.75rem', borderRadius: '0.75rem', fontSize: '1.0625rem', fontWeight: 700, gap: '0.5rem' }}
                             >
                                 Започни
-                                <span className="material-icons group-hover:translate-x-1 transition-transform">
-                                    arrow_forward
-                                </span>
+                                <span className="material-icons group-hover:translate-x-0.5 transition-transform" style={{ fontSize: '1.25rem' }}>arrow_forward</span>
                             </button>
-                            <div className="flex -space-x-3 overflow-hidden">
-                                <img
-                                    alt="Student user"
-                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbEim12V0I7Or4rcJRw71YhQuKnzGqKNofU7TBo9tTq5KgIldHN2IXQPcXmYQ2EnJwCQpOLC_RkI9e9gQLeOiX0kbfdvaNnblMn8qi3ParH6mkmwh-Kih2ldh38c74vxddNkOiayai8D_f-c3k4gl4i_qfrHQglWZI7BQvg8-0ohIrzw_IcyiG56hPaGItDBnTXS7a_xN_moO8haRSXCvWdm1X8rEgTdWw4aH9FyE8j6mWe9d9f9q3HYK0zAdG8VDDhmPiJTuGzKON"
-                                />
-                                <img
-                                    alt="Student user"
-                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwweeuVcx3o74dLqLtau3M_tkF8JTC0jsxL9amO4TxyGLQsg_JqSJ4-JIsMnKlGFqWDXQ2Psb8MpQjj4W6Z5NDUs8FEx8kPa0LEp-XYTMzwt_BM3BxG_gW2xw60go8VnNx2A3OlosZ7vD075ZDRosrZlLrKqGCQ5H0q3n_iUgpuJYCsGuAdhgfXLOjLv3ppTjDU_rLLdKsE5TPX2e7ArChRr04-IGnYEntY8KI_s3OWvNlmQsU3_V-BxLmtM6n3l860Y_I-tmD9F7b"
-                                />
-                                <img
-                                    alt="Student user"
-                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfIsr0_An2-LOwEIJuKBGcyqKuMjthO3mWhHdkUeHOSjTsWLAn8BKpx1-dqJDiMt_lkEo1dP3gr-TdQu5gNJgCKBptblCFNUOJWiJkqs8_h3PmTqReutE6fGbBmEte5PM5HJ1aJ5YRUy6ioE4hUGAJ26eJvoVs1yXPR3ZpSVp98qUixUG1eAzcaQemQS4hGPwh0035IdTh8kBFF_iVEsvhb4blD2j9xTbXj1o9ZR60f_QeOs8n-WeVWfGMgBzkzYwmhpoUXRSevovk"
-                                />
-                                <div className="flex items-center justify-center h-10 w-10 rounded-full ring-2 ring-white bg-slate-100 text-[10px] font-bold">
-                                    +2k
-                                </div>
+                            <div className="flex -space-x-2">
+                                {[
+                                    "https://lh3.googleusercontent.com/aida-public/AB6AXuBbEim12V0I7Or4rcJRw71YhQuKnzGqKNofU7TBo9tTq5KgIldHN2IXQPcXmYQ2EnJwCQpOLC_RkI9e9gQLeOiX0kbfdvaNnblMn8qi3ParH6mkmwh-Kih2ldh38c74vxddNkOiayai8D_f-c3k4gl4i_qfrHQglWZI7BQvg8-0ohIrzw_IcyiG56hPaGItDBnTXS7a_xN_moO8haRSXCvWdm1X8rEgTdWw4aH9FyE8j6mWe9d9f9q3HYK0zAdG8VDDhmPiJTuGzKON",
+                                    "https://lh3.googleusercontent.com/aida-public/AB6AXuDwweeuVcx3o74dLqLtau3M_tkF8JTC0jsxL9amO4TxyGLQsg_JqSJ4-JIsMnKlGFqWDXQ2Psb8MpQjj4W6Z5NDUs8FEx8kPa0LEp-XYTMzwt_BM3BxG_gW2xw60go8VnNx2A3OlosZ7vD075ZDRosrZlLrKqGCQ5H0q3n_iUgpuJYCsGuAdhgfXLOjLv3ppTjDU_rLLdKsE5TPX2e7ArChRr04-IGnYEntY8KI_s3OWvNlmQsU3_V-BxLmtM6n3l860Y_I-tmD9F7b",
+                                    "https://lh3.googleusercontent.com/aida-public/AB6AXuCfIsr0_An2-LOwEIJuKBGcyqKuMjthO3mWhHdkUeHOSjTsWLAn8BKpx1-dqJDiMt_lkEo1dP3gr-TdQu5gNJgCKBptblCFNUOJWiJkqs8_h3PmTqReutE6fGbBmEte5PM5HJ1aJ5YRUy6ioE4hUGAJ26eJvoVs1yXPR3ZpSVp98qUixUG1eAzcaQemQS4hGPwh0035IdTh8kBFF_iVEsvhb4blD2j9xTbXj1o9ZR60f_QeOs8n-WeVWfGMgBzkzYwmhpoUXRSevovk",
+                                ].map((src, i) => (
+                                    <img key={i} alt="Student" className="inline-block ring-2 ring-white object-cover" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%' }} src={src} />
+                                ))}
+                                <div className="flex items-center justify-center ring-2 ring-white bg-slate-100 text-slate-600" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', fontSize: '0.625rem', fontWeight: 700 }}>+2k</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* right column - dashboard mockup */}
-                    <div className="relative">
-                        <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-purple-400/20 blur-2xl rounded-[3rem] -z-10" />
-                        <div className="bg-white rounded-[2rem] border border-slate-200 dashboard-mockup overflow-hidden">
+                    {/* right - dashboard mockup */}
+                    <div className="relative hidden lg:block">
+                        <div className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: '1rem', boxShadow: '0 20px 40px -8px rgba(0,0,0,0.1)' }}>
                             {/* browser chrome */}
-                            <div className="h-10 border-b border-slate-100 flex items-center px-6 gap-1.5">
-                                <div className="w-3 h-3 rounded-full bg-rose-400" />
-                                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                                <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                            <div className="flex items-center border-b border-slate-100" style={{ height: '2.25rem', padding: '0 1rem', gap: '0.375rem' }}>
+                                <div className="bg-rose-400" style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%' }} />
+                                <div className="bg-amber-400" style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%' }} />
+                                <div className="bg-emerald-400" style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%' }} />
                             </div>
 
-                            {/* dashboard content */}
-                            <div className="p-8">
-                                {/* plan header */}
-                                <div className="flex justify-between items-start mb-8">
+                            <div style={{ padding: '1.5rem' }}>
+                                {/* header */}
+                                <div className="flex justify-between items-start" style={{ marginBottom: '1.5rem' }}>
                                     <div>
-                                        <h2 className="text-3xl font-extrabold text-slate-800">
-                                            Твоят план
-                                        </h2>
-                                        <p className="text-xs font-bold text-slate-400 mt-2 tracking-widest uppercase">
-                                            Седмичен прогрес
-                                        </p>
-                                        <div className="w-48 h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                                            <div className="h-full bg-primary w-2/3" />
+                                        <h2 className="text-slate-900" style={{ fontSize: '1.5rem', fontWeight: 800 }}>Твоят план</h2>
+                                        <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.08em', marginTop: '0.375rem' }}>Седмичен прогрес</p>
+                                        <div className="bg-slate-100 overflow-hidden" style={{ width: '10rem', height: '0.375rem', borderRadius: '0.25rem', marginTop: '0.375rem' }}>
+                                            <div className="bg-purple-700 h-full" style={{ width: '66%' }} />
                                         </div>
                                     </div>
-                                    <div className="flex gap-3">
-                                        <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 flex flex-col items-end">
-                                            <span className="text-[10px] font-bold text-primary tracking-wider">
-                                                    ПОРЕДИЦА!
-                                            </span>
-                                            <span className="text-xs text-slate-500">
-                                                Тестът е завършен!
-                                            </span>
+                                    <div className="flex" style={{ gap: '0.5rem' }}>
+                                        <div className="bg-purple-50 border border-purple-100" style={{ padding: '0.5rem', borderRadius: '0.5rem' }}>
+                                            <span className="text-purple-700" style={{ fontSize: '0.5625rem', fontWeight: 700, display: 'block' }}>ПОРЕДИЦА!</span>
+                                            <span className="text-slate-500" style={{ fontSize: '0.5625rem' }}>Тестът е завършен!</span>
                                         </div>
-                                        <div className="bg-primary/10 p-3 rounded-xl flex items-center gap-2">
-                                            <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                                                <span className="material-icons text-white text-[14px]">
-                                                    bolt
-                                                </span>
+                                        <div className="bg-purple-50 flex items-center" style={{ padding: '0.5rem', borderRadius: '0.5rem', gap: '0.375rem' }}>
+                                            <div className="flex items-center justify-center bg-purple-700 text-white" style={{ width: '1.25rem', height: '1.25rem', borderRadius: '50%' }}>
+                                                <span className="material-icons" style={{ fontSize: '0.75rem' }}>bolt</span>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-primary">
-                                                    УМЕН РЕЖИМ
-                                                </p>
-                                                <p className="text-[10px] text-slate-500">
-                                                    3 препоръки готови
-                                                </p>
+                                                <p className="text-purple-700" style={{ fontSize: '0.5625rem', fontWeight: 700 }}>УМЕН РЕЖИМ</p>
+                                                <p className="text-slate-500" style={{ fontSize: '0.5625rem' }}>3 препоръки</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* stats grid */}
-                                <div className="grid grid-cols-3 gap-4 mb-8">
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
-                                            РЕШЕНИ
-                                        </p>
-                                        <p className="text-xl font-bold">128 задачи</p>
-                                    </div>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
-                                            ТОЧНОСТ
-                                        </p>
-                                        <p className="text-xl font-bold">84%</p>
-                                    </div>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
-                                            СЕСИИ
-                                        </p>
-                                        <p className="text-xl font-bold">5 тази седмица</p>
-                                    </div>
+                                {/* stats */}
+                                <div className="grid grid-cols-3" style={{ gap: '0.625rem', marginBottom: '1.25rem' }}>
+                                    {[['РЕШЕНИ', '128 задачи'], ['ТОЧНОСТ', '84%'], ['СЕСИИ', '5 тази седмица']].map(([label, value]) => (
+                                        <div key={label} className="bg-slate-50 border border-slate-100" style={{ padding: '0.75rem', borderRadius: '0.625rem' }}>
+                                            <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</p>
+                                            <p className="text-slate-900" style={{ fontSize: '0.9375rem', fontWeight: 700, marginTop: '0.125rem' }}>{value}</p>
+                                        </div>
+                                    ))}
                                 </div>
 
-                                {/* calendar row */}
-                                <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
-                                    <div className="min-w-[80px] h-14 rounded-xl border-2 border-primary bg-primary/5 flex items-center justify-center">
-                                        <span className="text-xs font-bold text-primary">
-                                            МАТУРА
-                                        </span>
+                                {/* calendar */}
+                                <div className="flex overflow-hidden" style={{ gap: '0.375rem', marginBottom: '1.25rem' }}>
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                        <div key={i} className="bg-white border border-slate-100" style={{ minWidth: '3rem', height: '2.75rem', borderRadius: '0.5rem' }} />
+                                    ))}
+                                    <div className="flex items-center justify-center border-2 border-purple-700 bg-purple-50" style={{ minWidth: '4rem', height: '2.75rem', borderRadius: '0.5rem' }}>
+                                        <span className="text-purple-700" style={{ fontSize: '0.625rem', fontWeight: 700 }}>МАТУРА</span>
                                     </div>
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
-                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                        <div key={`r-${i}`} className="bg-white border border-slate-100" style={{ minWidth: '3rem', height: '2.75rem', borderRadius: '0.5rem' }} />
+                                    ))}
                                 </div>
 
-                                {/* schedule grid */}
-                                <div className="grid grid-cols-3 gap-6">
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
-                                            ДНЕС
-                                        </p>
-                                        <p className="text-sm font-bold border-b-2 border-primary inline-block pb-0.5">
-                                            Практика по литература
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
-                                            СЛЕДВАЩО
-                                        </p>
-                                        <p className="text-sm font-bold">Пробен изпит, 18:00</p>
-                                        <p className="text-[10px] text-slate-500">
-                                            45 мин фокус блок
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
-                                            AI АНАЛИЗ
-                                        </p>
-                                        <p className="text-sm font-bold">
-                                            Скорост на четене +12%
-                                        </p>
-                                        <p className="text-[10px] text-slate-500">
-                                            Най-добър прозорец: 16:30 - 18:30
-                                        </p>
-                                    </div>
+                                {/* schedule */}
+                                <div className="grid grid-cols-3" style={{ gap: '1rem' }}>
+                                    {[
+                                        ['ДНЕС', 'Практика по литература', ''],
+                                        ['СЛЕДВАЩО', 'Пробен изпит, 18:00', '45 мин фокус блок'],
+                                        ['AI АНАЛИЗ', 'Скорост на четене +12%', 'Най-добър прозорец: 16-18ч'],
+                                    ].map(([label, title, sub]) => (
+                                        <div key={label}>
+                                            <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '0.25rem' }}>{label}</p>
+                                            <p className="text-slate-900" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{title}</p>
+                                            {sub && <p className="text-slate-500" style={{ fontSize: '0.5625rem', marginTop: '0.125rem' }}>{sub}</p>}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
 
-                        {/* floating streak badge */}
-                        <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                                <span className="material-icons text-amber-500">
-                                    wb_sunny
-                                </span>
+                        {/* floating badge */}
+                        <div className="absolute bg-white border border-slate-200 flex items-center" style={{ bottom: '-1rem', left: '-1rem', padding: '0.75rem', borderRadius: '0.75rem', gap: '0.625rem', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.08)' }}>
+                            <div className="flex items-center justify-center bg-amber-50" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%' }}>
+                                <span className="material-icons text-amber-500" style={{ fontSize: '1.125rem' }}>wb_sunny</span>
                             </div>
                             <div>
-                                <p className="text-sm font-bold">12 Дни Поредица</p>
-                                <p className="text-[10px] text-slate-500">
-                                    Продължавай така!
-                                </p>
+                                <p className="text-slate-900" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>12 Дни Поредица</p>
+                                <p className="text-slate-500" style={{ fontSize: '0.625rem' }}>Продължавай така!</p>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </main>
         </div>
     );

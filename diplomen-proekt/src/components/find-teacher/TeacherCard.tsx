@@ -188,7 +188,7 @@ export function TeacherCard({ teacher, isLoggedIn }: TeacherCardProps) {
 
                 {/* cta */}
                 <div className="mt-auto pt-3 flex flex-wrap items-center gap-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-purple-600 group-hover:bg-purple-700 rounded-lg px-3 py-2 transition-colors pointer-events-none">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-purple-700 group-hover:bg-purple-800 rounded-lg px-3 py-2 transition-colors pointer-events-none">
                         Виж профил
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

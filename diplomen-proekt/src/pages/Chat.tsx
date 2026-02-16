@@ -94,7 +94,7 @@ export const Chat = () => {
 
     // layout: sidebar (conversation list) + main (header, messages, input or empty state)
     return (
-        <div className="chat-page-layout flex h-[100dvh] max-h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-100/80">
+        <div className="chat-page-layout flex h-[100dvh] max-h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-50">
             <ChatSidebar
                 conversations={conversations}
                 selectedConv={selectedConv}

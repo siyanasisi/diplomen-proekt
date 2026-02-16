@@ -15,7 +15,7 @@ export function ProfileSettings({ onChangePassword, onSignOut, onDeleteAccount }
                         className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-[#6D28D9]/10 group-hover:text-[#6D28D9] transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-purple-700/10 group-hover:text-purple-700 transition-colors">
                                 <span className="material-icons">lock</span>
                             </div>
                             <span className="font-bold text-slate-700">Смени парола</span>
@@ -27,7 +27,7 @@ export function ProfileSettings({ onChangePassword, onSignOut, onDeleteAccount }
                         className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors group"
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-[#6D28D9]/10 group-hover:text-[#6D28D9] transition-colors">
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-purple-700/10 group-hover:text-purple-700 transition-colors">
                                 <span className="material-icons">logout</span>
                             </div>
                             <span className="font-bold text-slate-700">Изход от профил</span>

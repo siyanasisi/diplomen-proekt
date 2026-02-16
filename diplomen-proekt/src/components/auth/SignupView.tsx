@@ -89,16 +89,18 @@ export function SignupView({
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F3FF', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
       {/* header */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 28px', borderBottom: '1px solid #E5E7EB', background: '#fff', position: 'sticky', top: 0, zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 20 }}>M</div>
-          <span style={{ fontSize: 20, fontWeight: 700, color: '#1E293B' }}>Матура<span style={{ color: '#7C3AED' }}>+</span></span>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.5rem', height: '4rem', borderBottom: '1px solid #e2e8f0', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+            <span className="material-icons" style={{ fontSize: '1.25rem' }}>auto_stories</span>
+          </div>
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Matura<span style={{ color: '#7c3aed' }}>+</span></span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <Link to="/login" style={{ fontSize: 14, fontWeight: 600, color: '#475569', textDecoration: 'none' }}>Вход</Link>
-          <Link to="/signup" style={{ fontSize: 14, fontWeight: 600, color: '#fff', background: '#7C3AED', padding: '10px 24px', borderRadius: 999, textDecoration: 'none' }}>Регистрация</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <Link to="/login" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textDecoration: 'none' }}>Вход</Link>
+          <Link to="/signup" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fff', background: '#7c3aed', padding: '0.5rem 1.25rem', borderRadius: '0.5rem', textDecoration: 'none' }}>Регистрация</Link>
         </div>
       </header>
 
@@ -106,9 +108,9 @@ export function SignupView({
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 480 }}>
           {/* card */}
-          <div style={{ width: '100%', background: '#fff', borderRadius: 20, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', border: '1px solid #F1F5F9', padding: '40px 36px 32px', position: 'relative', overflow: 'visible', marginTop: 28 }}>
+          <div style={{ width: '100%', background: '#fff', borderRadius: '1rem', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', padding: '2.5rem 2.25rem 2rem', position: 'relative', overflow: 'visible', marginTop: '1.75rem' }}>
             {/* accent bar */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: '#7C3AED', borderRadius: '20px 20px 0 0', zIndex: 1 }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: '#7c3aed', borderRadius: '1rem 1rem 0 0', zIndex: 1 }} />
 
             {/* icon */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: -72, position: 'relative', zIndex: 2 }}>

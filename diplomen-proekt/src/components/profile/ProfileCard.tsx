@@ -55,7 +55,7 @@ export function ProfileCard({
                                 src={currentAvatarUrl}
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white text-3xl font-bold bg-[#6D28D9]">
+                            <div className="w-full h-full flex items-center justify-center text-white text-3xl font-bold bg-purple-700">
                                 {initials}
                             </div>
                         )}
@@ -94,7 +94,7 @@ export function ProfileCard({
                             <div className="flex items-center gap-3">
                                 <h2 className="text-3xl font-bold text-slate-900">{displayName}</h2>
                                 {roleLabel && (
-                                    <span className="px-3 py-1 bg-[#6D28D9]/10 text-[#6D28D9] text-xs font-bold rounded-full uppercase tracking-wider">
+                                    <span className="px-3 py-1 bg-purple-700/10 text-purple-700 text-xs font-bold rounded-full uppercase tracking-wider">
                                         {roleLabel}
                                     </span>
                                 )}
@@ -106,7 +106,7 @@ export function ProfileCard({
                         </div>
                         <button
                             onClick={onEditClick}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-[#6D28D9] hover:bg-[#9333EA] text-white font-semibold rounded-xl transition-all shadow-md shadow-[#6D28D9]/20"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-purple-700 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-purple-700/20"
                         >
                             <span className="material-icons text-sm">edit</span>
                             Редактирай
@@ -140,18 +140,18 @@ export function ProfileCard({
                         {isTeacher &&
                             teacherProfile &&
                             (teacherProfile.hourly_rate != null || teacherProfile.price_note || teacherProfile.offers_online_lessons) && (
-                                <div className="col-span-2 bg-[#6D28D9]/5 p-4 rounded-2xl border border-[#6D28D9]/10">
-                                    <p className="text-[10px] uppercase font-bold text-[#6D28D9]/70 mb-1 tracking-widest">
+                                <div className="col-span-2 bg-purple-700/5 p-4 rounded-2xl border border-purple-700/10">
+                                    <p className="text-[10px] uppercase font-bold text-purple-700/70 mb-1 tracking-widest">
                                         Цена и онлайн уроци
                                     </p>
                                     <div className="flex items-center justify-between">
                                         {teacherProfile.hourly_rate != null && (
-                                            <p className="font-bold text-[#6D28D9] text-lg">
+                                            <p className="font-bold text-purple-700 text-lg">
                                                 Цена за час: {teacherProfile.hourly_rate} €
                                             </p>
                                         )}
                                         {teacherProfile.offers_online_lessons && (
-                                            <span className="text-xs text-[#6D28D9]/80 flex items-center gap-1">
+                                            <span className="text-xs text-purple-700/80 flex items-center gap-1">
                                                 <span className="material-icons text-sm">check_circle</span>
                                                 Предлага онлайн уроци
                                             </span>

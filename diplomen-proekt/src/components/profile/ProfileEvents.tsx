@@ -38,7 +38,7 @@ export function ProfileEvents({
                     {isTeacher && allEventsCount > 0 && (
                         <button
                             onClick={onToggleShowAll}
-                            className="text-xs font-bold text-[#6D28D9] uppercase tracking-wider hover:underline"
+                            className="text-xs font-bold text-purple-700 uppercase tracking-wider hover:underline"
                         >
                             {showAllEvents ? "Предстоящи" : "Всички"}
                         </button>
@@ -46,7 +46,7 @@ export function ProfileEvents({
                     {!isTeacher && (
                         <a
                             onClick={(e) => { e.preventDefault(); onNavigateHome(); }}
-                            className="text-xs font-bold text-[#6D28D9] uppercase tracking-wider hover:underline cursor-pointer"
+                            className="text-xs font-bold text-purple-700 uppercase tracking-wider hover:underline cursor-pointer"
                             href="#"
                         >
                             Виж всички
@@ -63,13 +63,13 @@ export function ProfileEvents({
                             className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm group"
                         >
                             <div className="flex gap-4">
-                                <div className="flex flex-col items-center justify-center bg-[#6D28D9] text-white w-16 h-16 rounded-2xl shrink-0">
+                                <div className="flex flex-col items-center justify-center bg-purple-700 text-white w-16 h-16 rounded-2xl shrink-0">
                                     <span className="text-2xl font-black leading-tight">
                                         {getDateDisplay(event.date)}
                                     </span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest mb-1">
+                                    <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest mb-1">
                                         {formatFullDate(event.date)}
                                     </p>
                                     <p className="font-bold text-slate-800 text-sm leading-tight break-words">
@@ -100,7 +100,7 @@ export function ProfileEvents({
                     </p>
                     <button
                         onClick={onNavigateHome}
-                        className="px-5 py-2.5 bg-[#6D28D9] hover:bg-[#9333EA] text-white font-semibold rounded-xl transition-all shadow-md shadow-[#6D28D9]/20 inline-flex items-center gap-2"
+                        className="px-5 py-2.5 bg-purple-700 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all shadow-md shadow-purple-700/20 inline-flex items-center gap-2"
                     >
                         <span className="material-icons text-sm">add</span>
                         Добави събитие

@@ -211,7 +211,7 @@ export const Navbar = () => {
                                 </Link>
                                 <Link
                                     to="/signup"
-                                    className="px-5 py-2.5 bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white text-sm font-semibold rounded-xl shadow-md shadow-[#7C3AED]/30 hover:shadow-lg hover:shadow-[#7C3AED]/40 transition-all duration-200 hover:scale-105 active:scale-100"
+                                    className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-lg transition-colors duration-200"
                                 >
                                     Регистрация
                                 </Link>
@@ -237,7 +237,7 @@ export const Navbar = () => {
                                         <AvatarImage
                                             url={avatarUrl}
                                             fallback={
-                                                <div className="w-9 h-9 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                                <div className="w-9 h-9 bg-purple-700 rounded-full flex items-center justify-center text-white text-sm font-bold">
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </div>
                                             }

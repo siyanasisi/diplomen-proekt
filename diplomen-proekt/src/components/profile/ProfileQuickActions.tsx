@@ -11,7 +11,7 @@ export function ProfileQuickActions({ role, onAddEvent, onViewStats }: ProfileQu
             <div className="space-y-3">
                 <button
                     onClick={onAddEvent}
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-[#6D28D9] hover:bg-[#9333EA] text-white font-bold rounded-2xl transition-all shadow-lg shadow-[#6D28D9]/25"
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-purple-700 hover:bg-purple-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-purple-700/25"
                 >
                     <span className="material-icons">add</span>
                     Добави събитие

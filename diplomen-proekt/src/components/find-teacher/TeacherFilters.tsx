@@ -46,7 +46,7 @@ function ToggleSwitch({
                 aria-checked={checked}
                 onClick={() => onChange(!checked)}
                 className={`relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center ${
-                    checked ? "bg-purple-600" : "bg-slate-200"
+                    checked ? "bg-purple-700" : "bg-slate-200"
                 }`}
             >
                 <span

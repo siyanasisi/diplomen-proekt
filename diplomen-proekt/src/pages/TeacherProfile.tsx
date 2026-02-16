@@ -275,7 +275,7 @@ export const TeacherProfile = () => {
         return (
             <div className="teacher-profile-page min-h-screen flex items-center justify-center relative">
                 <div className="relative z-10 text-center">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-purple-200 border-t-purple-700 rounded-full animate-spin mx-auto mb-4" />
                     <p className="text-slate-600 font-medium">Зареждане...</p>
                 </div>
             </div>
@@ -289,7 +289,7 @@ export const TeacherProfile = () => {
                     <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4">Учителят не е намерен</h2>
                     <button
                         onClick={() => navigate('/find-teacher')}
-                        className="min-h-[44px] px-6 py-3 bg-purple-900 text-white font-semibold rounded-xl hover:bg-purple-800 active:scale-[0.98] transition-all shadow-lg shadow-purple-900/20"
+                        className="min-h-[44px] px-6 py-3 bg-purple-700 text-white font-semibold rounded-xl hover:bg-purple-800 active:scale-[0.98] transition-all shadow-lg shadow-purple-700/20"
                     >
                         Назад към списъка
                     </button>
@@ -623,7 +623,7 @@ export const TeacherProfile = () => {
                                 {booking.submitting && !booking.bookingSuccess ? (
                                     <div className="flex flex-col items-center justify-center py-16 px-4">
                                         <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center mb-6">
-                                            <span className="inline-block w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                            <span className="inline-block w-10 h-10 border-4 border-purple-700 border-t-transparent rounded-full animate-spin" aria-hidden />
                                         </div>
                                         <p className="text-xl font-bold text-slate-900 mb-1">Записваме...</p>
                                         <p className="text-slate-600">Моля, изчакайте.</p>
@@ -647,7 +647,7 @@ export const TeacherProfile = () => {
                                     </div>
                                 ) : booking.loadingSlots ? (
                                     <div className="flex items-center justify-center py-12">
-                                        <div className="w-10 h-10 border-4 border-purple-900 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                        <div className="w-10 h-10 border-4 border-purple-700 border-t-transparent rounded-full animate-spin" aria-hidden />
                                     </div>
                                 ) : booking.loadSlotsError ? (
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -657,7 +657,7 @@ export const TeacherProfile = () => {
                                             type="button"
                                             onClick={booking.retryLoadSlots}
                                             disabled={booking.loadingSlots}
-                                            className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-semibold transition-colors disabled:opacity-50"
+                                            className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold transition-colors disabled:opacity-50"
                                         >
                                             Опитай отново
                                         </button>
@@ -683,7 +683,7 @@ export const TeacherProfile = () => {
                                                 value={booking.bookingForm.date}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, date: e.target.value })}
                                                 min={getMinDate()}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all"
                                             />
                                         </div>
                                         <div>
@@ -692,7 +692,7 @@ export const TeacherProfile = () => {
                                                 type="time"
                                                 value={booking.bookingForm.time}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, time: e.target.value })}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all"
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all"
                                             />
                                         </div>
                                         <div>
@@ -702,7 +702,7 @@ export const TeacherProfile = () => {
                                                 onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                 placeholder="Добавете допълнителна информация..."
                                                 rows={3}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
                                             />
                                         </div>
                                     </>
@@ -789,7 +789,7 @@ export const TeacherProfile = () => {
                                                                                     : isBlocked
                                                                                     ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(0,0,0,0.04)_3px,rgba(0,0,0,0.04)_6px)]"
                                                                                     : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed"
-                                                                            } ${selected ? "ring-2 ring-purple-600 ring-offset-1" : ""}`}
+                                                                            } ${selected ? "ring-2 ring-purple-700 ring-offset-1" : ""}`}
                                                                         >
                                                                             <span className="tabular-nums">{slot.time}</span>
                                                                             {isFree && (
@@ -836,7 +836,7 @@ export const TeacherProfile = () => {
                                                     onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                     placeholder="Добавете допълнителна информация..."
                                                     rows={3}
-                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
                                                 />
                                             </div>
                                         )}
@@ -866,7 +866,7 @@ export const TeacherProfile = () => {
                                     type="button"
                                     onClick={booking.handleBookLesson}
                                     disabled={booking.submitting || !booking.bookingForm.date || !booking.bookingForm.time}
-                                    className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 px-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {booking.submitting ? "Запазване..." : "Запази"}
                                 </button>
@@ -910,7 +910,7 @@ export const TeacherProfile = () => {
                                     onChange={(e) => setContactMessage(e.target.value)}
                                     placeholder="Напишете вашето съобщение..."
                                     rows={6}
-                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
                                 />
                             </div>
                             <div className="flex gap-3 mt-6">
@@ -925,7 +925,7 @@ export const TeacherProfile = () => {
                                     type="button"
                                     onClick={handleContactTeacher}
                                     disabled={submitting || !contactMessage.trim()}
-                                    className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 px-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submitting ? "Изпращане..." : "Изпрати"}
                                 </button>
@@ -990,7 +990,7 @@ export const TeacherProfile = () => {
                                         onChange={(e) => setReviewComment(e.target.value)}
                                         placeholder="Оставете коментар..."
                                         rows={4}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-900 focus:ring-4 focus:ring-purple-900/10 outline-none transition-all resize-none"
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
                                     />
                                 </div>
                             </div>
@@ -1006,7 +1006,7 @@ export const TeacherProfile = () => {
                                     type="button"
                                     onClick={handleSubmitReview}
                                     disabled={submittingReview || reviewRating < 1}
-                                    className="flex-1 px-4 py-3 bg-purple-900 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 px-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submittingReview ? "Изпращане..." : "Изпрати ревю"}
                                 </button>

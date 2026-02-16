@@ -34,11 +34,11 @@ export function StudyEntry() {
       <div className="min-h-[calc(100vh-4rem)] bg-white">
         <header className="max-w-4xl pt-12 pb-6" style={{ marginLeft: '8rem', marginRight: '4rem' }}>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Изберете как да <span className="text-purple-600">учите</span>
+            Изберете как да <span className="text-purple-700">учите</span>
           </h1>
           <button
             onClick={handleBackToSubject}
-            className="inline-flex items-center text-slate-500 hover:text-purple-600 transition-colors gap-2 font-medium"
+            className="inline-flex items-center text-slate-500 hover:text-purple-700 transition-colors gap-2 font-medium"
           >
             <span className="material-icons text-xl">arrow_back</span>
             Назад към предмети
@@ -60,9 +60,9 @@ export function StudyEntry() {
                 className="flex items-center justify-between py-8 px-8 bg-white border-2 border-slate-200 rounded-3xl hover:border-purple-600 hover:shadow-lg hover:shadow-purple-600/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left w-full group"
               >
                 <div className="flex flex-col">
-                  <span className="text-xl font-bold text-purple-900">{t.titleBg}</span>
+                  <span className="text-xl font-bold text-purple-700">{t.titleBg}</span>
                 </div>
-                <span className="material-icons text-2xl text-slate-400 group-hover:text-purple-600 transition-colors">
+                <span className="material-icons text-2xl text-slate-400 group-hover:text-purple-700 transition-colors">
                   chevron_right
                 </span>
               </button>
@@ -83,7 +83,7 @@ export function StudyEntry() {
         {/* header */}
         <div style={{ marginTop: '4rem', marginBottom: '4rem' }}>
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight mb-4">
-            Изберете как да <span className="text-purple-600">учите</span>
+            Изберете как да <span className="text-purple-700">учите</span>
           </h1>
           <p className="text-slate-600 text-base sm:text-lg">
             Изберете предмет, след което ще започнете теми.
@@ -98,11 +98,11 @@ export function StudyEntry() {
               onClick={() => handleSelectSubject(s.id)}
               className="w-full text-left group rounded-3xl bg-white/95 backdrop-blur-sm py-8 px-8 border-2 border-slate-200 shadow-sm hover:shadow-lg hover:shadow-purple-600/10 hover:border-purple-600 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-6"
             >
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-purple-700 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-700 to-purple-800 text-white flex items-center justify-center text-2xl font-bold shadow-md">
                 {s.nameBg.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-purple-900 text-xl">{s.nameBg}</p>
+                <p className="font-bold text-purple-700 text-xl">{s.nameBg}</p>
                 <p className="text-slate-500 text-base mt-1">{s.topics.length} теми</p>
               </div>
             </button>

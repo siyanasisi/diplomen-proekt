@@ -24,10 +24,10 @@ export function PendingBookings({ bookings, actingOnBookingId, onConfirm, onCanc
                     return (
                         <div
                             key={b.id}
-                            className="flex flex-wrap items-center justify-between p-4 bg-[#6D28D9]/5 border border-[#6D28D9]/20 rounded-2xl gap-4"
+                            className="flex flex-wrap items-center justify-between p-4 bg-purple-700/5 border border-purple-700/20 rounded-2xl gap-4"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold text-sm">
+                                <div className="w-10 h-10 rounded-full bg-purple-700 text-white flex items-center justify-center font-bold text-sm">
                                     {initials}
                                 </div>
                                 <div>
@@ -42,7 +42,7 @@ export function PendingBookings({ bookings, actingOnBookingId, onConfirm, onCanc
                                     type="button"
                                     disabled={actingOnBookingId !== null}
                                     onClick={() => onConfirm(b.id, b.student_id, b.lesson_date, b.lesson_time)}
-                                    className="px-4 py-2 bg-[#6D28D9] text-white rounded-lg text-xs font-bold hover:bg-[#9333EA] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    className="px-4 py-2 bg-purple-700 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
                                     {actingOnBookingId === b.id ? "..." : "Потвърди"}
                                 </button>
@@ -106,7 +106,7 @@ export function MyBookings({ bookings, onCancel }: MyBookingsProps) {
                                     className="flex flex-col md:flex-row items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 gap-4"
                                 >
                                     <div className="flex items-center gap-4 flex-1">
-                                        <div className="w-10 h-10 rounded-full bg-[#6D28D9]/10 flex items-center justify-center text-[#6D28D9]">
+                                        <div className="w-10 h-10 rounded-full bg-purple-700/10 flex items-center justify-center text-purple-700">
                                             <span className="material-icons">schedule</span>
                                         </div>
                                         <div>

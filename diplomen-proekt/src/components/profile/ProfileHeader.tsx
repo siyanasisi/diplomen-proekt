@@ -10,12 +10,12 @@ export function ProfileHeader({ role, currentStreak, onNavigateHome }: ProfileHe
             <div>
                 <button
                     onClick={onNavigateHome}
-                    className="flex items-center text-sm font-medium text-slate-500 hover:text-[#6D28D9] transition-colors mb-2"
+                    className="flex items-center text-sm font-medium text-slate-500 hover:text-purple-700 transition-colors mb-2"
                 >
                     <span className="material-icons text-lg mr-1">chevron_left</span>
                     Назад към начало
                 </button>
-                <h1 className="text-5xl font-extrabold text-[#6D28D9] tracking-tight">Профил</h1>
+                <h1 className="text-5xl font-extrabold text-purple-700 tracking-tight">Профил</h1>
                 <p className="text-slate-500 mt-1">Управление на акаунта и настройки</p>
             </div>
             {role === "student" && (

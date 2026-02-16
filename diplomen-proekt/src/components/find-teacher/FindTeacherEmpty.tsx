@@ -66,7 +66,7 @@ export function FindTeacherEmpty({ variant, onClearFilters, filteredCount = 0, t
             {variant === "no_teachers" && (
                 <Link
                     to="/signup"
-                    className="min-h-[44px] inline-flex items-center justify-center px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                    className="min-h-[44px] inline-flex items-center justify-center px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
                     Регистрирайте се като учител
                 </Link>
@@ -75,7 +75,7 @@ export function FindTeacherEmpty({ variant, onClearFilters, filteredCount = 0, t
                 <button
                     type="button"
                     onClick={onClearFilters}
-                    className="min-h-[44px] inline-flex items-center justify-center px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                    className="min-h-[44px] inline-flex items-center justify-center px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl shadow-sm hover:shadow transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
                     Изчисти филтрите
                 </button>

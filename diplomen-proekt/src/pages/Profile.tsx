@@ -101,17 +101,10 @@ export const Profile = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="text-center">
-                    <svg className="animate-spin w-12 h-12 text-[#6D28D9] mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                    </svg>
-                    <p className="text-slate-600 font-medium">Зареждане...</p>
+                    <div className="mx-auto animate-spin" style={{ width: '2.5rem', height: '2.5rem', border: '2px solid #e2e8f0', borderTopColor: '#7c3aed', borderRadius: '50%', marginBottom: '1rem' }} />
+                    <p className="text-slate-500" style={{ fontSize: '0.875rem', fontWeight: 500 }}>Зареждане...</p>
                 </div>
             </div>
         );
@@ -128,27 +121,20 @@ export const Profile = () => {
     const displayEvents = isTeacher && showAllEvents ? allEvents : upcomingEvents;
 
     return (
-        <div className="min-h-screen bg-[#F9FAFB] font-['Inter',sans-serif] relative overflow-x-hidden">
+        <div className="min-h-screen bg-slate-50 relative overflow-x-hidden">
             {/* loading overlay */}
             {isLoadingData && (
-                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 flex items-center justify-center">
-                    <div className="bg-white rounded-3xl p-8 shadow-2xl border border-slate-200/60">
-                        <div className="flex flex-col items-center gap-4">
-                            <svg className="animate-spin w-12 h-12 text-[#6D28D9]" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                            </svg>
-                            <p className="text-sm font-semibold text-slate-700">Зареждане на данни...</p>
+                <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 flex items-center justify-center">
+                    <div className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' }}>
+                        <div className="flex flex-col items-center" style={{ gap: '0.75rem' }}>
+                            <div className="animate-spin" style={{ width: '2rem', height: '2rem', border: '2px solid #e2e8f0', borderTopColor: '#7c3aed', borderRadius: '50%' }} />
+                            <p className="text-slate-600" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Зареждане на данни...</p>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="max-w-[1440px] mx-auto px-6 py-8 relative z-10">
+            <div className="max-w-6xl mx-auto relative z-10" style={{ padding: '2rem 1.5rem' }}>
                 <ProfileHeader
                     role={role}
                     currentStreak={currentStreak}
@@ -246,18 +232,18 @@ export const Profile = () => {
                 </div>
             </div>
 
-            <footer className="mt-20 border-t border-slate-200 py-12 bg-white">
-                <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
-                    <div className="flex items-center gap-2 text-[#6D28D9] font-bold opacity-50">
-                        <span className="material-icons">school</span>
-                        <span>Matura+</span>
+            <footer className="border-t border-slate-200 bg-white" style={{ marginTop: '3rem', padding: '2rem 0' }}>
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between" style={{ padding: '0 1.5rem', gap: '1.5rem' }}>
+                    <div className="flex items-center text-purple-700 opacity-50" style={{ gap: '0.375rem', fontWeight: 700 }}>
+                        <span className="material-icons" style={{ fontSize: '1.125rem' }}>school</span>
+                        <span style={{ fontSize: '0.875rem' }}>Matura+</span>
                     </div>
-                    <div className="flex gap-8">
-                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Общи условия</a>
-                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Политика за поверителност</a>
-                        <a className="text-xs font-medium text-slate-400 hover:text-[#6D28D9] transition-colors" href="#">Помощ</a>
+                    <div className="flex" style={{ gap: '1.5rem' }}>
+                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Общи условия</a>
+                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Поверителност</a>
+                        <a className="text-slate-400 hover:text-purple-700 transition-colors" style={{ fontSize: '0.75rem', fontWeight: 500 }} href="#">Помощ</a>
                     </div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">© 2026 Всички права запазени</p>
+                    <p className="text-slate-400 uppercase" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em' }}>© 2026 Всички права запазени</p>
                 </div>
             </footer>
 
