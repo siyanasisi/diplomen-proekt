@@ -1,216 +1,260 @@
-﻿import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export const LandingPage = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen overflow-y-auto overflow-x-hidden bg-[#f4f6fa] text-slate-900">
-            <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_22%_8%,rgba(124,58,237,0.09),transparent_45%),linear-gradient(#f4f6fa,#f4f6fa)]" />
-
-            <nav className="sticky top-0 z-50 border-b border-slate-200/90 bg-white/80 backdrop-blur-md">
-                <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-6 py-5 md:px-10 xl:px-16">
-                    <a href="#top" className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white shadow-md shadow-violet-600/30">
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
+        <div className="bg-white text-slate-900 transition-colors duration-300">
+            {/* navbar */}
+            <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+                            <span className="material-icons text-white">auto_stories</span>
                         </div>
-                        <span className="font-display text-[1.9rem] font-extrabold tracking-tight">
-                            Matura<span className="text-violet-600">+</span>
+                        <span className="text-2xl font-extrabold tracking-tight">
+                            Matura<span className="text-primary">+</span>
                         </span>
-                    </a>
-
-                    <div className="hidden items-center gap-4 text-[15px] font-medium text-slate-700 md:flex">
+                    </div>
+                    <div className="flex items-center gap-6">
                         <button
                             onClick={() => navigate("/login")}
-                            className="inline-flex h-12 min-w-[132px] items-center justify-center rounded-2xl border border-slate-200/80 bg-white/70 px-8 text-[15px] font-semibold shadow-[0_8px_18px_-16px_rgba(15,23,42,0.45)] backdrop-blur-sm transition-all duration-200 hover:-translate-y-px hover:border-violet-200 hover:bg-white hover:text-violet-700 hover:shadow-[0_16px_28px_-18px_rgba(15,23,42,0.48)]"
+                            className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors cursor-pointer"
                         >
                             Вход
                         </button>
                         <button
                             onClick={() => navigate("/signup")}
-                            className="group relative inline-flex h-12 min-w-[148px] items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-violet-500 to-violet-600 px-10 text-[14px] font-semibold text-white shadow-[0_12px_24px_-14px_rgba(124,58,237,0.78)] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_20px_34px_-16px_rgba(124,58,237,0.9)]"
+                            className="px-6 py-2.5 bg-primary hover:bg-secondary text-white rounded-full font-bold text-sm transition-all shadow-lg shadow-primary/20 cursor-pointer"
                         >
-                            <span className="pointer-events-none absolute inset-x-4 top-0 h-[52%] rounded-full bg-white/30 blur-sm" />
-                            <span className="relative">Старт</span>
+                            Старт
                         </button>
                     </div>
-
-                    <button
-                        onClick={() => navigate("/signup")}
-                        className="group relative inline-flex h-11 min-w-[124px] items-center justify-center overflow-hidden rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 px-7 text-[13px] font-semibold text-white shadow-[0_10px_20px_-14px_rgba(124,58,237,0.76)] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_16px_28px_-14px_rgba(124,58,237,0.86)] md:hidden"
-                    >
-                        <span className="pointer-events-none absolute inset-x-3 top-0 h-[50%] rounded-full bg-white/30 blur-sm" />
-                        <span className="relative">Старт</span>
-                    </button>
                 </div>
             </nav>
 
-            <section id="top" className="pb-32 pt-28 lg:pb-36 lg:pt-28">
-                <div className="mx-auto grid w-full max-w-[1280px] items-start gap-14 px-6 md:px-10 lg:grid-cols-[0.95fr_1.25fr] lg:gap-16 xl:px-16">
-                    <div className="relative isolate rounded-[38px] px-7 py-10 sm:px-10 sm:py-12 lg:px-12">
-                        <div className="pointer-events-none absolute inset-0 -z-10 rounded-[38px] bg-[radial-gradient(circle_at_18%_18%,rgba(124,58,237,0.12),transparent_58%),radial-gradient(circle_at_86%_84%,rgba(124,58,237,0.07),transparent_56%)]" />
+            {/* Main Content */}
+            <main className="relative overflow-hidden">
+                <div className="hero-glow" />
 
-                        <div className="mb-4 inline-flex items-center rounded-full bg-violet-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700">
-                            Нова версия: БЕЛ + Тестове
+                {/* Hero Section */}
+                <div className="max-w-7xl mx-auto px-6 pt-12 pb-24 lg:pt-24 lg:pb-32 grid lg:grid-cols-2 gap-16 items-center">
+                    {/* left column */}
+                    <div style={{ marginLeft: "4rem" }} className="space-y-8">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            <span className="material-icons text-sm">bolt</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                                Нова Версия: БЕЛ + Тестове
+                            </span>
                         </div>
 
-                        <div className="max-w-[560px]">
-                            <h1 className="max-w-[16ch] font-display text-[clamp(2.8rem,5.1vw,5.2rem)] font-extrabold leading-[1.08] tracking-tight [word-spacing:0.12em] text-slate-950">
-                                Подготви се за матурата <span className="italic text-violet-600">умно</span>, не наизуст.
-                            </h1>
+                        <h1 className="text-5xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight text-slate-900">
+                            Подготви се за матурата{" "}
+                            <span className="gradient-text">умно</span>, не наизуст.
+                        </h1>
 
-                            <div className="mt-10 space-y-5">
-                                <p className="text-[clamp(1.02rem,1.25vw,1.38rem)] leading-[1.72] text-slate-600">
-                                    Платформа, която обединява уроци, тестове и персонален учебен план.
-                                </p>
-                                <p className="text-[clamp(1.02rem,1.25vw,1.38rem)] leading-[1.72] text-slate-600">
-                                    Добави календар и ясен прогрес за твоята успешна матура на едно място.
-                                </p>
+                        <p style={{ marginTop: "2rem", marginBottom: "2rem" }} className="text-lg text-slate-600 max-w-xl leading-relaxed">
+                            Платформа, която обединява уроци, тестове и персонален учебен план.
+                            Добави календар и ясен прогрес за твоята успешна матура на едно
+                            място.
+                        </p>
+
+                        <div style={{ marginBottom: "2rem" }} className="flex flex-wrap gap-4 text-sm font-medium text-slate-500">
+                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                                <span className="material-icons text-primary text-base">
+                                    check_circle
+                                </span>
+                                1200+ задачи
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                                <span className="material-icons text-primary text-base">
+                                    check_circle
+                                </span>
+                                Личен план
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                                <span className="material-icons text-primary text-base">
+                                    check_circle
+                                </span>
+                                Ясен прогрес
                             </div>
                         </div>
 
-                        <div className="mt-12 flex flex-wrap gap-4 sm:mt-14">
-                            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/75 px-4 py-3 text-[14px] font-medium text-slate-700 shadow-[0_8px_18px_-15px_rgba(15,23,42,0.35)]">
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 6v12m-6-6h12" />
-                                    </svg>
-                                </span>
-                                1200+ задачи
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/75 px-4 py-3 text-[14px] font-medium text-slate-700 shadow-[0_8px_18px_-15px_rgba(15,23,42,0.35)]">
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M9.663 17h4.673M12 3a6 6 0 016 6c0 2.263-1.154 3.61-2.19 4.82-.828.968-1.56 1.824-1.81 3.18h-4c-.25-1.356-.982-2.212-1.81-3.18C7.154 12.61 6 11.263 6 9a6 6 0 016-6z" />
-                                    </svg>
-                                </span>
-                                Личен план
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/75 px-4 py-3 text-[14px] font-medium text-slate-700 shadow-[0_8px_18px_-15px_rgba(15,23,42,0.35)]">
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </span>
-                                Ясен прогрес
-                            </span>
-                        </div>
-
-                        <div className="mt-14">
+                        <div className="flex items-center gap-6 pt-4">
                             <button
                                 onClick={() => navigate("/signup")}
-                                className="group relative inline-flex h-[64px] w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-b from-violet-500 to-violet-600 px-12 text-[1rem] font-semibold text-white shadow-[0_14px_28px_-14px_rgba(124,58,237,0.8)] transition-all duration-200 hover:-translate-y-px hover:shadow-[0_20px_34px_-14px_rgba(124,58,237,0.9)] sm:w-auto sm:min-w-[220px] sm:px-14"
+                                className="px-8 py-4 bg-primary hover:bg-secondary text-white rounded-2xl font-bold text-lg transition-all shadow-xl shadow-primary/25 flex items-center gap-3 group cursor-pointer"
                             >
-                                <span className="pointer-events-none absolute inset-x-6 top-0 h-[54%] rounded-full bg-white/30 blur-sm" />
-                                <span className="relative">Започни</span>
-                                <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-white/35 bg-white/20">
-                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M13 7l5 5-5 5M6 12h12" />
-                                    </svg>
+                                Започни
+                                <span className="material-icons group-hover:translate-x-1 transition-transform">
+                                    arrow_forward
                                 </span>
                             </button>
+                            <div className="flex -space-x-3 overflow-hidden">
+                                <img
+                                    alt="Student user"
+                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbEim12V0I7Or4rcJRw71YhQuKnzGqKNofU7TBo9tTq5KgIldHN2IXQPcXmYQ2EnJwCQpOLC_RkI9e9gQLeOiX0kbfdvaNnblMn8qi3ParH6mkmwh-Kih2ldh38c74vxddNkOiayai8D_f-c3k4gl4i_qfrHQglWZI7BQvg8-0ohIrzw_IcyiG56hPaGItDBnTXS7a_xN_moO8haRSXCvWdm1X8rEgTdWw4aH9FyE8j6mWe9d9f9q3HYK0zAdG8VDDhmPiJTuGzKON"
+                                />
+                                <img
+                                    alt="Student user"
+                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwweeuVcx3o74dLqLtau3M_tkF8JTC0jsxL9amO4TxyGLQsg_JqSJ4-JIsMnKlGFqWDXQ2Psb8MpQjj4W6Z5NDUs8FEx8kPa0LEp-XYTMzwt_BM3BxG_gW2xw60go8VnNx2A3OlosZ7vD075ZDRosrZlLrKqGCQ5H0q3n_iUgpuJYCsGuAdhgfXLOjLv3ppTjDU_rLLdKsE5TPX2e7ArChRr04-IGnYEntY8KI_s3OWvNlmQsU3_V-BxLmtM6n3l860Y_I-tmD9F7b"
+                                />
+                                <img
+                                    alt="Student user"
+                                    className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfIsr0_An2-LOwEIJuKBGcyqKuMjthO3mWhHdkUeHOSjTsWLAn8BKpx1-dqJDiMt_lkEo1dP3gr-TdQu5gNJgCKBptblCFNUOJWiJkqs8_h3PmTqReutE6fGbBmEte5PM5HJ1aJ5YRUy6ioE4hUGAJ26eJvoVs1yXPR3ZpSVp98qUixUG1eAzcaQemQS4hGPwh0035IdTh8kBFF_iVEsvhb4blD2j9xTbXj1o9ZR60f_QeOs8n-WeVWfGMgBzkzYwmhpoUXRSevovk"
+                                />
+                                <div className="flex items-center justify-center h-10 w-10 rounded-full ring-2 ring-white bg-slate-100 text-[10px] font-bold">
+                                    +2k
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="relative mx-auto mt-8 w-full max-w-[1080px] pt-24 lg:ml-auto lg:mt-10 lg:pt-32">
-                        <div className="pointer-events-none absolute inset-x-8 -bottom-14 h-32 rounded-full bg-violet-300/45 blur-3xl" />
-                        <div className="relative rounded-[34px] border-[8px] border-slate-950 bg-white shadow-[0_38px_68px_-34px_rgba(15,23,42,0.48)]">
-                            <div className="rounded-t-[24px] border-b border-slate-100 px-5 py-3.5">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
-                                    <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
-                                </div>
+                    {/* right column - dashboard mockup */}
+                    <div className="relative">
+                        <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-purple-400/20 blur-2xl rounded-[3rem] -z-10" />
+                        <div className="bg-white rounded-[2rem] border border-slate-200 dashboard-mockup overflow-hidden">
+                            {/* browser chrome */}
+                            <div className="h-10 border-b border-slate-100 flex items-center px-6 gap-1.5">
+                                <div className="w-3 h-3 rounded-full bg-rose-400" />
+                                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                                <div className="w-3 h-3 rounded-full bg-emerald-400" />
                             </div>
-                            <div className="space-y-8 bg-[radial-gradient(circle_at_86%_14%,rgba(124,58,237,0.08),transparent_46%),linear-gradient(180deg,#ffffff_0%,#f9fafb_100%)] px-6 pb-10 pt-7 sm:px-9 sm:pb-12 sm:pt-9">
-                                <div className="flex items-start justify-between gap-4">
+
+                            {/* dashboard content */}
+                            <div className="p-8">
+                                {/* plan header */}
+                                <div className="flex justify-between items-start mb-8">
                                     <div>
-                                        <h3 className="font-display text-[2.5rem] font-extrabold tracking-tight sm:text-[2.8rem]">Твоят план</h3>
-                                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Седмичен прогрес</p>
-                                        <div className="mt-3 h-3 w-full max-w-[360px] rounded-full bg-slate-200/80">
-                                            <div className="h-3 w-[68%] rounded-full bg-gradient-to-r from-violet-500 to-violet-600" />
+                                        <h2 className="text-3xl font-extrabold text-slate-800">
+                                            Твоят план
+                                        </h2>
+                                        <p className="text-xs font-bold text-slate-400 mt-2 tracking-widest uppercase">
+                                            Седмичен прогрес
+                                        </p>
+                                        <div className="w-48 h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                                            <div className="h-full bg-primary w-2/3" />
                                         </div>
                                     </div>
-                                    <div className="rounded-3xl border border-violet-200/80 bg-white/90 px-4 py-3 shadow-[0_18px_30px_-22px_rgba(15,23,42,0.58)]">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-700">Streak!</p>
-                                        <p className="text-[11px] font-semibold text-slate-700">Тестът е завършен!</p>
-                                    </div>
-                                </div>
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-[0_14px_24px_-18px_rgba(15,23,42,0.5)]">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Solved</p>
-                                        <p className="mt-1 text-base font-bold text-slate-900">128 tasks</p>
-                                    </div>
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-[0_14px_24px_-18px_rgba(15,23,42,0.5)]">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Accuracy</p>
-                                        <p className="mt-1 text-base font-bold text-slate-900">84%</p>
-                                    </div>
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-[0_14px_24px_-18px_rgba(15,23,42,0.5)]">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Sessions</p>
-                                        <p className="mt-1 text-base font-bold text-slate-900">5 this week</p>
+                                    <div className="flex gap-3">
+                                        <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 flex flex-col items-end">
+                                            <span className="text-[10px] font-bold text-primary tracking-wider">
+                                                    ПОРЕДИЦА!
+                                            </span>
+                                            <span className="text-xs text-slate-500">
+                                                Тестът е завършен!
+                                            </span>
+                                        </div>
+                                        <div className="bg-primary/10 p-3 rounded-xl flex items-center gap-2">
+                                            <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                                                <span className="material-icons text-white text-[14px]">
+                                                    bolt
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-primary">
+                                                    УМЕН РЕЖИМ
+                                                </p>
+                                                <p className="text-[10px] text-slate-500">
+                                                    3 препоръки готови
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-7 gap-2.5 sm:gap-3">
-                                    {Array.from({ length: 7 }).map((_, i) => (
-                                        <div
-                                            key={i}
-                                            className={`h-14 rounded-2xl border transition-all ${i === 3 ? "flex items-center justify-center border-violet-500 bg-violet-100 text-[10px] font-black uppercase text-violet-700 shadow-[0_14px_22px_-16px_rgba(124,58,237,0.72)]" : "border-slate-200/70 bg-white/70"}`}
-                                        >
-                                            {i === 3 ? "Матура" : null}
-                                        </div>
-                                    ))}
+                                {/* stats grid */}
+                                <div className="grid grid-cols-3 gap-4 mb-8">
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                                            РЕШЕНИ
+                                        </p>
+                                        <p className="text-xl font-bold">128 задачи</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                                            ТОЧНОСТ
+                                        </p>
+                                        <p className="text-xl font-bold">84%</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                                            СЕСИИ
+                                        </p>
+                                        <p className="text-xl font-bold">5 тази седмица</p>
+                                    </div>
                                 </div>
 
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Today</p>
-                                        <p className="mt-1 text-sm font-semibold text-slate-900">Literature practice</p>
-                                        <div className="mt-2 h-1.5 rounded-full bg-slate-100">
-                                            <div className="h-1.5 w-[62%] rounded-full bg-violet-500" />
-                                        </div>
+                                {/* calendar row */}
+                                <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    <div className="min-w-[80px] h-14 rounded-xl border-2 border-primary bg-primary/5 flex items-center justify-center">
+                                        <span className="text-xs font-bold text-primary">
+                                            МАТУРА
+                                        </span>
                                     </div>
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Next up</p>
-                                        <p className="mt-1 text-sm font-semibold text-slate-900">Mock exam, 18:00</p>
-                                        <p className="mt-2 text-xs text-slate-500">45 min focus block</p>
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                    <div className="min-w-[60px] h-14 rounded-xl border border-slate-100 bg-white" />
+                                </div>
+
+                                {/* schedule grid */}
+                                <div className="grid grid-cols-3 gap-6">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
+                                            ДНЕС
+                                        </p>
+                                        <p className="text-sm font-bold border-b-2 border-primary inline-block pb-0.5">
+                                            Практика по литература
+                                        </p>
                                     </div>
-                                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">AI insight</p>
-                                        <p className="mt-1 text-sm font-semibold text-slate-900">Reading speed +12%</p>
-                                        <p className="mt-2 text-xs text-slate-500">Best window: 16:30 - 18:30</p>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
+                                            СЛЕДВАЩО
+                                        </p>
+                                        <p className="text-sm font-bold">Пробен изпит, 18:00</p>
+                                        <p className="text-[10px] text-slate-500">
+                                            45 мин фокус блок
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">
+                                            AI АНАЛИЗ
+                                        </p>
+                                        <p className="text-sm font-bold">
+                                            Скорост на четене +12%
+                                        </p>
+                                        <p className="text-[10px] text-slate-500">
+                                            Най-добър прозорец: 16:30 - 18:30
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="absolute -bottom-10 left-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_16px_28px_-14px_rgba(15,23,42,0.35)]">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-500">
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3v2m0 14v2m7-9h2M3 12H1m15.364 6.364l1.414 1.414M6.222 6.222L4.808 4.808m0 14.97l1.414-1.414m11.142-11.142l1.414-1.414M16 12a4 4 0 11-8 0c0-1.105.448-2.105 1.172-2.828C9.896 8.448 10.895 8 12 8s2.104.448 2.828 1.172A3.99 3.99 0 0116 12z" />
-                                </svg>
-                            </span>
-                            <div>
-                                <p className="text-[11px] font-bold leading-tight text-slate-800">12 Дни Streak</p>
-                                <p className="text-[10px] leading-tight text-slate-500">Продължавай така!</p>
+                        {/* floating streak badge */}
+                        <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                                <span className="material-icons text-amber-500">
+                                    wb_sunny
+                                </span>
                             </div>
-                        </div>
-                        <div className="absolute -right-2 top-16 hidden items-center gap-2 rounded-2xl border border-violet-200 bg-violet-50/95 px-4 py-3 shadow-[0_18px_30px_-18px_rgba(124,58,237,0.52)] md:flex">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white">
-                                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                            </span>
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-700">Smart mode</p>
-                                <p className="text-xs font-semibold text-slate-700">3 recommendations ready</p>
+                                <p className="text-sm font-bold">12 Дни Поредица</p>
+                                <p className="text-[10px] text-slate-500">
+                                    Продължавай така!
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
-            </section>
+
+            </main>
         </div>
     );
 };
-
