@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -7,6 +7,7 @@ import type { StudyPlan as StudyPlanType } from "../lib/topics";
 import type { KnowledgeLevel } from "../lib/topics";
 import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
 import { rescheduleMissedDay } from "../lib/studyPlanGenerator";
+import { sendBookingEmail } from "../utils/sendBookingEmail";
 import { mapStudyPlanTopicToCurriculum } from "../lib/studyPlanMapping";
 import type {
     HomeMenuId,
@@ -54,7 +55,34 @@ export function useHome() {
     const [eventText, setEventText] = useState("");
     const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
-    const [activeMenu, setActiveMenu] = useState<HomeMenuId>("dashboard");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const validTabs: HomeMenuId[] = ["dashboard", "find-teacher", "study-plan", "calendar", "events", "settings", "lessons", "messages"];
+    const tabParam = searchParams.get("tab") as HomeMenuId | null;
+    const initialTab = tabParam && validTabs.includes(tabParam) ? tabParam : "dashboard";
+    const [activeMenu, setActiveMenuRaw] = useState<HomeMenuId>(initialTab);
+    const didApplyTabParam = useRef(false);
+
+    const setActiveMenu = useCallback((id: HomeMenuId) => {
+        setActiveMenuRaw(id);
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (id === "dashboard") {
+                next.delete("tab");
+            } else {
+                next.set("tab", id);
+            }
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    useEffect(() => {
+        if (!tabParam) return;
+        if (didApplyTabParam.current && tabParam === activeMenu) return;
+        if (validTabs.includes(tabParam) && tabParam !== activeMenu) {
+            setActiveMenuRaw(tabParam);
+        }
+        didApplyTabParam.current = true;
+    }, [tabParam]);
     const [studyPlans, setStudyPlans] = useState<StudyPlanType[]>([]);
     const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
     const [bookedLessonDates, setBookedLessonDates] = useState<string[]>([]);
@@ -504,6 +532,28 @@ export function useHome() {
         if (user && activeMenu === "lessons") loadLessonsData();
     }, [user, activeMenu, loadLessonsData]);
 
+    useEffect(() => {
+        if (!user) return;
+        const col = role === "teacher" ? "teacher_id" : "student_id";
+        const channel = supabase
+            .channel(`bookings-${user.id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "bookings",
+                    filter: `${col}=eq.${user.id}`,
+                },
+                () => {
+                    loadBookedLessonDates();
+                    loadLessonsData();
+                }
+            )
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [user, role, loadBookedLessonDates, loadLessonsData]);
+
     const handleCancelMyBooking = async (
         bookingId: string,
         teacherId: string,
@@ -526,6 +576,15 @@ export function useHome() {
                     teacher_id: teacherId,
                     message: `Отмених записания час на ${text}.`,
                     is_from_student: true,
+                });
+
+                sendBookingEmail({
+                    type: "booking_cancelled",
+                    student_id: user.id,
+                    teacher_id: teacherId,
+                    lesson_date: lessonDate,
+                    lesson_time: lessonTime,
+                    cancelled_by: "student",
                 });
             }
             showToast("Часът е отменен.");
@@ -560,6 +619,15 @@ export function useHome() {
                 message: `Вашият час на ${text} е потвърден. До скоро!`,
                 is_from_student: false,
             });
+
+            sendBookingEmail({
+                type: "booking_confirmed",
+                student_id: studentId,
+                teacher_id: user.id,
+                lesson_date: lessonDate,
+                lesson_time: lessonTime,
+            });
+
             showToast("Часът е потвърден.");
             await loadLessonsData();
             loadBookedLessonDates();
@@ -594,6 +662,16 @@ export function useHome() {
                 message: `Съжалявам, часът на ${text} е отменен. Можете да запишете друг час.`,
                 is_from_student: false,
             });
+
+            sendBookingEmail({
+                type: "booking_cancelled",
+                student_id: studentId,
+                teacher_id: user.id,
+                lesson_date: lessonDate,
+                lesson_time: lessonTime,
+                cancelled_by: "teacher",
+            });
+
             showToast("Часът е отказен.");
             await loadLessonsData();
             await loadBookedLessonDates();
@@ -663,8 +741,9 @@ export function useHome() {
         const upcoming: Array<{
             date: string;
             studyDay: StudyPlanType["plan"][0];
+            isToday: boolean;
         }> = [];
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 0; i <= 14; i++) {
             const nextDate = new Date(todayDate);
             nextDate.setDate(todayDate.getDate() + i);
             const year = nextDate.getFullYear();
@@ -678,7 +757,7 @@ export function useHome() {
                 !studyDay.completed &&
                 !studyDay.missed
             ) {
-                upcoming.push({ date: dateKey, studyDay });
+                upcoming.push({ date: dateKey, studyDay, isToday: i === 0 });
                 if (upcoming.length >= 5) break;
             }
         }

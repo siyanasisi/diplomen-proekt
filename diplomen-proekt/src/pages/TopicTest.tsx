@@ -31,10 +31,12 @@ export function TopicTest() {
     topicId?: string;
     todayPlanTopicIds?: string[];
     todayDate?: string;
+    fromPlan?: boolean;
   } | null;
   const subjectId = locationState?.subjectId ?? topic?.subjectId;
   const savedTopicId = locationState?.topicId ?? topicId;
   const todayDate = locationState?.todayDate;
+  const isFromPlan = !!(locationState?.fromPlan || locationState?.todayPlanTopicIds?.length);
 
   useEffect(() => {
     if (!user) {
@@ -167,10 +169,34 @@ export function TopicTest() {
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {isFromPlan && nextFromPlan && (
+                  <button
+                    onClick={handleNextTopicFromPlan}
+                    className="w-full bg-purple-700 hover:bg-purple-800 text-white font-semibold transition-all shadow-md shadow-purple-700/20 hover:shadow-lg flex items-center justify-center"
+                    style={{ padding: '1rem 1.5rem', borderRadius: '0.875rem', fontSize: '0.95rem', gap: '0.5rem' }}
+                  >
+                    <span className="material-icons" style={{ fontSize: '1.25rem' }}>menu_book</span>
+                    Следваща тема от плана
+                  </button>
+                )}
+                {isFromPlan && isLastOfDay && (
+                  <button
+                    onClick={handleFinishDay}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all shadow-md shadow-emerald-600/20 hover:shadow-lg flex items-center justify-center"
+                    style={{ padding: '1rem 1.5rem', borderRadius: '0.875rem', fontSize: '0.95rem', gap: '0.5rem' }}
+                  >
+                    <span className="material-icons" style={{ fontSize: '1.25rem' }}>check_circle</span>
+                    Завърши деня от плана
+                  </button>
+                )}
                 <button
                   onClick={handleNextTopic}
-                  className="w-full bg-purple-700 hover:bg-purple-800 text-white font-semibold transition-all shadow-md shadow-purple-700/20 hover:shadow-lg"
-                  style={{ padding: '1rem 1.5rem', borderRadius: '0.875rem', fontSize: '0.95rem' }}
+                  className={`w-full font-semibold transition-all ${
+                    isFromPlan && (nextFromPlan || isLastOfDay)
+                      ? 'border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                      : 'bg-purple-700 hover:bg-purple-800 text-white shadow-md shadow-purple-700/20 hover:shadow-lg'
+                  }`}
+                  style={{ padding: isFromPlan && (nextFromPlan || isLastOfDay) ? '0.875rem 1.5rem' : '1rem 1.5rem', borderRadius: '0.875rem', fontSize: '0.95rem' }}
                 >
                   Следваща тема в реда
                 </button>

@@ -19,6 +19,7 @@ import {
     normalizeSlotFromApi,
     normalizeBookingSlotInput,
 } from "../utils/teacherSlots";
+import { sendBookingEmail } from "../utils/sendBookingEmail";
 const REDIRECT_AFTER_BOOKING_MS = 2000;
 const INITIAL_SLOTS_PER_DAY = 8;
 const MAX_WEEKS_AHEAD = 12;
@@ -283,6 +284,17 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
             }
 
             notify(settings?.auto_accept_bookings ? "Часът е записан и потвърден." : "Заявката е изпратена. Чакайте потвърждение от учителя.");
+
+            sendBookingEmail({
+                type: "new_booking",
+                student_id: user.id,
+                teacher_id: teacher.user_id,
+                lesson_date: normDate,
+                lesson_time: normTime,
+                teacher_name: teacher.full_name,
+                auto_confirmed: !!settings?.auto_accept_bookings,
+            });
+
             setBookingSuccess(true);
             redirectTimeoutRef.current = window.setTimeout(() => {
                 redirectTimeoutRef.current = null;

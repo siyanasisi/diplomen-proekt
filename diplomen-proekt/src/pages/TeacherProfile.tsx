@@ -585,7 +585,7 @@ export const TeacherProfile = () => {
                 {/* booking modal */}
                 {booking.showBookingModal && (
                     <div
-                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="booking-title"
@@ -598,11 +598,11 @@ export const TeacherProfile = () => {
                         <div
                             ref={bookingModalRef}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-purple-200/40"
+                            className="booking-modal-card bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
                         >
-                            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 flex-shrink-0">
                                 <div>
-                                    <h2 id="booking-title" className="text-xl font-bold text-slate-900">Запази час</h2>
+                                    <h2 id="booking-title" className="text-lg font-bold text-slate-900 font-display">Запази час</h2>
                                     {booking.lessonDurationMinutes != null && (
                                         <p className="text-sm text-slate-500 mt-0.5">Урокът е {booking.lessonDurationMinutes} мин</p>
                                     )}
@@ -611,71 +611,80 @@ export const TeacherProfile = () => {
                                     type="button"
                                     onClick={booking.closeBookingModal}
                                     disabled={booking.submitting}
-                                    className="p-2 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     aria-label="Затвори"
                                 >
-                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4.5 h-4.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-                            <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto space-y-4">
+                            <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
                                 {booking.submitting && !booking.bookingSuccess ? (
                                     <div className="flex flex-col items-center justify-center py-16 px-4">
-                                        <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center mb-6">
-                                            <span className="inline-block w-10 h-10 border-4 border-purple-700 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                        <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center mb-5">
+                                            <span className="inline-block w-8 h-8 border-[3px] border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
                                         </div>
-                                        <p className="text-xl font-bold text-slate-900 mb-1">Записваме...</p>
-                                        <p className="text-slate-600">Моля, изчакайте.</p>
+                                        <p className="text-lg font-bold text-slate-900 mb-1">Записваме...</p>
+                                        <p className="text-sm text-slate-500">Моля, изчакайте.</p>
                                     </div>
                                 ) : booking.bookingSuccess ? (
                                     <div className="flex flex-col items-center justify-center py-16 px-4">
-                                        <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
-                                            <svg className="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-5">
+                                            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                             </svg>
                                         </div>
-                                        <p className="text-xl font-bold text-slate-900 mb-1">Готово!</p>
-                                        <p className="text-slate-600 mb-4">Пренасочваме...</p>
+                                        <p className="text-lg font-bold text-slate-900 mb-1">Готово!</p>
+                                        <p className="text-sm text-slate-500 mb-4">Пренасочваме...</p>
                                         <button
                                             type="button"
                                             onClick={booking.stayOnPage}
-                                            className="text-sm font-medium text-purple-700 hover:text-purple-800 underline focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
+                                            className="text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
                                         >
                                             Остани на страницата
                                         </button>
                                     </div>
                                 ) : booking.loadingSlots ? (
-                                    <div className="flex items-center justify-center py-12">
-                                        <div className="w-10 h-10 border-4 border-purple-700 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                    <div className="flex items-center justify-center py-16">
+                                        <div className="w-10 h-10 border-[3px] border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
                                     </div>
                                 ) : booking.loadSlotsError ? (
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                        <p className="text-slate-700 font-medium mb-2">Наличието не можа да се зареди.</p>
-                                        <p className="text-slate-500 text-sm mb-4">Проверете връзката и опитайте отново.</p>
+                                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                                            <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                        </div>
+                                        <p className="text-slate-800 font-semibold mb-1">Наличието не можа да се зареди</p>
+                                        <p className="text-slate-500 text-sm mb-5">Проверете връзката и опитайте отново.</p>
                                         <button
                                             type="button"
                                             onClick={booking.retryLoadSlots}
                                             disabled={booking.loadingSlots}
-                                            className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold transition-colors disabled:opacity-50"
+                                            className="booking-btn-primary px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50"
                                         >
                                             Опитай отново
                                         </button>
                                     </div>
                                 ) : !booking.hasBookingSettings ? (
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                        <p className="text-slate-700 font-medium mb-2">
-                                            Учителят не е настроил записване.
+                                        <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
+                                            <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        </div>
+                                        <p className="text-slate-800 font-semibold mb-1">
+                                            Учителят не е настроил записване
                                         </p>
-                                        <p className="text-slate-600 text-sm">
+                                        <p className="text-slate-500 text-sm">
                                             Свържете се с него чрез бутона „Свържи се с учителя“ по-долу на страницата.
                                         </p>
                                     </div>
                                 ) : !booking.hasAvailability ? (
                                     <>
-                                        <p className="text-slate-600 text-sm">
-                                            Учителят все още не е настроил наличност за уроци. Можете да изберете дата и час ръчно.
-                                        </p>
+                                        <div className="flex items-start gap-3 p-4 rounded-xl bg-purple-50/60 border border-purple-100">
+                                            <svg className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <p className="text-sm text-slate-600">
+                                                Учителят все още не е настроил наличност за уроци. Можете да изберете дата и час ръчно.
+                                            </p>
+                                        </div>
                                         <div>
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">Дата</label>
                                             <input
@@ -683,7 +692,7 @@ export const TeacherProfile = () => {
                                                 value={booking.bookingForm.date}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, date: e.target.value })}
                                                 min={getMinDate()}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all"
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all bg-white"
                                             />
                                         </div>
                                         <div>
@@ -692,7 +701,7 @@ export const TeacherProfile = () => {
                                                 type="time"
                                                 value={booking.bookingForm.time}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, time: e.target.value })}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all"
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all bg-white"
                                             />
                                         </div>
                                         <div>
@@ -702,16 +711,16 @@ export const TeacherProfile = () => {
                                                 onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                 placeholder="Добавете допълнителна информация..."
                                                 rows={3}
-                                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all resize-none bg-white"
                                             />
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         {booking.earliestFreeSlot && (
-                                            <div className="flex flex-wrap items-center justify-between gap-2 py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200/80">
-                                                <p className="text-sm text-slate-700">
-                                                    <span className="font-semibold text-emerald-800">Най-ранен свободен час:</span>{" "}
+                                            <div className="flex flex-wrap items-center justify-between gap-2 py-2.5 px-4 rounded-xl bg-purple-50/70 border border-purple-100">
+                                                <p className="text-sm text-slate-600">
+                                                    <span className="font-semibold text-purple-700">Най-ранен свободен час:</span>{" "}
                                                     {new Date(booking.earliestFreeSlot.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
                                                     в {booking.earliestFreeSlot.time}
                                                 </p>
@@ -723,15 +732,15 @@ export const TeacherProfile = () => {
                                                         booking.goToDate(new Date(slot.date + "T12:00"));
                                                         booking.setBookingForm((prev) => ({ ...prev, date: slot.date, time: slot.time }));
                                                     }}
-                                                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline"
+                                                    className="text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
                                                 >
                                                     Отиди там
                                                 </button>
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
-                                            <button type="button" onClick={booking.goPrevWeek} disabled={!booking.canGoPrevWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Предишна седмица">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                            <button type="button" onClick={booking.goPrevWeek} disabled={!booking.canGoPrevWeek} className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Предишна седмица">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                             </button>
                                             <div className="flex items-center gap-3">
                                                 <p className="text-sm font-semibold text-slate-700 tabular-nums">
@@ -746,17 +755,17 @@ export const TeacherProfile = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => (document.getElementById("booking-date-picker") as HTMLInputElement | null)?.showPicker?.()}
-                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-medium transition-colors"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                                     Избор на друга дата
                                                 </button>
                                             </div>
-                                            <button type="button" onClick={booking.goNextWeek} disabled={!booking.canGoNextWeek} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Следваща седмица">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            <button type="button" onClick={booking.goNextWeek} disabled={!booking.canGoNextWeek} className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Следваща седмица">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                             </button>
                                         </div>
-                                        <div className="overflow-x-auto pb-2 -mx-1 flex gap-4">
+                                        <div className="overflow-x-auto pb-2 -mx-1 flex gap-3 scrollbar-none">
                                             {booking.weekDates.map((d) => {
                                                 const dateKey = booking.formatDateKey(d);
                                                 const daySlots = booking.slotsByDay.get(dateKey) ?? [];
@@ -765,17 +774,17 @@ export const TeacherProfile = () => {
                                                 const hasMore = daySlots.length > booking.INITIAL_SLOTS_PER_DAY && !isExpanded;
                                                 const dayName = getDayNameBg(d.getDay() === 0 ? 7 : d.getDay()).toLowerCase();
                                                 const dateStr = `${d.getDate().toString().padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+                                                const hasFreeSlots = daySlots.some((s) => s.status === "free");
                                                 return (
-                                                    <div key={dateKey} className="flex-shrink-0 w-[140px] sm:w-[160px] flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
-                                                        <div className="p-3 bg-white border-b border-slate-200">
-                                                            <p className="font-semibold text-slate-800 capitalize text-sm">{dayName}</p>
-                                                            <p className="text-xs text-slate-500 tabular-nums">{dateStr}</p>
+                                                    <div key={dateKey} className={`flex-shrink-0 w-[130px] sm:w-[148px] flex flex-col rounded-xl overflow-hidden border transition-colors ${hasFreeSlots ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50/60"}`}>
+                                                        <div className={`px-3 py-2.5 border-b ${hasFreeSlots ? "border-slate-100 bg-white" : "border-slate-100 bg-slate-50/60"}`}>
+                                                            <p className="font-semibold text-slate-800 capitalize text-[13px] leading-tight">{dayName}</p>
+                                                            <p className="text-[11px] text-slate-400 tabular-nums mt-0.5">{dateStr}</p>
                                                         </div>
-                                                        <div className="p-2 flex-1 min-h-[120px]">
+                                                        <div className="p-2 flex-1 min-h-[100px]">
                                                             <div className="grid grid-cols-2 gap-1.5">
                                                                 {visibleSlots.map((slot) => {
                                                                     const isFree = slot.status === "free";
-                                                                    const isBlocked = slot.status === "blocked";
                                                                     const selected = booking.bookingForm.date === dateKey && booking.bookingForm.time === slot.time;
                                                                     return (
                                                                         <button
@@ -783,27 +792,15 @@ export const TeacherProfile = () => {
                                                                             type="button"
                                                                             onClick={() => isFree && booking.setBookingForm((prev) => ({ ...prev, date: dateKey, time: slot.time }))}
                                                                             disabled={!isFree}
-                                                                            className={`flex items-center justify-between gap-0.5 py-2 px-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                                                                isFree
-                                                                                    ? "bg-white border-2 border-emerald-500 text-emerald-800 hover:bg-emerald-50"
-                                                                                    : isBlocked
-                                                                                    ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed bg-[repeating-linear-gradient(-45deg,transparent,transparent_3px,rgba(0,0,0,0.04)_3px,rgba(0,0,0,0.04)_6px)]"
-                                                                                    : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed"
-                                                                            } ${selected ? "ring-2 ring-purple-700 ring-offset-1" : ""}`}
+                                                                            className={`py-1.5 px-1 rounded-lg text-xs font-medium tabular-nums text-center transition-all ${
+                                                                                selected
+                                                                                    ? "bg-purple-600 text-white shadow-sm shadow-purple-600/25"
+                                                                                    : isFree
+                                                                                    ? "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
+                                                                                    : "bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100"
+                                                                            }`}
                                                                         >
-                                                                            <span className="tabular-nums">{slot.time}</span>
-                                                                            {isFree && (
-                                                                                <span className="flex items-center gap-0.5">
-                                                                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                                                                    <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
-                                                                                </span>
-                                                                            )}
-                                                                            {!isFree && (
-                                                                                <span className="flex items-center gap-0.5 opacity-60">
-                                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                                                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
-                                                                                </span>
-                                                                            )}
+                                                                            {slot.time}
                                                                         </button>
                                                                     );
                                                                 })}
@@ -812,13 +809,13 @@ export const TeacherProfile = () => {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => booking.setExpandedDays((prev) => new Set(prev).add(dateKey))}
-                                                                    className="w-full mt-2 py-2 rounded-lg border-2 border-emerald-500 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 transition-colors"
+                                                                    className="w-full mt-2 py-1.5 rounded-lg bg-purple-50 text-purple-600 text-xs font-semibold hover:bg-purple-100 transition-colors border border-purple-200/40"
                                                                 >
                                                                     Още
                                                                 </button>
                                                             )}
                                                             {daySlots.length === 0 && (
-                                                                <p className="text-xs text-slate-400 py-4 text-center">Няма слотове</p>
+                                                                <p className="text-[11px] text-slate-300 py-4 text-center">Няма слотове</p>
                                                             )}
                                                         </div>
                                                     </div>
@@ -826,17 +823,20 @@ export const TeacherProfile = () => {
                                             })}
                                         </div>
                                         {booking.bookingForm.date && booking.bookingForm.time && (
-                                            <div ref={bookingSelectedRef} className="pt-4 border-t border-slate-200 space-y-3">
-                                                <p className="text-sm font-semibold text-slate-700">
-                                                    Избрахте: {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {booking.bookingForm.time}
-                                                </p>
+                                            <div ref={bookingSelectedRef} className="pt-4 border-t border-slate-100 space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-purple-500" />
+                                                    <p className="text-sm font-semibold text-slate-700">
+                                                        Избрахте: {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {booking.bookingForm.time}
+                                                    </p>
+                                                </div>
                                                 <label className="block text-sm font-semibold text-slate-700">Съобщение (по избор)</label>
                                                 <textarea
                                                     value={booking.bookingForm.message}
                                                     onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                     placeholder="Добавете допълнителна информация..."
                                                     rows={3}
-                                                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all resize-none bg-white"
                                                 />
                                             </div>
                                         )}
@@ -844,8 +844,8 @@ export const TeacherProfile = () => {
                                 )}
                             </div>
                             {booking.bookingNetworkError && (
-                                <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
-                                    <p className="text-sm text-amber-900 font-medium">
+                                <div className="mx-6 mb-2 p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
+                                    <p className="text-sm text-amber-800 font-medium">
                                         Възникна проблем с връзката. Проверете интернет и опитайте отново.
                                     </p>
                                     <button
@@ -858,15 +858,15 @@ export const TeacherProfile = () => {
                                     </button>
                                 </div>
                             )}
-                            <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100 flex-shrink-0">
-                                <button type="button" onClick={booking.closeBookingModal} disabled={booking.submitting} className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:pointer-events-none">
+                            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/50">
+                                <button type="button" onClick={booking.closeBookingModal} disabled={booking.submitting} className="flex-1 px-4 py-3 text-slate-600 hover:bg-white font-semibold rounded-xl border border-slate-200 transition-all disabled:opacity-50 disabled:pointer-events-none text-sm">
                                     Откажи
                                 </button>
                                 <button
                                     type="button"
                                     onClick={booking.handleBookLesson}
                                     disabled={booking.submitting || !booking.bookingForm.date || !booking.bookingForm.time}
-                                    className="flex-1 px-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-[1.5] px-4 py-3 booking-btn-primary text-white font-semibold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
                                 >
                                     {booking.submitting ? "Запазване..." : "Запази"}
                                 </button>

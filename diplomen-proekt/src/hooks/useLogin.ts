@@ -13,7 +13,33 @@ interface UseLoginOptions {
 }
 
 function toAuthErrorMessage(raw: string): string {
-  return `Грешка: ${raw}`
+  const lower = raw.toLowerCase()
+
+  if (lower.includes('invalid login credentials') || lower.includes('invalid credentials'))
+    return 'Невалиден имейл или парола.'
+
+  if (lower.includes('email not confirmed'))
+    return 'Имейлът не е потвърден. Моля, проверете пощата си.'
+
+  if (lower.includes('user not found'))
+    return 'Не съществува акаунт с този имейл.'
+
+  if (lower.includes('too many requests') || lower.includes('rate limit'))
+    return 'Твърде много опити. Моля, изчакайте малко и опитайте отново.'
+
+  if (lower.includes('email') && lower.includes('invalid'))
+    return 'Моля, въведете валиден имейл адрес.'
+
+  if (lower.includes('network') || lower.includes('fetch'))
+    return 'Проблем с връзката. Проверете интернет връзката си и опитайте отново.'
+
+  if (lower.includes('user banned') || lower.includes('user is banned'))
+    return 'Този акаунт е блокиран. Свържете се с поддръжката.'
+
+  if (lower.includes('signup disabled') || lower.includes('signups not allowed'))
+    return 'Регистрацията е временно спряна.'
+
+  return 'Възникна грешка. Моля, опитайте отново.'
 }
 
 export function useLogin({ showToast }: UseLoginOptions) {

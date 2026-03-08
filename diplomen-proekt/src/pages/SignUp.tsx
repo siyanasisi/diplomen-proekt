@@ -13,7 +13,9 @@ export default function SignUp() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [grade, setGrade] = useState('');
   const [city, setCity] = useState('');
@@ -23,6 +25,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const validateEmail = (v: string) => {
@@ -48,6 +51,16 @@ export default function SignUp() {
   const handlePasswordChange = (value: string) => {
     setPassword(value);
     setPasswordError(validatePassword(value));
+    if (confirmPassword && value !== confirmPassword) {
+      setConfirmPasswordError('Паролите не съвпадат.');
+    } else {
+      setConfirmPasswordError('');
+    }
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    setConfirmPasswordError(value !== password ? 'Паролите не съвпадат.' : '');
   };
 
   const handleRoleChange = (newRole: 'student' | 'teacher') => {
@@ -68,9 +81,11 @@ export default function SignUp() {
     // Validate
     const emailErr = validateEmail(email);
     const pwErr = validatePassword(password);
-    if (emailErr || pwErr) {
+    const confirmPwErr = confirmPassword !== password ? 'Паролите не съвпадат.' : '';
+    if (emailErr || pwErr || confirmPwErr) {
       setEmailError(emailErr);
       setPasswordError(pwErr);
+      setConfirmPasswordError(confirmPwErr);
       setLoading(false);
       return;
     }
@@ -201,8 +216,10 @@ export default function SignUp() {
         setLastName('');
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
         setEmailError('');
         setPasswordError('');
+        setConfirmPasswordError('');
         setGrade('');
         setCity('');
         setQualifications('');
@@ -228,7 +245,9 @@ export default function SignUp() {
       lastName={lastName}
       email={email}
       password={password}
+      confirmPassword={confirmPassword}
       showPassword={showPassword}
+      showConfirmPassword={showConfirmPassword}
       role={role}
       grade={grade}
       city={city}
@@ -236,12 +255,15 @@ export default function SignUp() {
       loading={loading}
       emailError={emailError}
       passwordError={passwordError}
+      confirmPasswordError={confirmPasswordError}
       feedback={feedback}
       onFirstNameChange={setFirstName}
       onLastNameChange={setLastName}
       onEmailChange={handleEmailChange}
       onPasswordChange={handlePasswordChange}
+      onConfirmPasswordChange={handleConfirmPasswordChange}
       onShowPasswordToggle={() => setShowPassword((p) => !p)}
+      onShowConfirmPasswordToggle={() => setShowConfirmPassword((p) => !p)}
       onRoleChange={handleRoleChange}
       onGradeChange={setGrade}
       onCityChange={setCity}

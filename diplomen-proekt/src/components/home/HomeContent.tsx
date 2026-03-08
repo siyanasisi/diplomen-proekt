@@ -34,7 +34,7 @@ interface HomeContentProps {
     getTodayStudyTasks: () => { topics: { subject: string; name: string }[]; completed?: boolean; missed?: boolean } | null | undefined;
     getTodayDateKey: () => string;
     getStudyPlanProgress: () => { completionPercentage: number; completedTopics: number; totalTopics: number } | null;
-    getUpcomingStudyTopics: () => { date: string; studyDay: { topics: { subject: string; name: string }[] } }[];
+    getUpcomingStudyTopics: () => { date: string; studyDay: { topics: { subject: string; name: string }[] }; isToday: boolean }[];
     daysUntilExam: number;
     longestStreak: number;
     // calendar
@@ -355,14 +355,14 @@ export function HomeContent(props: HomeContentProps) {
                         {/* upcoming topics */}
                         <div>
                             <div className="flex items-center justify-between" style={{ marginBottom: '0.75rem', padding: '0 0.25rem' }}>
-                                <h3 className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>Предстоящи теми</h3>
+                                <h3 className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>Днес и предстоящи</h3>
                                 <button onClick={() => setActiveMenu("calendar")} className="text-purple-700 hover:text-purple-800 inline-flex items-center" style={{ fontSize: '0.8125rem', fontWeight: 600, gap: '0.25rem' }}>
                                     Виж всички <span className="material-icons" style={{ fontSize: '1rem' }}>arrow_forward</span>
                                 </button>
                             </div>
                             {studyPlan && upcomingTopics.length > 0 ? (
                                 <div className="bg-white border border-slate-200 overflow-hidden divide-y divide-slate-100" style={{ borderRadius: '1rem' }}>
-                                    {upcomingTopics.slice(0, 3).map(({ date, studyDay }) => {
+                                    {upcomingTopics.slice(0, 3).map(({ date, studyDay, isToday }) => {
                                         const [y, m, d] = date.split("-").map(Number);
                                         const studyDate = new Date(y, m - 1, d);
                                         const dayNum = studyDate.getDate();
@@ -375,7 +375,7 @@ export function HomeContent(props: HomeContentProps) {
                                         return (
                                             <div
                                                 key={date}
-                                                className="flex items-center hover:bg-slate-50 transition-colors cursor-pointer group"
+                                                className={`flex items-center transition-colors cursor-pointer group ${isToday ? 'bg-purple-50 hover:bg-purple-100' : 'hover:bg-slate-50'}`}
                                                 style={{ gap: '1rem', padding: '1rem 1.25rem' }}
                                                 onClick={() => {
                                                     if (!todayTasks?.completed && !todayTasks?.missed) {
@@ -385,12 +385,12 @@ export function HomeContent(props: HomeContentProps) {
                                                     }
                                                 }}
                                             >
-                                                <div className="shrink-0 text-center bg-slate-50 border border-slate-100" style={{ width: '3.25rem', borderRadius: '0.5rem', padding: '0.375rem 0' }}>
-                                                    <p className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 700 }}>{dayNum}</p>
-                                                    <p className="text-slate-500 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.04em' }}>{monthAbbrev}</p>
+                                                <div className={`shrink-0 text-center border ${isToday ? 'bg-purple-700 border-purple-700' : 'bg-slate-50 border-slate-100'}`} style={{ width: '3.25rem', borderRadius: '0.5rem', padding: '0.375rem 0' }}>
+                                                    <p className={isToday ? 'text-white' : 'text-slate-900'} style={{ fontSize: '1.0625rem', fontWeight: 700 }}>{dayNum}</p>
+                                                    <p className={isToday ? 'text-purple-200 uppercase' : 'text-slate-500 uppercase'} style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.04em' }}>{isToday ? 'ДНЕС' : monthAbbrev}</p>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-purple-700 uppercase" style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.125rem' }}>{studyDay.topics.length} теми</p>
+                                                    <p className="text-purple-700 uppercase" style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '0.125rem' }}>{isToday ? `Днешен план · ${studyDay.topics.length} теми` : `${studyDay.topics.length} теми`}</p>
                                                     <h4 className="text-slate-900 group-hover:text-purple-700 transition-colors truncate" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{firstTopic.name}</h4>
                                                     {litTopic && (
                                                         <p className="text-orange-500 truncate" style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{litTopic.name}</p>
@@ -404,7 +404,7 @@ export function HomeContent(props: HomeContentProps) {
                                                             navigate(`/study/learn/${subjectId}/${topicId}`, { state: { todayPlanTopicIds, todayDate: date } });
                                                         }
                                                     }}
-                                                    className="flex items-center justify-center bg-slate-50 hover:bg-purple-700 text-slate-400 hover:text-white transition-all shrink-0"
+                                                    className={`flex items-center justify-center transition-all shrink-0 ${isToday ? 'bg-purple-700 text-white hover:bg-purple-800' : 'bg-slate-50 hover:bg-purple-700 text-slate-400 hover:text-white'}`}
                                                     style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}
                                                 >
                                                     <span className="material-icons" style={{ fontSize: '1.25rem' }}>play_arrow</span>

@@ -10,6 +10,7 @@ import type {
     TeacherScheduleExceptionRow,
 } from "../types/teacher";
 import type { TeacherAvailabilityFormData } from "../components/teacher-availability/TeacherAvailabilityForm";
+import { sendBookingEmail } from "../utils/sendBookingEmail";
 
 export interface PendingBooking {
     id: string;
@@ -315,6 +316,25 @@ export function useProfile() {
         };
     }, [user, navigate, loading, loadUserData]);
 
+    useEffect(() => {
+        if (!user) return;
+        const col = role === "teacher" ? "teacher_id" : "student_id";
+        const channel = supabase
+            .channel(`profile-bookings-${user.id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "bookings",
+                    filter: `${col}=eq.${user.id}`,
+                },
+                () => { loadUserData(); }
+            )
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [user, role, loadUserData]);
+
     const handleSignOut = useCallback(async () => {
         await signOut();
         navigate("/");
@@ -576,6 +596,15 @@ export function useProfile() {
                     message: `Вашият час в ${dateTimeText} е потвърден. До скоро!`,
                     is_from_student: false,
                 });
+
+                sendBookingEmail({
+                    type: "booking_confirmed",
+                    student_id: studentId,
+                    teacher_id: user.id,
+                    lesson_date: lessonDate,
+                    lesson_time: lessonTime,
+                });
+
                 showToast("Часът е потвърден. Ученикът ще получи съобщение в чата.");
                 await loadUserData();
             } catch (e) {
@@ -606,6 +635,16 @@ export function useProfile() {
                     message: `Съжалявам, часът в ${dateTimeText} е отменен. Можете да запишете друг час.`,
                     is_from_student: false,
                 });
+
+                sendBookingEmail({
+                    type: "booking_cancelled",
+                    student_id: studentId,
+                    teacher_id: user.id,
+                    lesson_date: lessonDate,
+                    lesson_time: lessonTime,
+                    cancelled_by: "teacher",
+                });
+
                 showToast("Часът е отказен. Ученикът ще получи съобщение в чата.");
                 await loadUserData();
             } catch (e) {
@@ -635,6 +674,15 @@ export function useProfile() {
                         teacher_id: teacherId,
                         message: `Отмених записания час на ${dateTimeText}.`,
                         is_from_student: true,
+                    });
+
+                    sendBookingEmail({
+                        type: "booking_cancelled",
+                        student_id: user.id,
+                        teacher_id: teacherId,
+                        lesson_date: lessonDate,
+                        lesson_time: lessonTime,
+                        cancelled_by: "student",
                     });
                 }
                 showToast("Часът е отменен.");

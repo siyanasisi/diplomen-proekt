@@ -28,7 +28,9 @@ export interface SignupViewProps {
   lastName: string;
   email: string;
   password: string;
+  confirmPassword: string;
   showPassword: boolean;
+  showConfirmPassword: boolean;
   role: 'student' | 'teacher';
   grade: string;
   city: string;
@@ -36,13 +38,16 @@ export interface SignupViewProps {
   loading: boolean;
   emailError: string;
   passwordError: string;
+  confirmPasswordError: string;
   feedback: { type: 'success' | 'error'; message: string } | null;
   
   onFirstNameChange: (value: string) => void;
   onLastNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
+  onConfirmPasswordChange: (value: string) => void;
   onShowPasswordToggle: () => void;
+  onShowConfirmPasswordToggle: () => void;
   onRoleChange: (role: 'student' | 'teacher') => void;
   onGradeChange: (value: string) => void;
   onCityChange: (value: string) => void;
@@ -55,7 +60,9 @@ export function SignupView({
   lastName,
   email,
   password,
+  confirmPassword,
   showPassword,
+  showConfirmPassword,
   role,
   grade,
   city,
@@ -63,12 +70,15 @@ export function SignupView({
   loading,
   emailError,
   passwordError,
+  confirmPasswordError,
   feedback,
   onFirstNameChange,
   onLastNameChange,
   onEmailChange,
   onPasswordChange,
+  onConfirmPasswordChange,
   onShowPasswordToggle,
+  onShowConfirmPasswordToggle,
   onRoleChange,
   onGradeChange,
   onCityChange,
@@ -171,6 +181,23 @@ export function SignupView({
                   </button>
                 </div>
                 {passwordError && <p style={{ fontSize: 12, color: '#DC2626', marginTop: 3 }}>{passwordError}</p>}
+              </div>
+
+              {/* confirm password */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#334155', marginBottom: 5 }}>Повторете паролата</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </span>
+                  <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => onConfirmPasswordChange(e.target.value)} placeholder="Повторете паролата" style={{ ...inputStyle, paddingLeft: 38, paddingRight: 52 }} onFocus={focusIn} onBlur={focusOut} required />
+                  <button type="button" onClick={onShowConfirmPasswordToggle} tabIndex={-1} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#64748B', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {showConfirmPassword ? 'Скрий' : 'Покажи'}
+                  </button>
+                </div>
+                {confirmPasswordError && <p style={{ fontSize: 12, color: '#DC2626', marginTop: 3 }}>{confirmPasswordError}</p>}
               </div>
 
               {/* role row */}

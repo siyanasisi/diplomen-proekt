@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
-import { subjects, getTopicById, getSubjectById } from '../data/curriculum';
+import { getTopicById, getSubjectById } from '../data/curriculum';
 
 const SECTION_ICON_MAP: Record<string, string> = {
   theory: 'menu_book',
@@ -68,17 +68,18 @@ export function Learning() {
 
   useEffect(() => {
     if (currentSection && topic) markSectionViewed(topic.id, currentSection.id);
-  }, [topic?.id, currentSection?.id, markSectionViewed]);
+  }, [currentSection, topic, markSectionViewed]);
 
   const handleContinue = () => {
     if (!topicId) return;
-    const planState = location.state as { todayPlanTopicIds?: string[]; todayDate?: string } | null;
+    const planState = location.state as { todayPlanTopicIds?: string[]; todayDate?: string; fromPlan?: boolean } | null;
     navigate(`/study/test/${topicId}`, {
       state: {
         subjectId,
         topicId,
         todayPlanTopicIds: planState?.todayPlanTopicIds,
         todayDate: planState?.todayDate,
+        fromPlan: planState?.fromPlan || !!planState?.todayPlanTopicIds?.length,
       },
     });
   };
@@ -102,7 +103,7 @@ export function Learning() {
 
   const renderContent = (content: string) => {
     const lines = content.split('\n');
-    const out: JSX.Element[] = [];
+    const out: ReactNode[] = [];
     let i = 0;
 
     while (i < lines.length) {

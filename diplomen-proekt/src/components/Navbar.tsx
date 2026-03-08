@@ -17,7 +17,7 @@ export const Navbar = () => {
 
     const studentNavLinks = [
         { to: "/home", label: "Начало", materialIcon: "home" },
-        { to: "/calendar", label: "Календар", materialIcon: "calendar_today" },
+        { to: "/home?tab=calendar", label: "Календар", materialIcon: "calendar_today" },
         { to: "/study", label: "Учене", materialIcon: "school" },
     ];
 

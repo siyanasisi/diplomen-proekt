@@ -111,7 +111,7 @@ export function useSendMessage(
             const optimisticId = msg.id;
             setMessages((prev) => prev.map((m) => (m.id === optimisticId ? { ...m, optimistic: true, sendFailed: false } : m)));
             try {
-                const payload = {
+                const payload = {   
                     ...buildMessagePayload(role as ChatRole, user.id, selectedConv.otherUserId),
                     message: msg.message || "",
                     ...(msg.attachment_url && { attachment_url: msg.attachment_url }),

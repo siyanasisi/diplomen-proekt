@@ -3,22 +3,22 @@ import type { User } from "@supabase/supabase-js";
 import { useState } from "react"
 import { supabase } from "../supabase-client"
 
-export type UserRole = 'student' | 'teacher';
+   export type UserRole = 'student' | 'teacher';
 
-export interface CurrentUserProfile {
-   avatar_url: string | null;
-   first_name?: string | null;
-   last_name?: string | null;
-}
+   export interface CurrentUserProfile {
+      avatar_url: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+   }
 
-interface AuthContextType {
-   user: User | null;
-   role: UserRole | null;
-   loading: boolean;
-   signOut: () => Promise<void>;
-   currentUserProfile: CurrentUserProfile | null;
-   refreshProfile: () => Promise<void>;
-}
+   interface AuthContextType {
+      user: User | null;
+      role: UserRole | null;
+      loading: boolean;
+      signOut: () => Promise<void>;
+      currentUserProfile: CurrentUserProfile | null;
+      refreshProfile: () => Promise<void>;
+   }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 

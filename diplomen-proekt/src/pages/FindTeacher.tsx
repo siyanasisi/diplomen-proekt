@@ -62,7 +62,7 @@ export const FindTeacher = () => {
 
     return (
         <div className="flex min-h-full bg-slate-50 overflow-hidden relative">
-            <div
+            <div        
                 className="pointer-events-none fixed top-0 right-0 -z-10 opacity-30"
                 style={{ width: '30%', height: '100vh', background: 'linear-gradient(to left, rgba(126,34,206,0.04), transparent)' }}
             />

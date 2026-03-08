@@ -30,14 +30,14 @@ export function ProfileAvailability({
 
     if (isTeacher) {
         return (
-            <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2rem' }}>
-                <div className="flex items-center" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3rem', height: '3rem', borderRadius: '0.75rem' }}>
-                        <span className="material-icons" style={{ fontSize: '1.375rem' }}>schedule</span>
+            <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2.25rem 2.5rem' }}>
+                <div className="flex items-center" style={{ gap: '1.25rem', marginBottom: '2rem' }}>
+                    <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3.25rem', height: '3.25rem', borderRadius: '0.875rem' }}>
+                        <span className="material-icons" style={{ fontSize: '1.5rem' }}>schedule</span>
                     </div>
                     <div>
-                        <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700 }}>Кога съм на разположение</h3>
-                        <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.125rem' }}>Настройте работните си дни и часове.</p>
+                        <h3 className="text-slate-900" style={{ fontSize: '1.1875rem', fontWeight: 700 }}>Кога съм на разположение</h3>
+                        <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>Настройте работните си дни и часове.</p>
                     </div>
                 </div>
                 <TeacherAvailabilityForm
@@ -54,14 +54,14 @@ export function ProfileAvailability({
     }
 
     return (
-        <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2rem' }}>
-            <div className="flex items-center" style={{ gap: '1rem', marginBottom: '1.5rem' }}>
-                <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3rem', height: '3rem', borderRadius: '0.75rem' }}>
-                    <span className="material-icons" style={{ fontSize: '1.375rem' }}>schedule</span>
+        <section className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '2.25rem 2.5rem' }}>
+            <div className="flex items-center" style={{ gap: '1.25rem', marginBottom: '2rem' }}>
+                <div className="flex items-center justify-center bg-purple-50 text-purple-700" style={{ width: '3.25rem', height: '3.25rem', borderRadius: '0.875rem' }}>
+                    <span className="material-icons" style={{ fontSize: '1.5rem' }}>schedule</span>
                 </div>
                 <div>
-                    <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 700 }}>Кога съм на разположение</h3>
-                    <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.125rem' }}>
+                    <h3 className="text-slate-900" style={{ fontSize: '1.1875rem', fontWeight: 700 }}>Кога съм на разположение</h3>
+                    <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
                         Настройте работните си дни и часове, продължителност на урок и почивки.
                     </p>
                 </div>
