@@ -77,6 +77,8 @@ export const Home = () => {
                         studyPlanHasContent={rest.studyPlanHasContent}
                         getTodayStudyTasks={rest.getTodayStudyTasks}
                         getTodayDateKey={rest.getTodayDateKey}
+                        openDateModal={rest.openDateModal}
+                        openTodayModal={rest.openTodayModal}
                         getStudyPlanProgress={rest.getStudyPlanProgress}
                         getUpcomingStudyTopics={rest.getUpcomingStudyTopics}
                         daysUntilExam={rest.daysUntilExam}
@@ -138,8 +140,10 @@ export const Home = () => {
             {selectedDay && (
                 <HomeEventModal
                     selectedDay={selectedDay}
+                    selectedEventId={selectedEventId}
                     eventText={eventText}
                     setEventText={setEventText}
+                    onSelectEvent={(id, text) => { setSelectedEventId(id); setEventText(text); }}
                     eventsForDate={eventsForDate}
                     studyPlan={studyPlan}
                     role={role}

@@ -45,6 +45,14 @@ export interface CalendarEvent {
     [key: string]: unknown;
 }
 
+function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
+    const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
+    const lessonDateTime = new Date(`${lessonDate}T${normalizedTime}`);
+    if (Number.isNaN(lessonDateTime.getTime())) return false;
+    const diffMs = lessonDateTime.getTime() - Date.now();
+    return diffMs >= 24 * 60 * 60 * 1000;
+}
+
 export function useProfile() {
     const { user, role, signOut, loading, refreshProfile, currentUserProfile } = useAuth();
     const navigate = useNavigate();
@@ -659,6 +667,10 @@ export function useProfile() {
 
     const handleCancelMyBooking = useCallback(
         async (bookingId: string, teacherId: string, lessonDate: string, lessonTime: string) => {
+            if (!canCancelBefore24h(lessonDate, lessonTime)) {
+                showToast("Не може да отмените час по-малко от 24 часа преди началото.");
+                return;
+            }
             if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
             try {
                 const { error } = await supabase
@@ -697,8 +709,13 @@ export function useProfile() {
 
     const handleDeleteEvent = useCallback(
         async (eventId: string) => {
+            if (!user) return;
             if (!confirm("Сигурни ли сте, че искате да изтриете това събитие?")) return;
-            const { error } = await supabase.from("calendar_events").delete().eq("id", eventId);
+            const { error } = await supabase
+                .from("calendar_events")
+                .delete()
+                .eq("id", eventId)
+                .eq("user_id", user.id);
             if (error) {
                 console.error("Error deleting event:", error);
                 showToast("Грешка при изтриване на събитието");
@@ -707,7 +724,7 @@ export function useProfile() {
                 loadUserData();
             }
         },
-        [showToast, loadUserData]
+        [user, showToast, loadUserData]
     );
 
     const handleAvatarUpload = useCallback(

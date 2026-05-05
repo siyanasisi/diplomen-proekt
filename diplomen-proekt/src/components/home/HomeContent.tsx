@@ -7,6 +7,13 @@ import type { StudyPlan } from "../../lib/topics";
 
 import type { HomeMenuId } from "../../types/home";
 
+function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
+    const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
+    const lessonDateTime = new Date(`${lessonDate}T${normalizedTime}`);
+    if (Number.isNaN(lessonDateTime.getTime())) return false;
+    return lessonDateTime.getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+}
+
 interface HomeContentProps {
     activeMenu: string;
     setActiveMenu: (id: HomeMenuId) => void;
@@ -33,6 +40,8 @@ interface HomeContentProps {
     studyPlanHasContent: boolean;
     getTodayStudyTasks: () => { topics: { subject: string; name: string }[]; completed?: boolean; missed?: boolean } | null | undefined;
     getTodayDateKey: () => string;
+    openDateModal: (date: Date) => void;
+    openTodayModal: () => void;
     getStudyPlanProgress: () => { completionPercentage: number; completedTopics: number; totalTopics: number } | null;
     getUpcomingStudyTopics: () => { date: string; studyDay: { topics: { subject: string; name: string }[] }; isToday: boolean }[];
     daysUntilExam: number;
@@ -88,9 +97,11 @@ export function HomeContent(props: HomeContentProps) {
         studyPlanHasContent: _studyPlanHasContent,
         getTodayStudyTasks,
         getTodayDateKey,
+        openDateModal,
+        openTodayModal,
         getStudyPlanProgress,
         getUpcomingStudyTopics,
-        daysUntilExam,
+        daysUntilExam: _daysUntilExam,
         longestStreak: _longestStreak,
         currentDate,
         daysInMonth,
@@ -171,7 +182,7 @@ export function HomeContent(props: HomeContentProps) {
                     <h2 className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 600, marginBottom: '0.75rem' }}>Бързи действия</h2>
                     <div className="flex flex-wrap" style={{ gap: '0.75rem' }}>
                         <button
-                            onClick={() => { setActiveMenu("calendar"); handleDayClick(new Date().getDate()); }}
+                            onClick={() => { setActiveMenu("calendar"); openTodayModal(); }}
                             className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors"
                             style={{ gap: '0.5rem', padding: '0.625rem 1.25rem', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 600 }}
                         >
@@ -246,9 +257,22 @@ export function HomeContent(props: HomeContentProps) {
             "май": "МАЙ", "юни": "ЮНИ", "юли": "ЮЛИ", "август": "АВГ",
             "септември": "СЕП", "октомври": "ОКТ", "ноември": "НОЕ", "декември": "ДЕК",
         };
-        const SUBJECT_ORDER = ["БЕЛ", "Математика", "Английски", "История"];
-        const examSubject = studyPlan?.preferences.examSubject ?? "БЕЛ";
-        const belProgress = progress?.completionPercentage ?? 0;
+        const selectedExamSubject = studyPlan?.preferences.examSubject ?? null;
+        const getPlanProgress = (plan: StudyPlan) => {
+            const totalTopics = plan.plan.reduce((sum, day) => sum + day.topics.length, 0);
+            const completedTopics = plan.plan
+                .filter((d) => d.completed)
+                .reduce((sum, day) => sum + day.topics.length, 0);
+            const completionPercentage =
+                totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+            return { totalTopics, completedTopics, completionPercentage };
+        };
+        const getDaysUntilExam = (plan: StudyPlan) => {
+            const examDate = plan.preferences.examDate;
+            const date = examDate instanceof Date ? examDate : new Date(examDate);
+            const diffDays = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            return Math.max(0, diffDays);
+        };
 
         return (
             <div className="max-w-5xl mx-auto" style={{ paddingBottom: '4rem' }}>
@@ -324,28 +348,41 @@ export function HomeContent(props: HomeContentProps) {
                         <div className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '1.5rem' }}>
                             <div className="flex items-start justify-between" style={{ marginBottom: '1.25rem' }}>
                                 <div>
-                                    <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 600 }}>Напредък в ученето</h3>
+                                    <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 600 }}>
+                                        {selectedExamSubject ? `Напредък в ученето · ${selectedExamSubject}` : "Напредък в ученето"}
+                                    </h3>
                                     <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                                        Завършени теми: <span className="text-slate-900" style={{ fontWeight: 600 }}>{progress?.completedTopics ?? 0} от {progress?.totalTopics ?? 22}</span>
+                                        {selectedExamSubject ? (
+                                            <>Завършени теми: <span className="text-slate-900" style={{ fontWeight: 600 }}>{progress?.completedTopics ?? 0} от {progress?.totalTopics ?? 22}</span></>
+                                        ) : (
+                                            "Няма избран предмет."
+                                        )}
                                     </p>
                                 </div>
-                                <div className="text-emerald-500" style={{ fontSize: '2rem', fontWeight: 800 }}>{progress?.completionPercentage ?? 0}%</div>
+                                <div className="text-emerald-500" style={{ fontSize: '2rem', fontWeight: 800 }}>
+                                    {selectedExamSubject ? `${progress?.completionPercentage ?? 0}%` : "—"}
+                                </div>
                             </div>
                             <div className="bg-slate-100 overflow-hidden" style={{ height: '0.5rem', borderRadius: '0.25rem' }}>
-                                <div className="bg-purple-700 h-full transition-all duration-1000" style={{ width: `${Math.min(100, progress?.completionPercentage ?? 0)}%`, borderRadius: '0.25rem' }} />
+                                <div className="bg-purple-700 h-full transition-all duration-1000" style={{ width: `${Math.min(100, selectedExamSubject ? progress?.completionPercentage ?? 0 : 0)}%`, borderRadius: '0.25rem' }} />
                             </div>
-                            <div className="flex bg-slate-50 border border-slate-100" style={{ marginTop: '1.25rem', borderRadius: '0.625rem', padding: '0.25rem', gap: '0.25rem' }}>
-                                {SUBJECT_ORDER.map((label) => {
-                                    const isActive = label === "БЕЛ" && examSubject === "БЕЛ";
-                                    const pct = isActive ? belProgress : "-";
+                            <div className="flex bg-slate-50 border border-slate-100 flex-wrap" style={{ marginTop: '1.25rem', borderRadius: '0.625rem', padding: '0.25rem', gap: '0.25rem' }}>
+                                {plansWithId.map((plan) => {
+                                    const isActive = plan.id === selectedPlanId || (!selectedPlanId && plan.id === effectivePlanId);
+                                    const subjectProgress = getPlanProgress(plan).completionPercentage;
                                     return (
                                         <div
-                                            key={label}
-                                            className={`flex-1 text-center transition-all ${isActive ? "bg-white shadow-sm" : ""}`}
-                                            style={{ padding: '0.5rem', borderRadius: '0.5rem' }}
+                                            key={plan.id}
+                                            className={`text-center transition-all cursor-pointer ${isActive ? "bg-white shadow-sm" : ""}`}
+                                            style={{ padding: '0.5rem 0.75rem', borderRadius: '0.5rem', minWidth: '8rem' }}
+                                            onClick={() => setSelectedPlanId(plan.id)}
                                         >
-                                            <p className={isActive ? "text-slate-900" : "text-slate-500"} style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{label}</p>
-                                            <p className={isActive ? "text-purple-700" : "text-slate-400"} style={{ fontSize: '0.6875rem', fontWeight: isActive ? 700 : 500, marginTop: '0.125rem' }}>{typeof pct === "number" ? `${pct}%` : pct}</p>
+                                            <p className={isActive ? "text-slate-900" : "text-slate-500"} style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+                                                {plan.preferences.examSubject}
+                                            </p>
+                                            <p className={isActive ? "text-purple-700" : "text-slate-400"} style={{ fontSize: '0.6875rem', fontWeight: isActive ? 700 : 500, marginTop: '0.125rem' }}>
+                                                {subjectProgress}%
+                                            </p>
                                         </div>
                                     );
                                 })}
@@ -423,36 +460,67 @@ export function HomeContent(props: HomeContentProps) {
 
                     {/* right sidebar */}
                     <div className="lg:col-span-4 flex flex-col" style={{ gap: '1.25rem' }}>
-                        {/* exam countdown */}
-                        <div className="bg-white border border-slate-200 flex flex-col items-center text-center" style={{ borderRadius: '1rem', padding: '1.5rem' }}>
-                            <h2 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 600 }}>ДЗИ БЕЛ 2026</h2>
-                            <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>20 май 2026</p>
-                            <div className="relative flex items-center justify-center" style={{ width: '9rem', height: '9rem', margin: '1.25rem 0' }}>
-                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
-                                    <circle className="text-slate-100" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor" strokeWidth="10" />
-                                    <circle
-                                        className="text-purple-700"
-                                        cx="80" cy="80" fill="transparent" r="72"
-                                        stroke="currentColor"
-                                        strokeDasharray={2 * Math.PI * 72}
-                                        strokeDashoffset={2 * Math.PI * 72 - (2 * Math.PI * 72 * Math.min(100, progress?.completionPercentage ?? 0)) / 100}
-                                        strokeLinecap="round" strokeWidth="10"
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-purple-700" style={{ fontSize: '2.5rem', fontWeight: 800 }}>{daysUntilExam}</span>
-                                    <span className="text-slate-500 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 600, letterSpacing: '0.08em' }}>Дни остават</span>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 w-full" style={{ gap: '0.625rem' }}>
-                                <div className="bg-slate-50 border border-slate-100 text-center" style={{ borderRadius: '0.625rem', padding: '0.625rem' }}>
-                                    <p className="text-slate-500 uppercase" style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.04em' }}>Прогрес</p>
-                                    <p className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 700 }}>{progress?.completionPercentage ?? 0}%</p>
-                                </div>
-                                <div className="bg-slate-50 border border-slate-100 text-center" style={{ borderRadius: '0.625rem', padding: '0.625rem' }}>
-                                    <p className="text-slate-500 uppercase" style={{ fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.04em' }}>Задачи</p>
-                                    <p className="text-slate-900" style={{ fontSize: '1.0625rem', fontWeight: 700 }}>{progress?.completedTopics ?? 0}/{progress?.totalTopics ?? 32}</p>
-                                </div>
+                        {/* dynamic exam/progress windows */}
+                        <div className="bg-white border border-slate-200" style={{ borderRadius: '1rem', padding: '1.25rem' }}>
+                            <h2 className="text-slate-900" style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+                                Прозорци до матурата
+                            </h2>
+                            <div className="flex flex-col" style={{ gap: '0.625rem' }}>
+                                {plansWithId.length === 0 ? (
+                                    <p className="text-slate-500" style={{ fontSize: '0.8125rem' }}>
+                                        Няма активни планове.
+                                    </p>
+                                ) : (
+                                    plansWithId.map((plan) => {
+                                        const p = getPlanProgress(plan);
+                                        const daysLeft = getDaysUntilExam(plan);
+                                        const examDateLabel = plan.preferences.examDate.toLocaleDateString("bg-BG", {
+                                            day: "numeric",
+                                            month: "long",
+                                            year: "numeric",
+                                        });
+                                        const isActive = plan.id === selectedPlanId || (!selectedPlanId && plan.id === effectivePlanId);
+                                        return (
+                                            <button
+                                                key={plan.id}
+                                                type="button"
+                                                onClick={() => setSelectedPlanId(plan.id)}
+                                                className={`w-full text-left transition-colors border ${isActive ? "border-purple-200 bg-purple-50" : "border-slate-200 bg-slate-50 hover:bg-slate-100"}`}
+                                                style={{ borderRadius: '0.75rem', padding: '0.75rem' }}
+                                            >
+                                                <div className="flex items-center justify-between" style={{ gap: '0.75rem' }}>
+                                                    <div>
+                                                        <p className="text-slate-900" style={{ fontSize: '0.875rem', fontWeight: 700 }}>
+                                                            {plan.preferences.examSubject}
+                                                        </p>
+                                                        <p className="text-slate-500" style={{ fontSize: '0.6875rem' }}>
+                                                            Изпит: {examDateLabel}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-purple-700" style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1 }}>
+                                                            {daysLeft}
+                                                        </p>
+                                                        <p className="text-slate-500 uppercase" style={{ fontSize: '0.5625rem', fontWeight: 700, letterSpacing: '0.06em' }}>
+                                                            дни остават
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-between" style={{ marginTop: '0.5rem' }}>
+                                                    <p className="text-slate-500" style={{ fontSize: '0.6875rem' }}>
+                                                        Прогрес: <span className="text-slate-700" style={{ fontWeight: 700 }}>{p.completionPercentage}%</span>
+                                                    </p>
+                                                    <p className="text-slate-500" style={{ fontSize: '0.6875rem' }}>
+                                                        {p.completedTopics}/{p.totalTopics} теми
+                                                    </p>
+                                                </div>
+                                                <div className="bg-slate-200 overflow-hidden" style={{ height: '0.375rem', borderRadius: '999px', marginTop: '0.375rem' }}>
+                                                    <div className="bg-purple-700 h-full" style={{ width: `${Math.min(100, p.completionPercentage)}%` }} />
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                )}
                             </div>
                             <button
                                 onClick={() => {
@@ -606,7 +674,7 @@ export function HomeContent(props: HomeContentProps) {
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={() => handleDayClick(new Date().getDate())} className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors" style={{ padding: '0.4375rem 0.875rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}>
+                            <button onClick={() => openTodayModal()} className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors" style={{ padding: '0.4375rem 0.875rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}>
                                 <span className="material-icons" style={{ fontSize: '1rem' }}>add</span>
                                 Добави
                             </button>
@@ -628,7 +696,15 @@ export function HomeContent(props: HomeContentProps) {
                                                 key={id}
                                                 className={`cursor-pointer transition-all ${isStudy ? "bg-blue-50 border border-blue-100 hover:bg-blue-100" : "bg-slate-50 border border-slate-100 hover:bg-slate-100"}`}
                                                 style={{ borderRadius: '0.625rem', padding: '0.75rem' }}
-                                                onClick={() => { setSelectedDay(dateStr); setSelectedEventId(isStudy ? null : id); setEventText(isStudy ? "" : event); }}
+                                                onClick={() => {
+                                                    if (isStudy) {
+                                                        openDateModal(new Date(`${dateStr}T12:00:00`));
+                                                    } else {
+                                                        setSelectedDay(dateStr);
+                                                        setSelectedEventId(id);
+                                                        setEventText(event);
+                                                    }
+                                                }}
                                             >
                                                 <div className="flex items-start" style={{ gap: '0.625rem' }}>
                                                     <div className={`flex-shrink-0 flex flex-col items-center justify-center text-white ${isStudy ? "bg-blue-600" : "bg-purple-700"}`} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.375rem' }}>
@@ -903,6 +979,7 @@ export function HomeContent(props: HomeContentProps) {
                     <ul className="flex flex-col" style={{ gap: '0.5rem' }}>
                         {studentBookings.map((b) => {
                             const isPending = b.status === "pending";
+                            const canCancel = canCancelBefore24h(b.lesson_date, b.lesson_time);
                             const lessonDate = new Date(b.lesson_date + "T12:00");
                             return (
                                 <li key={b.id} className="bg-white border border-slate-200 overflow-hidden" style={{ borderRadius: '0.75rem' }}>
@@ -916,6 +993,11 @@ export function HomeContent(props: HomeContentProps) {
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-slate-900" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{String(b.lesson_time).slice(0, 5)} ч. · {b.teacher_name}</p>
                                                 <p className="text-slate-500" style={{ fontSize: '0.875rem', marginTop: '0.125rem' }}>{formatDateLessons(b.lesson_date)}</p>
+                                                {!canCancel && (
+                                                    <p className="text-amber-700" style={{ fontSize: '0.75rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                                                        Отказът е заключен (по-малко от 24ч)
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center sm:flex-shrink-0" style={{ gap: '0.5rem' }}>
@@ -924,8 +1006,10 @@ export function HomeContent(props: HomeContentProps) {
                                             </span>
                                             <button
                                                 type="button"
+                                                disabled={!canCancel}
                                                 onClick={() => handleCancelMyBooking(b.id, b.teacher_id ?? "", b.lesson_date, b.lesson_time)}
-                                                className="border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-red-600 transition-colors"
+                                                title={canCancel ? "Откажи час" : "Отказът е възможен само до 24 часа преди часа"}
+                                                className="border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-600"
                                                 style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600 }}
                                             >
                                                 Откажи час

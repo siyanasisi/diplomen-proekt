@@ -42,6 +42,14 @@ export function formatDateLessons(lessonDate: string): string {
     });
 }
 
+function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
+    const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
+    const lessonDateTime = new Date(`${lessonDate}T${normalizedTime}`);
+    if (Number.isNaN(lessonDateTime.getTime())) return false;
+    const diffMs = lessonDateTime.getTime() - Date.now();
+    return diffMs >= 24 * 60 * 60 * 1000;
+}
+
 export function useHome() {
     const { user, role } = useAuth();
     const navigate = useNavigate();
@@ -560,6 +568,10 @@ export function useHome() {
         lessonDate: string,
         lessonTime: string
     ) => {
+        if (!canCancelBefore24h(lessonDate, lessonTime)) {
+            showToast("Не може да отмените час по-малко от 24 часа преди началото.");
+            return;
+        }
         if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?"))
             return;
         try {
@@ -728,6 +740,24 @@ export function useHome() {
         return `${year}-${month}-${day}`;
     };
 
+    const openDateModal = useCallback((date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const monthStr = String(month + 1).padStart(2, "0");
+        const dayStr = String(date.getDate()).padStart(2, "0");
+        const dateKey = `${year}-${monthStr}-${dayStr}`;
+        setCurrentDate(new Date(year, month, 1));
+        setSelectedDay(dateKey);
+        const dayEvents = eventsList.filter((e) => e.date === dateKey);
+        const first = dayEvents[0];
+        setSelectedEventId(first?.id ?? null);
+        setEventText(first?.event_text ?? "");
+    }, [eventsList]);
+
+    const openTodayModal = useCallback(() => {
+        openDateModal(new Date());
+    }, [openDateModal]);
+
     const getTodayStudyTasks = () => {
         if (!studyPlan) return null;
         const todayKey = getTodayDateKey();
@@ -892,6 +922,7 @@ export function useHome() {
         hasBookedLessonOnDate(dateKey) || hasEventOnDate(dateKey);
 
     const handleDayClick = (day: number) => {
+        if (day < 1 || day > daysInMonth) return;
         const dateKey = formatDateKey(day);
         setSelectedDay(dateKey);
         const dayEvents = eventsForDate(dateKey);
@@ -929,9 +960,13 @@ export function useHome() {
                         "Грешка при запазване на събитието. Моля, опитайте отново."
                     );
                 } else {
-                    loadEvents();
+                    await loadEvents();
                 }
             } else {
+                if (!selectedEventId) {
+                    showToast("Изберете събитие за изтриване или въведете нов текст.");
+                    return;
+                }
                 await handleDeleteEvent();
             }
             setSelectedDay(null);
@@ -946,25 +981,19 @@ export function useHome() {
 
     const handleDeleteEvent = async () => {
         if (!selectedDay || !user) return;
+        if (!selectedEventId) {
+            showToast("Моля, изберете конкретно събитие за изтриване.");
+            return;
+        }
         try {
             await ensureValidSession();
-            if (selectedEventId) {
-                const { error } = await supabase
-                    .from("calendar_events")
-                    .delete()
-                    .eq("id", selectedEventId)
-                    .eq("user_id", user.id);
-                if (error) console.error("Error deleting event:", error);
-                else loadEvents();
-            } else {
-                const { error } = await supabase
-                    .from("calendar_events")
-                    .delete()
-                    .eq("user_id", user.id)
-                    .eq("date", selectedDay);
-                if (error) console.error("Error deleting event:", error);
-                else loadEvents();
-            }
+            const { error } = await supabase
+                .from("calendar_events")
+                .delete()
+                .eq("id", selectedEventId)
+                .eq("user_id", user.id);
+            if (error) console.error("Error deleting event:", error);
+            else await loadEvents();
             setSelectedDay(null);
             setSelectedEventId(null);
             setEventText("");
@@ -1141,6 +1170,8 @@ export function useHome() {
         goToToday,
         formatDateKey,
         getTodayDateKey,
+        openDateModal,
+        openTodayModal,
         getTodayStudyTasks,
         getUpcomingStudyTopics,
         getStudyPlanProgress,

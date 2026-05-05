@@ -1,5 +1,12 @@
 import type { PendingBooking, StudentBooking } from "../../hooks/useProfile";
 
+function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
+    const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
+    const lessonDateTime = new Date(`${lessonDate}T${normalizedTime}`);
+    if (Number.isNaN(lessonDateTime.getTime())) return false;
+    return lessonDateTime.getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+}
+
 interface PendingBookingsProps {
     bookings: PendingBooking[];
     actingOnBookingId: string | null;
@@ -87,6 +94,7 @@ export function MyBookings({ bookings, onCancel }: MyBookingsProps) {
                     <div className="space-y-3">
                         {bookings.map((b) => {
                             const timeStr = String(b.lesson_time).slice(0, 5);
+                            const canCancel = canCancelBefore24h(b.lesson_date, b.lesson_time);
                             const dateStr = (() => {
                                 try {
                                     return new Date(b.lesson_date + "T12:00").toLocaleDateString("bg-BG", {
@@ -114,6 +122,11 @@ export function MyBookings({ bookings, onCancel }: MyBookingsProps) {
                                                 {dateStr} в {timeStr} ч.
                                             </p>
                                             <p className="text-sm text-slate-500 font-medium">{b.teacher_name}</p>
+                                            {!canCancel && (
+                                                <p className="text-xs font-semibold text-amber-700 mt-1">
+                                                    Отказът е заключен (по-малко от 24ч)
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
@@ -130,8 +143,10 @@ export function MyBookings({ bookings, onCancel }: MyBookingsProps) {
                                         )}
                                         <button
                                             type="button"
+                                            disabled={!canCancel}
                                             onClick={() => onCancel(b.id, b.teacher_id, b.lesson_date, b.lesson_time)}
-                                            className="text-slate-400 hover:text-red-500 transition-colors text-xs font-bold uppercase tracking-wider"
+                                            title={canCancel ? "Откажи час" : "Отказът е възможен само до 24 часа преди часа"}
+                                            className="text-slate-400 hover:text-red-500 transition-colors text-xs font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400"
                                         >
                                             Откажи час
                                         </button>

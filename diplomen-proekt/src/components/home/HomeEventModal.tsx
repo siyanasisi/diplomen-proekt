@@ -2,8 +2,10 @@ import type { StudyPlan } from "../../lib/topics";
 
 interface HomeEventModalProps {
     selectedDay: string;
+    selectedEventId: string | null;
     eventText: string;
     setEventText: (v: string) => void;
+    onSelectEvent: (eventId: string | null, text: string) => void;
     eventsForDate: (dateKey: string) => { id: string; event_text: string }[];
     studyPlan: StudyPlan | null;
     role: string | null;
@@ -16,8 +18,10 @@ interface HomeEventModalProps {
 
 export function HomeEventModal({
     selectedDay,
+    selectedEventId,
     eventText,
     setEventText,
+    onSelectEvent,
     eventsForDate,
     studyPlan,
     role,
@@ -27,9 +31,27 @@ export function HomeEventModal({
     onMarkCompleted,
     onMarkMissed,
 }: HomeEventModalProps) {
+    const dayEvents = eventsForDate(selectedDay);
     const studyDay = studyPlan?.plan.find((d) => d.date === selectedDay);
     const hasStudyTopics = studyDay && studyDay.topics.length > 0;
-    const hasEvent = eventsForDate(selectedDay).length > 0;
+    const hasEvent = dayEvents.length > 0;
+    const selectedIndex = dayEvents.findIndex((ev) => ev.id === selectedEventId);
+    const canGoPrev = selectedIndex > 0;
+    const canGoNext = selectedIndex >= 0 && selectedIndex < dayEvents.length - 1;
+
+    const handlePrevEvent = () => {
+        if (!canGoPrev) return;
+        const prevEvent = dayEvents[selectedIndex - 1];
+        if (!prevEvent) return;
+        onSelectEvent(prevEvent.id, prevEvent.event_text);
+    };
+
+    const handleNextEvent = () => {
+        if (!canGoNext) return;
+        const nextEvent = dayEvents[selectedIndex + 1];
+        if (!nextEvent) return;
+        onSelectEvent(nextEvent.id, nextEvent.event_text);
+    };
 
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto" style={{ padding: '1.5rem' }}>
@@ -96,8 +118,73 @@ export function HomeEventModal({
 
                 {/* event textarea */}
                 <div>
+                    {dayEvents.length > 1 && (
+                        <div style={{ marginBottom: '0.75rem' }}>
+                            <div className="flex items-center justify-between" style={{ marginBottom: '0.375rem', gap: '0.5rem' }}>
+                                <p className="text-slate-500" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                    Събития за деня
+                                </p>
+                                {selectedIndex >= 0 && (
+                                    <div className="flex items-center" style={{ gap: '0.375rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handlePrevEvent}
+                                            disabled={!canGoPrev}
+                                            className="text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                            style={{ borderRadius: '0.375rem', padding: '0.125rem' }}
+                                            aria-label="Предишно събитие"
+                                        >
+                                            <span className="material-icons" style={{ fontSize: '1rem' }}>chevron_left</span>
+                                        </button>
+                                        <span className="text-slate-500" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                            Събитие {selectedIndex + 1} от {dayEvents.length}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleNextEvent}
+                                            disabled={!canGoNext}
+                                            className="text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                            style={{ borderRadius: '0.375rem', padding: '0.125rem' }}
+                                            aria-label="Следващо събитие"
+                                        >
+                                            <span className="material-icons" style={{ fontSize: '1rem' }}>chevron_right</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap" style={{ gap: '0.375rem' }}>
+                                {dayEvents.map((ev, idx) => (
+                                    <button
+                                        key={ev.id}
+                                        type="button"
+                                        onClick={() => onSelectEvent(ev.id, ev.event_text)}
+                                        className={`transition-colors ${
+                                            selectedEventId === ev.id
+                                                ? "bg-purple-700 text-white"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                        style={{ padding: '0.3125rem 0.625rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                    >
+                                        Събитие {idx + 1}
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectEvent(null, "")}
+                                    className={`transition-colors ${
+                                        selectedEventId == null
+                                            ? "bg-purple-700 text-white"
+                                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                    }`}
+                                    style={{ padding: '0.3125rem 0.625rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}
+                                >
+                                    + Ново
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     <label className="text-slate-700" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem' }}>
-                        {hasEvent ? "Събитие" : "Добави събитие"}
+                        {selectedEventId ? "Събитие" : "Добави събитие"}
                     </label>
                     <textarea
                         value={eventText}
