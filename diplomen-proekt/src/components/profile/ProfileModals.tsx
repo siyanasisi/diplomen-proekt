@@ -49,12 +49,6 @@ interface ProfileModalsProps {
     handleUpdateProfile: () => void;
 }
 
-const INPUT =
-    "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[0.8125rem] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-purple-400 focus:ring-2 focus:ring-purple-400/15";
-
-const INPUT_ERR =
-    "w-full px-3.5 py-2.5 bg-red-50/40 border border-red-200 rounded-lg text-[0.8125rem] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-red-400 focus:ring-2 focus:ring-red-400/15";
-
 const INPUT_RED =
     "w-full px-3.5 py-2.5 bg-slate-50 border border-red-200 rounded-lg text-[0.8125rem] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-red-400 focus:ring-2 focus:ring-red-400/15";
 
@@ -151,84 +145,225 @@ export function ProfileModals(props: ProfileModalsProps) {
         <>
             {/* ── Change password ── */}
             {showChangePassword && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="profile-modal-card bg-white rounded-2xl max-w-md w-full flex flex-col">
-                        {/* header */}
-                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
-                                    <span className="material-icons text-purple-600" style={{ fontSize: "1.125rem" }}>lock</span>
-                                </div>
-                                <h3 className="text-base font-bold text-slate-900 font-display">Смени парола</h3>
-                            </div>
-                            <CloseBtn onClick={closeChangePassword} disabled={changingPassword} />
-                        </div>
-
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+                    style={{ padding: "1.5rem" }}
+                    onClick={() => !changingPassword && closeChangePassword()}
+                >
+                    <div
+                        className="bg-white w-full shadow-xl"
+                        style={{ maxWidth: "36rem", borderRadius: "1rem", margin: "2rem 0" }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <form
-                            onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}
-                            className="px-6 py-5 space-y-4"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleChangePassword();
+                            }}
+                            style={{ padding: "2rem" }}
                         >
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <div
+                                    className="flex items-center justify-between"
+                                    style={{ marginBottom: "0.75rem" }}
+                                >
+                                    <h3
+                                        className="text-slate-900"
+                                        style={{
+                                            fontSize: "1.25rem",
+                                            fontWeight: 700,
+                                            letterSpacing: "-0.01em",
+                                        }}
+                                    >
+                                        Смени парола
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={closeChangePassword}
+                                        disabled={changingPassword}
+                                        className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40"
+                                        style={{ padding: "0.375rem", borderRadius: "0.5rem" }}
+                                        aria-label="Затвори"
+                                    >
+                                        <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                            close
+                                        </span>
+                                    </button>
+                                </div>
+                                <div
+                                    className="flex items-center bg-slate-50 border border-slate-100"
+                                    style={{
+                                        gap: "0.5rem",
+                                        padding: "0.5rem 0.75rem",
+                                        borderRadius: "0.5rem",
+                                    }}
+                                >
+                                    <span
+                                        className="material-icons text-purple-700"
+                                        style={{ fontSize: "1rem" }}
+                                    >
+                                        lock
+                                    </span>
+                                    <span
+                                        className="text-slate-700"
+                                        style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                    >
+                                        Сигурност на акаунта
+                                    </span>
+                                </div>
+                            </div>
+
                             {passwordError && (
-                                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-red-50 border border-red-100">
-                                    <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                                    <p className="text-xs font-medium text-red-700 leading-relaxed">{passwordError}</p>
+                                <div
+                                    className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 text-red-900 text-sm font-medium"
+                                    style={{ padding: "0.75rem 0.875rem", marginBottom: "1rem" }}
+                                    role="alert"
+                                >
+                                    <span
+                                        className="material-icons shrink-0 text-red-600"
+                                        style={{ fontSize: "1.125rem" }}
+                                    >
+                                        error_outline
+                                    </span>
+                                    <p className="leading-relaxed">{passwordError}</p>
                                 </div>
                             )}
 
-                            <div>
-                                <label className={LABEL}>Текуща парола</label>
-                                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={INPUT} placeholder="Въведете текущата парола" required disabled={changingPassword} />
+                            <div style={{ marginBottom: "0.75rem" }}>
+                                <label className={MODAL_LABEL}>Текуща парола</label>
+                                <input
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className={MODAL_INPUT}
+                                    style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                    placeholder="Въведете текущата парола"
+                                    required
+                                    disabled={changingPassword}
+                                />
                             </div>
 
-                            <div>
-                                <label className={LABEL}>Нова парола</label>
+                            <div style={{ marginBottom: "0.75rem" }}>
+                                <label className={MODAL_LABEL}>Нова парола</label>
                                 <input
                                     type="password"
                                     value={newPassword}
-                                    onChange={(e) => { setNewPassword(e.target.value); setPasswordError(e.target.value ? validatePassword(e.target.value) : ""); }}
-                                    className={passwordError && newPassword ? INPUT_ERR : INPUT}
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value);
+                                        setPasswordError(
+                                            e.target.value ? validatePassword(e.target.value) : ""
+                                        );
+                                    }}
+                                    className={`${MODAL_INPUT} ${
+                                        passwordError && newPassword
+                                            ? "border-red-300 focus:border-red-500"
+                                            : ""
+                                    }`}
+                                    style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
                                     placeholder="Мин. 8 символа, главна буква, цифра, спец. символ"
-                                    required disabled={changingPassword} minLength={8}
+                                    required
+                                    disabled={changingPassword}
+                                    minLength={8}
                                 />
                                 {!passwordError && newPassword && (
-                                    <p className="mt-1.5 text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                    <p
+                                        className="mt-1.5 text-emerald-600 flex items-center gap-1"
+                                        style={{ fontSize: "0.6875rem", fontWeight: 600 }}
+                                    >
+                                        <span className="material-icons" style={{ fontSize: "0.875rem" }}>
+                                            check_circle
+                                        </span>
                                         Отговаря на изискванията
                                     </p>
                                 )}
                             </div>
 
-                            <div>
-                                <label className={LABEL}>Потвърди нова парола</label>
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <label className={MODAL_LABEL}>Потвърди нова парола</label>
                                 <input
                                     type="password"
                                     value={confirmPassword}
                                     onChange={(e) => {
                                         setConfirmPassword(e.target.value);
-                                        if (e.target.value && e.target.value !== newPassword) setPasswordError("Паролите не съвпадат");
-                                        else setPasswordError(validatePassword(newPassword));
+                                        if (e.target.value && e.target.value !== newPassword) {
+                                            setPasswordError("Паролите не съвпадат");
+                                        } else {
+                                            setPasswordError(validatePassword(newPassword));
+                                        }
                                     }}
-                                    className={passwordError && confirmPassword && confirmPassword !== newPassword ? INPUT_ERR : INPUT}
+                                    className={`${MODAL_INPUT} ${
+                                        passwordError &&
+                                        confirmPassword &&
+                                        confirmPassword !== newPassword
+                                            ? "border-red-300 focus:border-red-500"
+                                            : ""
+                                    }`}
+                                    style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
                                     placeholder="Повтори новата парола"
-                                    required disabled={changingPassword} minLength={8}
+                                    required
+                                    disabled={changingPassword}
+                                    minLength={8}
                                 />
-                                {confirmPassword && confirmPassword === newPassword && !passwordError && (
-                                    <p className="mt-1.5 text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                        Паролите съвпадат
-                                    </p>
-                                )}
+                                {confirmPassword &&
+                                    confirmPassword === newPassword &&
+                                    !passwordError && (
+                                        <p
+                                            className="mt-1.5 text-emerald-600 flex items-center gap-1"
+                                            style={{ fontSize: "0.6875rem", fontWeight: 600 }}
+                                        >
+                                            <span
+                                                className="material-icons"
+                                                style={{ fontSize: "0.875rem" }}
+                                            >
+                                                check_circle
+                                            </span>
+                                            Паролите съвпадат
+                                        </p>
+                                    )}
+                            </div>
+
+                            <div className="flex items-center justify-end" style={{ gap: "0.5rem" }}>
+                                <button
+                                    type="button"
+                                    onClick={closeChangePassword}
+                                    disabled={changingPassword}
+                                    className="text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    Затвори
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={changingPassword}
+                                    className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                        gap: "0.375rem",
+                                    }}
+                                >
+                                    {changingPassword ? (
+                                        <span
+                                            className="inline-block border-2 border-white border-t-transparent rounded-full animate-spin"
+                                            style={{ width: "1rem", height: "1rem" }}
+                                            aria-hidden
+                                        />
+                                    ) : (
+                                        <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                            check
+                                        </span>
+                                    )}
+                                    {changingPassword ? "Запазване..." : "Смени парола"}
+                                </button>
                             </div>
                         </form>
-
-                        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                            <button type="button" onClick={closeChangePassword} disabled={changingPassword} className="flex-1 px-4 py-2.5 text-[0.8125rem] font-semibold text-slate-600 hover:bg-white rounded-xl border border-slate-200 transition-all disabled:opacity-50">
-                                Откажи
-                            </button>
-                            <button type="button" onClick={handleChangePassword} disabled={changingPassword} className="flex-[1.5] px-4 py-2.5 text-[0.8125rem] font-semibold booking-btn-primary text-white rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none">
-                                {changingPassword ? "Запазване..." : "Смени парола"}
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}
