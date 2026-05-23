@@ -49,32 +49,10 @@ interface ProfileModalsProps {
     handleUpdateProfile: () => void;
 }
 
-const INPUT_RED =
-    "w-full px-3.5 py-2.5 bg-slate-50 border border-red-200 rounded-lg text-[0.8125rem] font-medium text-slate-800 placeholder-slate-400 outline-none transition-all focus:bg-white focus:border-red-400 focus:ring-2 focus:ring-red-400/15";
-
-const LABEL = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5";
-
-
 const MODAL_LABEL = "block text-slate-700 text-[0.8125rem] font-semibold mb-1.5";
 const MODAL_INPUT =
     "w-full border border-slate-200 focus:border-purple-500 text-slate-700 placeholder-slate-400 outline-none text-sm font-medium";
 const MODAL_TEXTAREA = `${MODAL_INPUT} resize-y`;
-
-function CloseBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-40"
-            aria-label="Затвори"
-        >
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-    );
-}
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
     return (
@@ -370,22 +348,92 @@ export function ProfileModals(props: ProfileModalsProps) {
 
             {/* ── Delete account ── */}
             {showDeleteAccount && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="profile-modal-card bg-white rounded-2xl max-w-md w-full flex flex-col">
-                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
-                                    <span className="material-icons text-red-600" style={{ fontSize: "1.125rem" }}>delete_outline</span>
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+                    style={{ padding: "1.5rem" }}
+                    onClick={() => !deletingAccount && closeDeleteAccount()}
+                >
+                    <div
+                        className="bg-white w-full shadow-xl"
+                        style={{ maxWidth: "36rem", borderRadius: "1rem", margin: "2rem 0" }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleDeleteAccount();
+                            }}
+                            style={{ padding: "2rem" }}
+                        >
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <div
+                                    className="flex items-center justify-between"
+                                    style={{ marginBottom: "0.75rem" }}
+                                >
+                                    <h3
+                                        className="text-slate-900"
+                                        style={{
+                                            fontSize: "1.25rem",
+                                            fontWeight: 700,
+                                            letterSpacing: "-0.01em",
+                                        }}
+                                    >
+                                        Изтрий акаунт
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={closeDeleteAccount}
+                                        disabled={deletingAccount}
+                                        className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40"
+                                        style={{ padding: "0.375rem", borderRadius: "0.5rem" }}
+                                        aria-label="Затвори"
+                                    >
+                                        <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                            close
+                                        </span>
+                                    </button>
                                 </div>
-                                <h3 className="text-base font-bold text-red-700 font-display">Изтрий акаунт</h3>
+                                <div
+                                    className="flex items-center bg-red-50 border border-red-100"
+                                    style={{
+                                        gap: "0.5rem",
+                                        padding: "0.5rem 0.75rem",
+                                        borderRadius: "0.5rem",
+                                    }}
+                                >
+                                    <span
+                                        className="material-icons text-red-600"
+                                        style={{ fontSize: "1rem" }}
+                                    >
+                                        warning_amber
+                                    </span>
+                                    <span
+                                        className="text-red-800"
+                                        style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                    >
+                                        Необратимо действие
+                                    </span>
+                                </div>
                             </div>
-                            <CloseBtn onClick={closeDeleteAccount} disabled={deletingAccount} />
-                        </div>
 
-                        <div className="px-6 py-5 space-y-4">
-                            <div className="p-3.5 rounded-lg bg-red-50 border border-red-100 space-y-2">
-                                <p className="text-xs font-bold text-red-800">Внимание: Това действие е необратимо!</p>
-                                <ul className="text-[11px] text-red-700/90 space-y-0.5 list-disc list-inside leading-relaxed">
+                            <div
+                                className="rounded-xl border border-red-200 bg-red-50"
+                                style={{ padding: "0.875rem", marginBottom: "1.25rem" }}
+                                role="alert"
+                            >
+                                <p
+                                    className="text-red-900 flex items-center gap-1.5"
+                                    style={{ fontSize: "0.8125rem", fontWeight: 700, marginBottom: "0.5rem" }}
+                                >
+                                    <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                        error_outline
+                                    </span>
+                                    Внимание: това действие е необратимо
+                                </p>
+                                <ul
+                                    className="text-red-800/90 list-disc list-inside leading-relaxed"
+                                    style={{ fontSize: "0.75rem", fontWeight: 500 }}
+                                >
                                     <li>Всички ваши събития ще бъдат изтрити</li>
                                     <li>Всички статистики ще бъдат загубени</li>
                                     <li>Профилната ви снимка ще бъде премахната</li>
@@ -393,37 +441,83 @@ export function ProfileModals(props: ProfileModalsProps) {
                                 </ul>
                             </div>
 
-                            <div>
-                                <label className={LABEL}>Потвърди с парола</label>
-                                <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className={INPUT_RED} placeholder="Въведете паролата си" required disabled={deletingAccount} />
+                            <div style={{ marginBottom: "0.75rem" }}>
+                                <label className={MODAL_LABEL}>Потвърди с парола</label>
+                                <input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => setDeletePassword(e.target.value)}
+                                    className={`${MODAL_INPUT} border-red-200 focus:border-red-500`}
+                                    style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                    placeholder="Въведете паролата си"
+                                    required
+                                    disabled={deletingAccount}
+                                />
                             </div>
 
-                            <div>
-                                <label className={LABEL}>
-                                    Напишете <span className="text-red-600 normal-case">ИЗТРИЙ</span> за потвърждение
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <label className={MODAL_LABEL}>
+                                    Напишете{" "}
+                                    <span className="text-red-600 font-bold">ИЗТРИЙ</span> за потвърждение
                                 </label>
-                                <input type="text" value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} className={`${INPUT_RED} uppercase`} placeholder="ИЗТРИЙ" required disabled={deletingAccount} />
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    className={`${MODAL_INPUT} border-red-200 focus:border-red-500 uppercase`}
+                                    style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                    placeholder="ИЗТРИЙ"
+                                    required
+                                    disabled={deletingAccount}
+                                />
                             </div>
-                        </div>
 
-                        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                            <button type="button" onClick={closeDeleteAccount} disabled={deletingAccount} className="flex-1 px-4 py-2.5 text-[0.8125rem] font-semibold text-slate-600 hover:bg-white rounded-xl border border-slate-200 transition-all disabled:opacity-50">
-                                Откажи
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeleteAccount}
-                                disabled={deletingAccount || deleteConfirmText !== "ИЗТРИЙ" || !deletePassword}
-                                className="flex-[1.5] px-4 py-2.5 text-[0.8125rem] font-semibold text-white rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed delete-btn-primary"
-                            >
-                                {deletingAccount ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        Изтриване...
-                                    </span>
-                                ) : "Изтрий завинаги"}
-                            </button>
-                        </div>
+                            <div className="flex items-center justify-between" style={{ gap: "0.75rem" }}>
+                                <button
+                                    type="button"
+                                    onClick={closeDeleteAccount}
+                                    disabled={deletingAccount}
+                                    className="text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    Затвори
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        deletingAccount ||
+                                        deleteConfirmText !== "ИЗТРИЙ" ||
+                                        !deletePassword
+                                    }
+                                    className="bg-red-600 hover:bg-red-700 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                        gap: "0.375rem",
+                                    }}
+                                >
+                                    {deletingAccount ? (
+                                        <span
+                                            className="inline-block border-2 border-white border-t-transparent rounded-full animate-spin"
+                                            style={{ width: "1rem", height: "1rem" }}
+                                            aria-hidden
+                                        />
+                                    ) : (
+                                        <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                            delete
+                                        </span>
+                                    )}
+                                    {deletingAccount ? "Изтриване..." : "Изтрий завинаги"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
