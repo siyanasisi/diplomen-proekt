@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { LoginFeedbackState } from '../../hooks/useLogin'
+import { useBrandLinkTarget } from '../../hooks/useBrandLinkTarget'
 
 interface LoginViewProps {
   email: string
@@ -29,6 +30,7 @@ export function LoginView({
   onForgotPassword,
 }: LoginViewProps) {
   const [showPw, setShowPw] = useState(false)
+  const brandLinkTarget = useBrandLinkTarget()
 
   return (
     <div style={{ height: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -48,7 +50,10 @@ export function LoginView({
           zIndex: 20,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Link
+          to={brandLinkTarget}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+        >
           <div
             style={{
               width: '2.25rem',
@@ -67,7 +72,7 @@ export function LoginView({
           <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
             Matura<span style={{ color: '#7c3aed' }}>+</span>
           </span>
-        </div>
+        </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <Link to="/login" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textDecoration: 'none' }}>

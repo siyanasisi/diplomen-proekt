@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useBrandLinkTarget } from '../../hooks/useBrandLinkTarget';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -85,6 +86,7 @@ export function SignupView({
   onQualificationsChange,
   onSubmit,
 }: SignupViewProps) {
+  const brandLinkTarget = useBrandLinkTarget();
   const subtitle = role === 'teacher'
     ? 'Създайте своя нов учителски акаунт в Matura+'
     : 'Създайте своя нов акаунт в Matura+';
@@ -102,12 +104,12 @@ export function SignupView({
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
       {/* header */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.5rem', height: '4rem', borderBottom: '1px solid #e2e8f0', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', position: 'sticky', top: 0, zIndex: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Link to={brandLinkTarget} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
           <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
             <span className="material-icons" style={{ fontSize: '1.25rem' }}>auto_stories</span>
           </div>
           <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Matura<span style={{ color: '#7c3aed' }}>+</span></span>
-        </div>
+        </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           <Link to="/login" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569', textDecoration: 'none' }}>Вход</Link>
           <Link to="/signup" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#fff', background: '#7c3aed', padding: '0.5rem 1.25rem', borderRadius: '0.5rem', textDecoration: 'none' }}>Регистрация</Link>

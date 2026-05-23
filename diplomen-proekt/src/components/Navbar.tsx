@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useBrandLinkTarget } from "../hooks/useBrandLinkTarget";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { AvatarImage } from "./AvatarImage";
 
@@ -14,6 +15,7 @@ export const Navbar = () => {
 
     const isActive = (path: string) => location.pathname === path;
     const { signOut, user, role, loading, currentUserProfile } = useAuth();
+    const brandLinkTarget = useBrandLinkTarget();
 
     const studentNavLinks = [
         { to: "/home", label: "Начало", materialIcon: "home" },
@@ -160,7 +162,7 @@ export const Navbar = () => {
                     {/* logo + search */}
                     <div className="flex items-center gap-8">
                         <Link 
-                            to={user ? "/home" : "/"} 
+                            to={brandLinkTarget} 
                             className="flex items-center gap-2 group"
                         >
                             <div className="w-8 h-8 bg-[#7C3AED] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-[#7C3AED]/20 group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">

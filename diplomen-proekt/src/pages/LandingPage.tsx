@@ -1,21 +1,27 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useBrandLinkTarget } from "../hooks/useBrandLinkTarget";
 
 export const LandingPage = () => {
     const navigate = useNavigate();
+    const brandLinkTarget = useBrandLinkTarget();
 
     return (
         <div className="bg-slate-50 text-slate-900 min-h-screen">
             {/* navbar */}
             <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
                 <div className="max-w-6xl mx-auto flex items-center justify-between" style={{ padding: '0 1.5rem', height: '4rem' }}>
-                    <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                    <Link
+                        to={brandLinkTarget}
+                        className="flex items-center no-underline hover:opacity-90 transition-opacity"
+                        style={{ gap: '0.5rem' }}
+                    >
                         <div className="flex items-center justify-center bg-purple-700 text-white" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem' }}>
                             <span className="material-icons" style={{ fontSize: '1.25rem' }}>auto_stories</span>
                         </div>
                         <span className="text-slate-900" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
                             Matura<span className="text-purple-700">+</span>
                         </span>
-                    </div>
+                    </Link>
                     <div className="flex items-center" style={{ gap: '1.25rem' }}>
                         <button
                             onClick={() => navigate("/login")}
