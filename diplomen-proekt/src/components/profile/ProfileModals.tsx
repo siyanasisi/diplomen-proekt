@@ -60,6 +60,12 @@ const INPUT_RED =
 
 const LABEL = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5";
 
+
+const MODAL_LABEL = "block text-slate-700 text-[0.8125rem] font-semibold mb-1.5";
+const MODAL_INPUT =
+    "w-full border border-slate-200 focus:border-purple-500 text-slate-700 placeholder-slate-400 outline-none text-sm font-medium";
+const MODAL_TEXTAREA = `${MODAL_INPUT} resize-y`;
+
 function CloseBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
     return (
         <button
@@ -289,129 +295,291 @@ export function ProfileModals(props: ProfileModalsProps) {
 
             {/* ── Edit profile ── */}
             {editMode && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="profile-modal-card bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col">
-                        {/* header */}
-                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
-                                    <span className="material-icons text-purple-600" style={{ fontSize: "1.125rem" }}>edit</span>
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-slate-900 font-display">Редактирай профил</h3>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">Променете вашите лични данни</p>
-                                </div>
-                            </div>
-                            <CloseBtn onClick={() => setEditMode(false)} />
-                        </div>
-
-                        {/* body */}
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+                    style={{ padding: "1.5rem" }}
+                    onClick={() => !loadingUpdate && setEditMode(false)}
+                >
+                    <div
+                        className="bg-white w-full shadow-xl max-h-[min(90vh,calc(100vh-3rem))] flex flex-col overflow-hidden"
+                        style={{ maxWidth: "36rem", borderRadius: "1rem", margin: "2rem 0" }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <form
-                            onSubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }}
-                            className="flex-1 min-h-0 overflow-y-auto"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleUpdateProfile();
+                            }}
+                            className="flex flex-col flex-1 min-h-0 overflow-y-auto"
+                            style={{ padding: "2rem" }}
                         >
-                            {/* section: personal info */}
-                            <div className="px-6 pt-5 pb-4 space-y-3.5">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="material-icons text-slate-400" style={{ fontSize: "1rem" }}>person</span>
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Лична информация</p>
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <div
+                                    className="flex items-center justify-between"
+                                    style={{ marginBottom: "0.75rem" }}
+                                >
+                                    <h3
+                                        className="text-slate-900"
+                                        style={{
+                                            fontSize: "1.25rem",
+                                            fontWeight: 700,
+                                            letterSpacing: "-0.01em",
+                                        }}
+                                    >
+                                        Редактирай профил
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditMode(false)}
+                                        disabled={loadingUpdate}
+                                        className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40"
+                                        style={{ padding: "0.375rem", borderRadius: "0.5rem" }}
+                                        aria-label="Затвори"
+                                    >
+                                        <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                            close
+                                        </span>
+                                    </button>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className={LABEL}>Име</label>
-                                        <input type="text" value={editedFirstName} onChange={(e) => setEditedFirstName(e.target.value)} className={INPUT} placeholder="Име" required />
-                                    </div>
-                                    <div>
-                                        <label className={LABEL}>Фамилия</label>
-                                        <input type="text" value={editedLastName} onChange={(e) => setEditedLastName(e.target.value)} className={INPUT} placeholder="Фамилия" required />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className={LABEL}>Град</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-icons text-slate-400" style={{ fontSize: "1rem" }}>location_on</span>
-                                        <input type="text" value={editedCity} onChange={(e) => setEditedCity(e.target.value)} className={`${INPUT} pl-9`} placeholder="напр. София" />
-                                    </div>
+                                <div
+                                    className="flex items-center bg-slate-50 border border-slate-100"
+                                    style={{
+                                        gap: "0.5rem",
+                                        padding: "0.5rem 0.75rem",
+                                        borderRadius: "0.5rem",
+                                    }}
+                                >
+                                    <span
+                                        className="material-icons text-purple-700"
+                                        style={{ fontSize: "1rem" }}
+                                    >
+                                        {role === "teacher" ? "school" : "person"}
+                                    </span>
+                                    <span
+                                        className="text-slate-700"
+                                        style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                    >
+                                        {role === "teacher" ? "Учител" : "Ученик"}
+                                    </span>
                                 </div>
                             </div>
 
-                            {/* section: teacher qualifications & bio */}
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <p
+                                    className="text-slate-500"
+                                    style={{
+                                        fontSize: "0.75rem",
+                                        fontWeight: 600,
+                                        marginBottom: "0.75rem",
+                                    }}
+                                >
+                                    Лична информация
+                                </p>
+                                <div className="grid grid-cols-2 gap-3" style={{ marginBottom: "0.75rem" }}>
+                                    <div>
+                                        <label className={MODAL_LABEL}>Име</label>
+                                        <input
+                                            type="text"
+                                            value={editedFirstName}
+                                            onChange={(e) => setEditedFirstName(e.target.value)}
+                                            className={MODAL_INPUT}
+                                            style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                            placeholder="Име"
+                                            required
+                                            disabled={loadingUpdate}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={MODAL_LABEL}>Фамилия</label>
+                                        <input
+                                            type="text"
+                                            value={editedLastName}
+                                            onChange={(e) => setEditedLastName(e.target.value)}
+                                            className={MODAL_INPUT}
+                                            style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                            placeholder="Фамилия"
+                                            required
+                                            disabled={loadingUpdate}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className={MODAL_LABEL}>Град</label>
+                                    <input
+                                        type="text"
+                                        value={editedCity}
+                                        onChange={(e) => setEditedCity(e.target.value)}
+                                        className={MODAL_INPUT}
+                                        style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                        placeholder="напр. София"
+                                        disabled={loadingUpdate}
+                                    />
+                                </div>
+                            </div>
+
                             {role === "teacher" && (
-                                <div className="px-6 py-4 border-t border-slate-100 space-y-3.5">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="material-icons text-slate-400" style={{ fontSize: "1rem" }}>school</span>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Преподаване</p>
+                                <div style={{ marginBottom: "1.5rem" }}>
+                                    <p
+                                        className="text-slate-500"
+                                        style={{
+                                            fontSize: "0.75rem",
+                                            fontWeight: 600,
+                                            marginBottom: "0.75rem",
+                                        }}
+                                    >
+                                        Преподаване
+                                    </p>
+                                    <div style={{ marginBottom: "0.75rem" }}>
+                                        <label className={MODAL_LABEL}>Квалификации</label>
+                                        <input
+                                            type="text"
+                                            value={editedQualifications}
+                                            onChange={(e) => setEditedQualifications(e.target.value)}
+                                            className={MODAL_INPUT}
+                                            style={{ borderRadius: "0.625rem", padding: "0.75rem 0.875rem" }}
+                                            placeholder="Математика, Физика..."
+                                            disabled={loadingUpdate}
+                                        />
                                     </div>
-
                                     <div>
-                                        <label className={LABEL}>Квалификации</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 material-icons text-slate-400" style={{ fontSize: "1rem" }}>workspace_premium</span>
-                                            <input type="text" value={editedQualifications} onChange={(e) => setEditedQualifications(e.target.value)} className={`${INPUT} pl-9`} placeholder="Математика, Физика..." />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className={LABEL}>Биография / Описание</label>
+                                        <label className={MODAL_LABEL}>Биография / описание</label>
                                         <textarea
                                             value={editedDescription}
                                             onChange={(e) => setEditedDescription(e.target.value)}
-                                            rows={4}
-                                            className={`${INPUT} resize-y`}
-                                            placeholder="Кратко представяне за учениците: опит, подход, за какво преподавате..."
+                                            className={MODAL_TEXTAREA}
+                                            style={{
+                                                borderRadius: "0.625rem",
+                                                padding: "0.875rem",
+                                                minHeight: "6.5rem",
+                                            }}
+                                            placeholder="Кратко представяне за учениците..."
+                                            disabled={loadingUpdate}
                                         />
                                     </div>
                                 </div>
                             )}
 
-                            {/* section: price & online */}
                             {role === "teacher" && (
-                                <div className="px-6 py-4 border-t border-slate-100 space-y-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="material-icons text-slate-400" style={{ fontSize: "1rem" }}>payments</span>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Цена и онлайн уроци</p>
+                                <div style={{ marginBottom: "1.5rem" }}>
+                                    <p
+                                        className="text-slate-500"
+                                        style={{
+                                            fontSize: "0.75rem",
+                                            fontWeight: 600,
+                                            marginBottom: "0.75rem",
+                                        }}
+                                    >
+                                        Цена и онлайн уроци
+                                    </p>
+                                    <div
+                                        className="flex flex-col border border-slate-100 bg-slate-50/80"
+                                        style={{
+                                            gap: "0.875rem",
+                                            padding: "0.875rem",
+                                            borderRadius: "0.75rem",
+                                            marginBottom: "0.75rem",
+                                        }}
+                                    >
+                                        <Toggle
+                                            checked={priceNegotiable}
+                                            onChange={(v) => {
+                                                setPriceNegotiable(v);
+                                                if (v) setEditedHourlyRate("");
+                                            }}
+                                            label="По договаряне"
+                                        />
+                                        <Toggle
+                                            checked={editedOffersOnline}
+                                            onChange={setEditedOffersOnline}
+                                            label="Предлагам онлайн уроци"
+                                        />
                                     </div>
-
-                                    <Toggle checked={priceNegotiable} onChange={(v) => { setPriceNegotiable(v); if (v) setEditedHourlyRate(""); }} label="По договаряне" />
-
                                     {!priceNegotiable && (
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className={LABEL}>Цена за час</label>
+                                                <label className={MODAL_LABEL}>Цена за час</label>
                                                 <div className="relative">
-                                                    <input type="number" min="0" step="0.01" value={editedHourlyRate} onChange={(e) => setEditedHourlyRate(e.target.value)} className={`${INPUT} pr-10`} placeholder="25" />
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">лв.</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={editedHourlyRate}
+                                                        onChange={(e) => setEditedHourlyRate(e.target.value)}
+                                                        className={`${MODAL_INPUT} pr-10`}
+                                                        style={{
+                                                            borderRadius: "0.625rem",
+                                                            padding: "0.75rem 0.875rem",
+                                                        }}
+                                                        placeholder="25"
+                                                        disabled={loadingUpdate}
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                                                        лв.
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className={LABEL}>Бележка (по избор)</label>
-                                                <input type="text" value={editedPriceNote} onChange={(e) => setEditedPriceNote(e.target.value)} className={INPUT} placeholder="напр. пакет отстъпка" />
+                                                <label className={MODAL_LABEL}>Бележка</label>
+                                                <input
+                                                    type="text"
+                                                    value={editedPriceNote}
+                                                    onChange={(e) => setEditedPriceNote(e.target.value)}
+                                                    className={MODAL_INPUT}
+                                                    style={{
+                                                        borderRadius: "0.625rem",
+                                                        padding: "0.75rem 0.875rem",
+                                                    }}
+                                                    placeholder="по избор"
+                                                    disabled={loadingUpdate}
+                                                />
                                             </div>
                                         </div>
                                     )}
-
-                                    <Toggle checked={editedOffersOnline} onChange={setEditedOffersOnline} label="Предлагам онлайн уроци" />
                                 </div>
                             )}
-                        </form>
 
-                        {/* footer */}
-                        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/50">
-                            <button type="button" onClick={() => setEditMode(false)} className="flex-1 px-4 py-2.5 text-[0.8125rem] font-semibold text-slate-600 hover:bg-white rounded-xl border border-slate-200 transition-all">
-                                Откажи
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleUpdateProfile}
-                                disabled={loadingUpdate}
-                                className="flex-[1.5] px-4 py-2.5 text-[0.8125rem] font-semibold booking-btn-primary text-white rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
-                            >
-                                {loadingUpdate && <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                                {loadingUpdate ? "Запазване..." : "Запази промените"}
-                            </button>
-                        </div>
+                            <div className="flex items-center justify-end" style={{ gap: "0.5rem" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditMode(false)}
+                                    disabled={loadingUpdate}
+                                    className="text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    Затвори
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loadingUpdate}
+                                    className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={{
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "0.5rem",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: 600,
+                                        gap: "0.375rem",
+                                    }}
+                                >
+                                    {loadingUpdate ? (
+                                        <span
+                                            className="inline-block border-2 border-white border-t-transparent rounded-full animate-spin"
+                                            style={{ width: "1rem", height: "1rem" }}
+                                            aria-hidden
+                                        />
+                                    ) : (
+                                        <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                            check
+                                        </span>
+                                    )}
+                                    {loadingUpdate ? "Запазване..." : "Запази"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
