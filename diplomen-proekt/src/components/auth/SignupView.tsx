@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useBrandLinkTarget } from '../../hooks/useBrandLinkTarget';
+import { CityAutocomplete } from './CityAutocomplete';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -40,6 +41,7 @@ export interface SignupViewProps {
   emailError: string;
   passwordError: string;
   confirmPasswordError: string;
+  cityError: string;
   feedback: { type: 'success' | 'error'; message: string } | null;
   
   onFirstNameChange: (value: string) => void;
@@ -72,6 +74,7 @@ export function SignupView({
   emailError,
   passwordError,
   confirmPasswordError,
+  cityError,
   feedback,
   onFirstNameChange,
   onLastNameChange,
@@ -237,15 +240,17 @@ export function SignupView({
               {/* city */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#334155', marginBottom: 5 }}>Град</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </span>
-                  <input value={city} onChange={(e) => onCityChange(e.target.value)} placeholder="Пример: София" style={{ ...inputStyle, paddingLeft: 38 }} onFocus={focusIn} onBlur={focusOut} />
-                </div>
+                <CityAutocomplete
+                  value={city}
+                  onChange={onCityChange}
+                  placeholder="Започнете да пишете град..."
+                  disabled={loading}
+                  error={cityError}
+                  inputStyle={inputStyle}
+                  onFocus={focusIn}
+                  onBlur={focusOut}
+                />
+                {cityError && <p style={{ fontSize: 12, color: '#DC2626', marginTop: 3 }}>{cityError}</p>}
               </div>
 
               {/* submit */}

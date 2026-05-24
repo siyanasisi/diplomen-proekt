@@ -9,6 +9,12 @@ import { RatingStars } from "../components/RatingStars";
 import type { Teacher, TeacherReview, BookingFormState } from "../types/teacher";
 import { getDayNameBg } from "../utils/teacherSlots";
 
+const MODAL_LABEL = "block text-slate-700 text-[0.8125rem] font-semibold mb-1.5";
+const MODAL_INPUT =
+    "w-full border border-slate-200 focus:border-purple-500 text-slate-700 placeholder-slate-400 outline-none text-sm font-medium";
+const MODAL_TEXTAREA = `${MODAL_INPUT} resize-none`;
+const MODAL_FIELD_STYLE = { borderRadius: "0.625rem", padding: "0.75rem 0.875rem" } as const;
+
 export const TeacherProfile = () => {
     const { id } = useParams<{ id: string }>();
     const { user, loading: authLoading } = useAuth();
@@ -544,12 +550,22 @@ export const TeacherProfile = () => {
 
                             {/* primary cta */}
                             <div className="pb-2">
-                                <button
-                                    onClick={booking.openBookingModal}
-                                    className="teacher-profile-btn-primary w-full min-h-[56px] px-5 py-3.5 text-white text-base font-semibold rounded-xl"
-                                >
-                                    Запази час
-                                </button>
+                                {booking.canBookLesson ? (
+                                    <button
+                                        type="button"
+                                        onClick={booking.openBookingModal}
+                                        className="teacher-profile-btn-primary w-full min-h-[56px] px-5 py-3.5 text-white text-base font-semibold rounded-xl"
+                                    >
+                                        Запази час
+                                    </button>
+                                ) : booking.isOwnTeacherProfile ? (
+                                    <div
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 text-center text-slate-600"
+                                        style={{ padding: "1rem 1.25rem", fontSize: "0.875rem", fontWeight: 500, lineHeight: 1.45 }}
+                                    >
+                                        Не можете да запишете час при себе си.
+                                    </div>
+                                ) : null}
                             </div>
 
                             {/* details */}
@@ -583,9 +599,10 @@ export const TeacherProfile = () => {
                 </div>
 
                 {/* booking modal */}
-                {booking.showBookingModal && (
+                {booking.showBookingModal && teacher && (
                     <div
-                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+                        style={{ padding: "1.5rem" }}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="booking-title"
@@ -598,128 +615,195 @@ export const TeacherProfile = () => {
                         <div
                             ref={bookingModalRef}
                             onClick={(e) => e.stopPropagation()}
-                            className="booking-modal-card bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                            className="bg-white w-full shadow-xl max-h-[min(90vh,calc(100vh-3rem))] flex flex-col overflow-hidden"
+                            style={{ maxWidth: "42rem", borderRadius: "1rem", margin: "2rem 0" }}
                         >
-                            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 flex-shrink-0">
-                                <div>
-                                    <h2 id="booking-title" className="text-lg font-bold text-slate-900 font-display">Запази час</h2>
-                                    {booking.lessonDurationMinutes != null && (
-                                        <p className="text-sm text-slate-500 mt-0.5">Урокът е {booking.lessonDurationMinutes} мин</p>
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={booking.closeBookingModal}
-                                    disabled={booking.submitting}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                                    aria-label="Затвори"
+                            <div
+                                className="flex-shrink-0 border-b border-slate-100"
+                                style={{ padding: "1.5rem 1.5rem 1.25rem" }}
+                            >
+                                <div
+                                    className="flex items-center justify-between"
+                                    style={{ marginBottom: "0.75rem" }}
                                 >
-                                    <svg className="w-4.5 h-4.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                                    <h2
+                                        id="booking-title"
+                                        className="text-slate-900"
+                                        style={{
+                                            fontSize: "1.25rem",
+                                            fontWeight: 700,
+                                            letterSpacing: "-0.01em",
+                                        }}
+                                    >
+                                        Запази час
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        onClick={booking.closeBookingModal}
+                                        disabled={booking.submitting}
+                                        className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40"
+                                        style={{ padding: "0.375rem", borderRadius: "0.5rem" }}
+                                        aria-label="Затвори"
+                                    >
+                                        <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                            close
+                                        </span>
+                                    </button>
+                                </div>
+                                <div
+                                    className="flex items-center bg-slate-50 border border-slate-100 min-w-0"
+                                    style={{
+                                        gap: "0.5rem",
+                                        padding: "0.5rem 0.75rem",
+                                        borderRadius: "0.5rem",
+                                    }}
+                                >
+                                    <span
+                                        className="material-icons text-purple-700 shrink-0"
+                                        style={{ fontSize: "1rem" }}
+                                    >
+                                        event
+                                    </span>
+                                    <span
+                                        className="text-slate-700 truncate"
+                                        style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                    >
+                                        {teacher.full_name}
+                                        {booking.lessonDurationMinutes != null
+                                            ? ` · ${booking.lessonDurationMinutes} мин`
+                                            : ""}
+                                    </span>
+                                </div>
                             </div>
-                            <div id="booking-desc" className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
+                            <div
+                                id="booking-desc"
+                                className="flex-1 min-h-0 overflow-y-auto space-y-5"
+                                style={{ padding: "1.25rem 1.5rem" }}
+                            >
                                 {booking.submitting && !booking.bookingSuccess ? (
-                                    <div className="flex flex-col items-center justify-center py-16 px-4">
-                                        <div className="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center mb-5">
-                                            <span className="inline-block w-8 h-8 border-[3px] border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
-                                        </div>
-                                        <p className="text-lg font-bold text-slate-900 mb-1">Записваме...</p>
-                                        <p className="text-sm text-slate-500">Моля, изчакайте.</p>
+                                    <div className="flex flex-col items-center justify-center py-16 px-4" style={{ gap: "0.75rem" }}>
+                                        <div
+                                            className="animate-spin rounded-full border-2 border-slate-200 border-t-purple-600"
+                                            style={{ width: "2.5rem", height: "2.5rem" }}
+                                            aria-hidden
+                                        />
+                                        <p className="text-slate-900 font-bold" style={{ fontSize: "1.125rem" }}>
+                                            Записваме...
+                                        </p>
+                                        <p className="text-slate-500 text-sm">Моля, изчакайте.</p>
                                     </div>
                                 ) : booking.bookingSuccess ? (
-                                    <div className="flex flex-col items-center justify-center py-16 px-4">
-                                        <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-5">
-                                            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <p className="text-lg font-bold text-slate-900 mb-1">Готово!</p>
-                                        <p className="text-sm text-slate-500 mb-4">Пренасочваме...</p>
+                                    <div className="flex flex-col items-center justify-center py-16 px-4" style={{ gap: "0.5rem" }}>
+                                        <span className="material-icons text-emerald-600" style={{ fontSize: "3rem" }}>
+                                            check_circle
+                                        </span>
+                                        <p className="text-slate-900 font-bold" style={{ fontSize: "1.125rem" }}>
+                                            Готово!
+                                        </p>
+                                        <p className="text-slate-500 text-sm" style={{ marginBottom: "0.75rem" }}>
+                                            Пренасочваме...
+                                        </p>
                                         <button
                                             type="button"
                                             onClick={booking.stayOnPage}
-                                            className="text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded"
+                                            className="text-sm font-semibold text-purple-700 hover:text-purple-800 transition-colors"
                                         >
                                             Остани на страницата
                                         </button>
                                     </div>
                                 ) : booking.loadingSlots ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <div className="w-10 h-10 border-[3px] border-purple-600 border-t-transparent rounded-full animate-spin" aria-hidden />
+                                    <div className="flex flex-col items-center justify-center py-16" style={{ gap: "0.75rem" }}>
+                                        <div
+                                            className="animate-spin rounded-full border-2 border-slate-200 border-t-purple-600"
+                                            style={{ width: "2rem", height: "2rem" }}
+                                            aria-hidden
+                                        />
+                                        <p className="text-slate-500 text-sm font-medium">Зареждане на наличност...</p>
                                     </div>
                                 ) : booking.loadSlotsError ? (
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                                            <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                                        </div>
-                                        <p className="text-slate-800 font-semibold mb-1">Наличието не можа да се зареди</p>
+                                        <span className="material-icons text-slate-400 mb-3" style={{ fontSize: "2.5rem" }}>
+                                            error_outline
+                                        </span>
+                                        <p className="text-slate-900 font-semibold mb-1">Наличието не можа да се зареди</p>
                                         <p className="text-slate-500 text-sm mb-5">Проверете връзката и опитайте отново.</p>
                                         <button
                                             type="button"
                                             onClick={booking.retryLoadSlots}
                                             disabled={booking.loadingSlots}
-                                            className="booking-btn-primary px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50"
+                                            className="bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold transition-colors disabled:opacity-40 inline-flex items-center"
+                                            style={{ padding: "0.5rem 1rem", borderRadius: "0.5rem", gap: "0.375rem" }}
                                         >
+                                            <span className="material-icons" style={{ fontSize: "1rem" }}>refresh</span>
                                             Опитай отново
                                         </button>
                                     </div>
                                 ) : !booking.hasBookingSettings ? (
                                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mb-4">
-                                            <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                        </div>
-                                        <p className="text-slate-800 font-semibold mb-1">
+                                        <span className="material-icons text-purple-600 mb-3" style={{ fontSize: "2.5rem" }}>
+                                            event_busy
+                                        </span>
+                                        <p className="text-slate-900 font-semibold mb-1">
                                             Учителят не е настроил записване
                                         </p>
-                                        <p className="text-slate-500 text-sm">
-                                            Свържете се с него чрез бутона „Свържи се с учителя“ по-долу на страницата.
+                                        <p className="text-slate-500 text-sm leading-relaxed">
+                                            Свържете се с него чрез бутона „Свържи се с учителя“ на страницата.
                                         </p>
                                     </div>
                                 ) : !booking.hasAvailability ? (
                                     <>
-                                        <div className="flex items-start gap-3 p-4 rounded-xl bg-purple-50/60 border border-purple-100">
-                                            <svg className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <p className="text-sm text-slate-600">
-                                                Учителят все още не е настроил наличност за уроци. Можете да изберете дата и час ръчно.
+                                        <div
+                                            className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-900 text-sm font-medium"
+                                            style={{ padding: "0.75rem 0.875rem" }}
+                                        >
+                                            <span className="material-icons shrink-0" style={{ fontSize: "1.125rem" }}>
+                                                info
+                                            </span>
+                                            <p className="leading-relaxed">
+                                                Учителят все още не е настроил наличност. Можете да изберете дата и час ръчно.
                                             </p>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Дата</label>
+                                            <label className={MODAL_LABEL}>Дата</label>
                                             <input
                                                 type="date"
                                                 value={booking.bookingForm.date}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, date: e.target.value })}
                                                 min={getMinDate()}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all bg-white"
+                                                className={MODAL_INPUT}
+                                                style={MODAL_FIELD_STYLE}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Час</label>
+                                            <label className={MODAL_LABEL}>Час</label>
                                             <input
                                                 type="time"
                                                 value={booking.bookingForm.time}
                                                 onChange={(e) => booking.setBookingForm({ ...booking.bookingForm, time: e.target.value })}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all bg-white"
+                                                className={MODAL_INPUT}
+                                                style={MODAL_FIELD_STYLE}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Съобщение (по избор)</label>
+                                            <label className={MODAL_LABEL}>Съобщение (по избор)</label>
                                             <textarea
                                                 value={booking.bookingForm.message}
                                                 onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
                                                 placeholder="Добавете допълнителна информация..."
                                                 rows={3}
-                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all resize-none bg-white"
+                                                className={MODAL_TEXTAREA}
+                                                style={{ ...MODAL_FIELD_STYLE, minHeight: "5.5rem" }}
                                             />
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         {booking.earliestFreeSlot && (
-                                            <div className="flex flex-wrap items-center justify-between gap-2 py-2.5 px-4 rounded-xl bg-purple-50/70 border border-purple-100">
-                                                <p className="text-sm text-slate-600">
+                                            <div
+                                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-purple-100 bg-slate-50"
+                                                style={{ padding: "0.75rem 0.875rem" }}
+                                            >
+                                                <p className="text-sm text-slate-600 leading-relaxed">
                                                     <span className="font-semibold text-purple-700">Най-ранен свободен час:</span>{" "}
                                                     {new Date(booking.earliestFreeSlot.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
                                                     в {booking.earliestFreeSlot.time}
@@ -732,18 +816,34 @@ export const TeacherProfile = () => {
                                                         booking.goToDate(new Date(slot.date + "T12:00"));
                                                         booking.setBookingForm((prev) => ({ ...prev, date: slot.date, time: slot.time }));
                                                     }}
-                                                    className="text-sm font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+                                                    className="text-sm font-semibold text-purple-700 hover:text-purple-800 transition-colors shrink-0"
                                                 >
                                                     Отиди там
                                                 </button>
                                             </div>
                                         )}
+                                        <p
+                                            className="text-slate-500"
+                                            style={{ fontSize: "0.75rem", fontWeight: 600 }}
+                                        >
+                                            Изберете ден и час
+                                        </p>
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
-                                            <button type="button" onClick={booking.goPrevWeek} disabled={!booking.canGoPrevWeek} className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Предишна седмица">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                            <button
+                                                type="button"
+                                                onClick={booking.goPrevWeek}
+                                                disabled={!booking.canGoPrevWeek}
+                                                className="flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem" }}
+                                                aria-label="Предишна седмица"
+                                            >
+                                                <span className="material-icons" style={{ fontSize: "1.125rem" }}>chevron_left</span>
                                             </button>
-                                            <div className="flex items-center gap-3">
-                                                <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                                            <div className="flex items-center flex-wrap justify-center" style={{ gap: "0.5rem" }}>
+                                                <p
+                                                    className="text-slate-700 tabular-nums"
+                                                    style={{ fontSize: "0.8125rem", fontWeight: 600 }}
+                                                >
                                                     {booking.weekDates[0]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short" })} – {booking.weekDates[6]?.toLocaleDateString("bg-BG", { day: "numeric", month: "short", year: "numeric" })}
                                                 </p>
                                                 <input
@@ -755,14 +855,28 @@ export const TeacherProfile = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => (document.getElementById("booking-date-picker") as HTMLInputElement | null)?.showPicker?.()}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-medium transition-colors"
+                                                    className="inline-flex items-center border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
+                                                    style={{
+                                                        gap: "0.375rem",
+                                                        padding: "0.375rem 0.75rem",
+                                                        borderRadius: "0.5rem",
+                                                        fontSize: "0.75rem",
+                                                        fontWeight: 600,
+                                                    }}
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                    Избор на друга дата
+                                                    <span className="material-icons" style={{ fontSize: "1rem" }}>calendar_today</span>
+                                                    Друга дата
                                                 </button>
                                             </div>
-                                            <button type="button" onClick={booking.goNextWeek} disabled={!booking.canGoNextWeek} className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent" aria-label="Следваща седмица">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            <button
+                                                type="button"
+                                                onClick={booking.goNextWeek}
+                                                disabled={!booking.canGoNextWeek}
+                                                className="flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem" }}
+                                                aria-label="Следваща седмица"
+                                            >
+                                                <span className="material-icons" style={{ fontSize: "1.125rem" }}>chevron_right</span>
                                             </button>
                                         </div>
                                         <div className="overflow-x-auto pb-2 -mx-1 flex gap-3 scrollbar-none">
@@ -792,13 +906,14 @@ export const TeacherProfile = () => {
                                                                             type="button"
                                                                             onClick={() => isFree && booking.setBookingForm((prev) => ({ ...prev, date: dateKey, time: slot.time }))}
                                                                             disabled={!isFree}
-                                                                            className={`py-1.5 px-1 rounded-lg text-xs font-medium tabular-nums text-center transition-all ${
+                                                                            className={`py-1.5 px-1 text-xs font-medium tabular-nums text-center transition-all ${
                                                                                 selected
-                                                                                    ? "bg-purple-600 text-white shadow-sm shadow-purple-600/25"
+                                                                                    ? "bg-purple-700 text-white"
                                                                                     : isFree
                                                                                     ? "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200/60"
                                                                                     : "bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100"
                                                                             }`}
+                                                                            style={{ borderRadius: "0.5rem" }}
                                                                         >
                                                                             {slot.time}
                                                                         </button>
@@ -823,54 +938,119 @@ export const TeacherProfile = () => {
                                             })}
                                         </div>
                                         {booking.bookingForm.date && booking.bookingForm.time && (
-                                            <div ref={bookingSelectedRef} className="pt-4 border-t border-slate-100 space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-purple-500" />
-                                                    <p className="text-sm font-semibold text-slate-700">
-                                                        Избрахте: {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", { weekday: "long", day: "numeric", month: "long" })} в {booking.bookingForm.time}
+                                            <div
+                                                ref={bookingSelectedRef}
+                                                className="border-t border-slate-100 space-y-3"
+                                                style={{ paddingTop: "1.25rem" }}
+                                            >
+                                                <div
+                                                    className="flex items-start gap-2 rounded-xl border border-purple-100 bg-purple-50/80"
+                                                    style={{ padding: "0.75rem 0.875rem" }}
+                                                >
+                                                    <span className="material-icons text-purple-700 shrink-0" style={{ fontSize: "1.125rem" }}>
+                                                        check_circle
+                                                    </span>
+                                                    <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+                                                        Избрахте:{" "}
+                                                        {new Date(booking.bookingForm.date + "T12:00").toLocaleDateString("bg-BG", {
+                                                            weekday: "long",
+                                                            day: "numeric",
+                                                            month: "long",
+                                                        })}{" "}
+                                                        в {booking.bookingForm.time}
                                                     </p>
                                                 </div>
-                                                <label className="block text-sm font-semibold text-slate-700">Съобщение (по избор)</label>
-                                                <textarea
-                                                    value={booking.bookingForm.message}
-                                                    onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
-                                                    placeholder="Добавете допълнителна информация..."
-                                                    rows={3}
-                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all resize-none bg-white"
-                                                />
+                                                <div>
+                                                    <label className={MODAL_LABEL}>Съобщение (по избор)</label>
+                                                    <textarea
+                                                        value={booking.bookingForm.message}
+                                                        onChange={(e) => booking.setBookingForm((prev: BookingFormState) => ({ ...prev, message: e.target.value }))}
+                                                        placeholder="Добавете допълнителна информация..."
+                                                        rows={3}
+                                                        className={MODAL_TEXTAREA}
+                                                        style={{ ...MODAL_FIELD_STYLE, minHeight: "5.5rem" }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                     </>
                                 )}
                             </div>
                             {booking.bookingNetworkError && (
-                                <div className="mx-6 mb-2 p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0">
-                                    <p className="text-sm text-amber-800 font-medium">
+                                <div
+                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-shrink-0 border-t border-slate-100 bg-amber-50"
+                                    style={{ padding: "0.875rem 1.5rem" }}
+                                >
+                                    <p className="text-sm text-amber-900 font-medium leading-relaxed flex items-start gap-2">
+                                        <span className="material-icons shrink-0" style={{ fontSize: "1.125rem" }}>
+                                            warning_amber
+                                        </span>
                                         Възникна проблем с връзката. Проверете интернет и опитайте отново.
                                     </p>
                                     <button
                                         type="button"
                                         onClick={booking.handleBookLesson}
                                         disabled={booking.submitting}
-                                        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 whitespace-nowrap inline-flex items-center"
+                                        style={{ padding: "0.5rem 1rem", borderRadius: "0.5rem", gap: "0.375rem" }}
                                     >
                                         {booking.submitting ? "Изчакване..." : "Опитай отново"}
                                     </button>
                                 </div>
                             )}
-                            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/50">
-                                <button type="button" onClick={booking.closeBookingModal} disabled={booking.submitting} className="flex-1 px-4 py-3 text-slate-600 hover:bg-white font-semibold rounded-xl border border-slate-200 transition-all disabled:opacity-50 disabled:pointer-events-none text-sm">
-                                    Откажи
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={booking.handleBookLesson}
-                                    disabled={booking.submitting || !booking.bookingForm.date || !booking.bookingForm.time}
-                                    className="flex-[1.5] px-4 py-3 booking-btn-primary text-white font-semibold rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm"
-                                >
-                                    {booking.submitting ? "Запазване..." : "Запази"}
-                                </button>
-                            </div>
+                            {!booking.bookingSuccess &&
+                                !booking.submitting &&
+                                !booking.loadingSlots && (
+                                    <div
+                                        className="flex items-center justify-end flex-shrink-0 border-t border-slate-100"
+                                        style={{ gap: "0.5rem", padding: "1.25rem 1.5rem" }}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={booking.closeBookingModal}
+                                            disabled={booking.submitting}
+                                            className="text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                            style={{
+                                                padding: "0.5rem 1rem",
+                                                borderRadius: "0.5rem",
+                                                fontSize: "0.8125rem",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Затвори
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={booking.handleBookLesson}
+                                            disabled={
+                                                booking.submitting ||
+                                                !booking.bookingForm.date ||
+                                                !booking.bookingForm.time
+                                            }
+                                            className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                            style={{
+                                                padding: "0.5rem 1rem",
+                                                borderRadius: "0.5rem",
+                                                fontSize: "0.8125rem",
+                                                fontWeight: 600,
+                                                gap: "0.375rem",
+                                            }}
+                                        >
+                                            {booking.submitting ? (
+                                                <span
+                                                    className="inline-block border-2 border-white border-t-transparent rounded-full animate-spin"
+                                                    style={{ width: "1rem", height: "1rem" }}
+                                                    aria-hidden
+                                                />
+                                            ) : (
+                                                <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                                    check
+                                                </span>
+                                            )}
+                                            {booking.submitting ? "Запазване..." : "Запази"}
+                                        </button>
+                                    </div>
+                                )}
                         </div>
                     </div>
                 )}

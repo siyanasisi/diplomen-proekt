@@ -185,7 +185,23 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         return map;
     }, [futureSlots, weekDates]);
 
-    const openBookingModal = useCallback(() => setShowBookingModal(true), []);
+    const isOwnTeacherProfile = Boolean(user && teacher && user.id === teacher.user_id);
+    const canBookLesson = Boolean(user && teacher && !isOwnTeacherProfile);
+
+    const notify = useCallback(
+        (message: string) => {
+            showToast?.(message);
+        },
+        [showToast]
+    );
+
+    const openBookingModal = useCallback(() => {
+        if (isOwnTeacherProfile) {
+            notify("Не можете да запишете час при себе си.");
+            return;
+        }
+        setShowBookingModal(true);
+    }, [isOwnTeacherProfile, notify]);
     const closeBookingModal = useCallback(() => {
         if (redirectTimeoutRef.current) {
             clearTimeout(redirectTimeoutRef.current);
@@ -220,15 +236,12 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     }, [weekStart]);
     const goToDate = useCallback((date: Date) => setWeekStart(getStartOfWeekMonday(date)), []);
 
-    const notify = useCallback(
-        (message: string) => {
-            showToast?.(message);
-        },
-        [showToast]
-    );
-
     const handleBookLesson = useCallback(async () => {
         if (!teacher || !user) return;
+        if (user.id === teacher.user_id) {
+            notify("Не можете да запишете час при себе си.");
+            return;
+        }
         const form = formRef.current;
         const { date: normDate, time: normTime } = normalizeBookingSlotInput(form.date, form.time);
         if (!normDate || !normTime) {
@@ -321,6 +334,8 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     }, [teacher, user, settings, closeBookingModal, navigate, notify]);
 
     return {
+        isOwnTeacherProfile,
+        canBookLesson,
         showBookingModal,
         openBookingModal,
         closeBookingModal,

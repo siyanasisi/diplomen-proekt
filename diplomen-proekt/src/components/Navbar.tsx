@@ -224,8 +224,22 @@ export const Navbar = () => {
                                 <Link
                                     to="/chat"
                                     className="p-2 hover:bg-slate-100 rounded-full transition-colors relative"
+                                    aria-label="Съобщения"
+                                    title="Съобщения"
                                 >
-                                    <span className="material-icons-round">notifications</span>
+                                    <svg
+                                        className="w-6 h-6 text-slate-700"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        aria-hidden
+                                    >
+                                        <line x1="22" y1="2" x2="11" y2="13" />
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                    </svg>
                                     {unreadMessagesCount > 0 && (
                                         <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
                                     )}

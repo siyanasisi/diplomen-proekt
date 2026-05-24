@@ -5,6 +5,8 @@ import { SCHOOL_SUBJECTS, hasPlanContent, normalizeExamSubject } from "../lib/to
 import { generateStudyPlan, calculateDaysUntilExam } from "../lib/studyPlanGenerator";
 import { useAuth } from "../context/AuthContext";
 import { supabase, ensureValidSession } from "../supabase-client";
+import { DatePickerCalendar } from "./ui/DatePickerCalendar";
+import { getTodayDateKey } from "../lib/calendar";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 const TOTAL_STEPS = 5;
@@ -96,7 +98,7 @@ export const StudyPlanQuestionnaire = () => {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayDateKey();
   const progressPercent = Math.round((currentStep / TOTAL_STEPS) * 100);
 
   const optBtn = (selected: boolean) =>
@@ -230,15 +232,11 @@ export const StudyPlanQuestionnaire = () => {
                 Избери датата, когато ще се явиш на изпита.
               </p>
 
-              <input
-                type="date"
+              <DatePickerCalendar
                 value={examDate}
-                min={today}
-                onChange={(e) => handleExamDateChange(e.target.value)}
-                className="w-full border-2 border-slate-200 text-slate-800 font-medium transition-all duration-200 hover:border-slate-300 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/15 focus:outline-none"
-                style={{ padding: '1rem 1.125rem', borderRadius: '0.875rem', fontSize: '1rem' }}
+                onChange={handleExamDateChange}
+                minDate={today}
               />
-
               {daysUntilExam > 0 && (
                 <div
                   className="bg-purple-50 border border-purple-100"

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase-client';
 import { useToast } from '../context/ToastContext';
 import { SignupView } from '../components/auth/SignupView';
+import { isBulgarianCity } from '../lib/bulgarianCities';
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function SignUp() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [cityError, setCityError] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const validateEmail = (v: string) => {
@@ -73,6 +75,18 @@ export default function SignUp() {
     }
   };
 
+  const validateCity = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Моля, изберете град от списъка.';
+    if (!isBulgarianCity(trimmed)) return 'Моля, изберете валиден български град от списъка.';
+    return '';
+  };
+
+  const handleCityChange = (value: string) => {
+    setCity(value);
+    if (cityError) setCityError(validateCity(value));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -82,10 +96,12 @@ export default function SignUp() {
     const emailErr = validateEmail(email);
     const pwErr = validatePassword(password);
     const confirmPwErr = confirmPassword !== password ? 'Паролите не съвпадат.' : '';
-    if (emailErr || pwErr || confirmPwErr) {
+    const cityErr = validateCity(city);
+    if (emailErr || pwErr || confirmPwErr || cityErr) {
       setEmailError(emailErr);
       setPasswordError(pwErr);
       setConfirmPasswordError(confirmPwErr);
+      setCityError(cityErr);
       setLoading(false);
       return;
     }
@@ -220,6 +236,7 @@ export default function SignUp() {
         setEmailError('');
         setPasswordError('');
         setConfirmPasswordError('');
+        setCityError('');
         setGrade('');
         setCity('');
         setQualifications('');
@@ -256,6 +273,7 @@ export default function SignUp() {
       emailError={emailError}
       passwordError={passwordError}
       confirmPasswordError={confirmPasswordError}
+      cityError={cityError}
       feedback={feedback}
       onFirstNameChange={setFirstName}
       onLastNameChange={setLastName}
@@ -266,7 +284,7 @@ export default function SignUp() {
       onShowConfirmPasswordToggle={() => setShowConfirmPassword((p) => !p)}
       onRoleChange={handleRoleChange}
       onGradeChange={setGrade}
-      onCityChange={setCity}
+      onCityChange={handleCityChange}
       onQualificationsChange={setQualifications}
       onSubmit={handleSubmit}
     />
