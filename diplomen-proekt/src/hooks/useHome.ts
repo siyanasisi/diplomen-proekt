@@ -17,8 +17,7 @@ import type {
     StudentBooking,
     PendingBooking,
 } from "../types/home";
-
-const DZI_BEL_EXAM_DATE = new Date(2026, 4, 20);
+import { getDziBelCountdown } from "../constants/dziBelExam";
 const MONTH_NAMES = [
     "Януари", "Февруари", "Март", "Април", "Май", "Юни",
     "Юли", "Август", "Септември", "Октомври", "Ноември", "Декември",
@@ -111,10 +110,8 @@ export function useHome() {
         plansWithId.find((p) => p.id === selectedPlanId) ?? plansWithId[0] ?? null;
     const effectivePlanId = studyPlan?.id ?? plansWithId[0]?.id ?? "";
 
-    const today = new Date();
-    const daysUntilExam = Math.ceil(
-        (DZI_BEL_EXAM_DATE.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const dziBelCountdown = getDziBelCountdown();
+    const daysUntilExam = dziBelCountdown.daysRemaining;
 
     const loadEvents = useCallback(async () => {
         if (!user) return;
@@ -1154,6 +1151,7 @@ export function useHome() {
         lessonsLoading,
         actingOnBookingId,
         daysUntilExam,
+        dziBelCountdown,
         daysInMonth,
         startingDayOfWeek,
         MONTH_NAMES,

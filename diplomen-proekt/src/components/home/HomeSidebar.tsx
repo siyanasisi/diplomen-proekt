@@ -1,4 +1,5 @@
 import type { HomeMenuId } from "../../types/home";
+import type { DziBelCountdown } from "../../constants/dziBelExam";
 
 export interface HomeMenuItem {
     id: HomeMenuId;
@@ -12,6 +13,7 @@ interface HomeSidebarProps {
     setActiveMenu: (id: HomeMenuId) => void;
     isTeacher: boolean;
     eventsCount: number;
+    dziBelCountdown?: DziBelCountdown;
     daysUntilExam?: number;
     currentStreak?: number;
     longestStreak?: number;
@@ -23,10 +25,18 @@ export function HomeSidebar({
     setActiveMenu,
     isTeacher,
     eventsCount,
-    daysUntilExam = 0,
+    dziBelCountdown,
+    daysUntilExam: daysUntilExamProp,
     currentStreak = 0,
     longestStreak = 0,
 }: HomeSidebarProps) {
+    const countdown = dziBelCountdown ?? {
+        daysRemaining: Math.max(0, daysUntilExamProp ?? 0),
+        hasPassed: false,
+        isExamDay: false,
+        examDateLabel: '20 май 2027 г.',
+    };
+
     return (
         <aside className="hidden lg:flex w-72 flex-shrink-0 h-screen flex-col bg-white border-r border-slate-200">
             {/* header */}
@@ -118,16 +128,55 @@ export function HomeSidebar({
                     <div className="flex flex-col" style={{ gap: '0.625rem' }}>
                         {/* exam countdown */}
                         <div
-                            className="bg-purple-50 border border-purple-100"
+                            className={`border ${countdown.hasPassed ? 'bg-slate-50 border-slate-200' : 'bg-purple-50 border-purple-100'}`}
                             style={{ borderRadius: '0.75rem', padding: '1rem' }}
                         >
                             <div className="flex items-center" style={{ gap: '0.375rem', marginBottom: '0.5rem' }}>
-                                <span className="material-icons text-purple-700" style={{ fontSize: '1rem' }}>timer</span>
-                                <p className="text-purple-700 uppercase" style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.06em' }}>До изпита</p>
+                                <span
+                                    className={`material-icons ${countdown.hasPassed ? 'text-slate-500' : 'text-purple-700'}`}
+                                    style={{ fontSize: '1rem' }}
+                                >
+                                    {countdown.hasPassed ? 'event_available' : 'timer'}
+                                </span>
+                                <p
+                                    className={`uppercase ${countdown.hasPassed ? 'text-slate-600' : 'text-purple-700'}`}
+                                    style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.06em' }}
+                                >
+                                    ДЗИ Бел
+                                </p>
                             </div>
                             <div className="text-center">
-                                <p className="text-purple-700 tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1 }}>{daysUntilExam}</p>
-                                <p className="text-purple-600" style={{ fontSize: '0.6875rem', fontWeight: 600, marginTop: '0.125rem' }}>дни остават</p>
+                                {countdown.hasPassed ? (
+                                    <>
+                                        <p className="text-slate-800" style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1.3 }}>
+                                            Изпитът мина
+                                        </p>
+                                        <p className="text-slate-500" style={{ fontSize: '0.6875rem', fontWeight: 500, marginTop: '0.375rem', lineHeight: 1.4 }}>
+                                            {countdown.examDateLabel}
+                                        </p>
+                                    </>
+                                ) : countdown.isExamDay ? (
+                                    <>
+                                        <p className="text-purple-700" style={{ fontSize: '1.125rem', fontWeight: 800, lineHeight: 1.2 }}>
+                                            Днес е изпитът
+                                        </p>
+                                        <p className="text-purple-600" style={{ fontSize: '0.6875rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                                            ДЗИ Бел · {countdown.examDateLabel}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-purple-700 tabular-nums" style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1 }}>
+                                            {countdown.daysRemaining}
+                                        </p>
+                                        <p className="text-purple-600" style={{ fontSize: '0.6875rem', fontWeight: 600, marginTop: '0.125rem' }}>
+                                            дни до ДЗИ Бел
+                                        </p>
+                                        <p className="text-purple-500/90" style={{ fontSize: '0.625rem', fontWeight: 500, marginTop: '0.25rem' }}>
+                                            {countdown.examDateLabel}
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         </div>
 

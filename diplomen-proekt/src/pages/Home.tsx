@@ -46,6 +46,7 @@ export const Home = () => {
                 isTeacher={isTeacher}
                 eventsCount={eventsList.length}
                 daysUntilExam={rest.daysUntilExam}
+                dziBelCountdown={rest.dziBelCountdown}
                 currentStreak={rest.currentStreak}
                 longestStreak={rest.longestStreak}
             />
