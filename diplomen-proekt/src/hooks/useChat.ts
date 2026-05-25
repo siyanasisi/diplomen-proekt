@@ -173,7 +173,7 @@ export function useChat() {
         setChatHeaderMoreOpen(false);
         setSelectedConv(null);
         loadConversations();
-    }, [user, selectedConv, loadConversations, showToast]);
+    }, [user, selectedConv, loadConversations, showToast, setConfirmAction, setChatHeaderMoreOpen, setSelectedConv]);
 
     const handleDeleteChat = useCallback(async () => {
         if (!user || !selectedConv) return;
@@ -186,7 +186,7 @@ export function useChat() {
         setChatHeaderMoreOpen(false);
         setSelectedConv(null);
         loadConversations();
-    }, [user, selectedConv, loadConversations, showToast]);
+    }, [user, selectedConv, loadConversations, showToast, setConfirmAction, setChatHeaderMoreOpen, setSelectedConv]);
 
     const filteredConversations = useMemo(() => {
         if (!conversationSearch.trim()) return conversations;

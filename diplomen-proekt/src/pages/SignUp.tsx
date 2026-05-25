@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../supabase-client';
 import { useToast } from '../context/ToastContext';
 import { SignupView } from '../components/auth/SignupView';
@@ -152,8 +153,9 @@ export default function SignUp() {
         console.error('SignUp error:', error);
         let errorMessage = error.message;
         const errorLower = error.message.toLowerCase();
-        const errorStatus = (error as any).status;
-        const errorCode = (error as any).code;
+        const authError = error as AuthError;
+        const errorStatus = authError.status;
+        const errorCode = authError.code;
 
         // handle existing user
         if (

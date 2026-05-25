@@ -94,6 +94,14 @@ export const Home = () => {
                         DAY_NAMES={rest.DAY_NAMES}
                         goToPreviousMonth={rest.goToPreviousMonth}
                         goToNextMonth={rest.goToNextMonth}
+                        calendarViewMode={rest.calendarViewMode}
+                        setCalendarViewMode={rest.setCalendarViewMode}
+                        studyPlanCalendarBounds={rest.studyPlanCalendarBounds}
+                        calendarBoundsLabel={rest.calendarBoundsLabel}
+                        canGoPrevMonth={rest.canGoPrevMonth}
+                        canGoNextMonth={rest.canGoNextMonth}
+                        getStudyPlanAgendaDays={rest.getStudyPlanAgendaDays}
+                        goToExamMonth={rest.goToExamMonth}
                         lessonsLoading={rest.lessonsLoading}
                         pendingBookings={rest.pendingBookings}
                         studentBookings={rest.studentBookings}

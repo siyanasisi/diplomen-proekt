@@ -1,3 +1,5 @@
+export type CalendarViewMode = "agenda" | "month";
+
 export type HomeMenuId =
     | "dashboard"
     | "find-teacher"

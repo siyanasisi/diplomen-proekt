@@ -93,6 +93,27 @@ export function formatBoundsRangeLabel(bounds: CalendarBounds): string {
   return `${fmt(bounds.min)} – ${fmt(bounds.max)}`;
 }
 
+export function isDateKeyWithinBounds(dateKey: string, bounds: CalendarBounds): boolean {
+  const d = parseDateKey(dateKey);
+  const min = new Date(bounds.min);
+  const max = new Date(bounds.max);
+  min.setHours(0, 0, 0, 0);
+  max.setHours(23, 59, 59, 999);
+  return d >= min && d <= max;
+}
+
+export function examDateToDateKey(examDate: Date | string): string {
+  const d = examDate instanceof Date ? examDate : new Date(examDate);
+  return toDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+export function daysBetweenDateKeys(fromKey: string, toKey: string): number {
+  const from = parseDateKey(fromKey);
+  const to = parseDateKey(toKey);
+  const ms = to.getTime() - from.getTime();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+}
+
 export function countStudyDaysInMonth(
   planDayKeys: Set<string>,
   year: number,

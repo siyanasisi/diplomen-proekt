@@ -5,7 +5,10 @@ import type { MessageReaction } from "../types/chat";
 export function useReactions(messageIds: string[], userId: string | null) {
     const [reactionsMap, setReactionsMap] = useState<Record<string, MessageReaction[]>>({});
     const messageIdsRef = useRef<string[]>([]);
-    messageIdsRef.current = messageIds;
+
+    useEffect(() => {
+        messageIdsRef.current = messageIds;
+    }, [messageIds]);
 
     const loadReactions = useCallback(async () => {
         const ids = messageIdsRef.current;

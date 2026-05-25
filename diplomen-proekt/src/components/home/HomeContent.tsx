@@ -5,7 +5,15 @@ import { formatDateLessons } from "../../hooks/useHome";
 import type { HomeEventItem, TeacherMessage, StudentBooking, PendingBooking } from "../../types/home";
 import type { StudyPlan } from "../../lib/topics";
 
-import type { HomeMenuId } from "../../types/home";
+import type { CalendarViewMode, HomeMenuId } from "../../types/home";
+import type { CalendarBounds } from "../../lib/calendar";
+import {
+    daysBetweenDateKeys,
+    examDateToDateKey,
+    formatDateKeyLong,
+    isDateKeyWithinBounds,
+    parseDateKey,
+} from "../../lib/calendar";
 import { AlertBanner } from "../ui/feedback/AlertBanner";
 
 function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
@@ -58,6 +66,14 @@ interface HomeContentProps {
     DAY_NAMES: string[];
     goToPreviousMonth: () => void;
     goToNextMonth: () => void;
+    calendarViewMode: CalendarViewMode;
+    setCalendarViewMode: (mode: CalendarViewMode) => void;
+    studyPlanCalendarBounds: CalendarBounds | null;
+    calendarBoundsLabel: string | null;
+    canGoPrevMonth: boolean;
+    canGoNextMonth: boolean;
+    getStudyPlanAgendaDays: () => NonNullable<StudyPlan["plan"]>;
+    goToExamMonth: () => void;
     // lessons
     lessonsLoading: boolean;
     pendingBookings: PendingBooking[];
@@ -95,15 +111,15 @@ export function HomeContent(props: HomeContentProps) {
         setSelectedPlanId,
         effectivePlanId,
         studyPlan,
-        studyPlanHasContent: _studyPlanHasContent,
+        studyPlanHasContent,
         getTodayStudyTasks,
         getTodayDateKey,
         openDateModal,
         openTodayModal,
         getStudyPlanProgress,
         getUpcomingStudyTopics,
-        daysUntilExam: _daysUntilExam,
-        longestStreak: _longestStreak,
+        daysUntilExam,
+        longestStreak,
         currentDate,
         daysInMonth,
         startingDayOfWeek,
@@ -114,6 +130,14 @@ export function HomeContent(props: HomeContentProps) {
         DAY_NAMES,
         goToPreviousMonth,
         goToNextMonth,
+        calendarViewMode,
+        setCalendarViewMode,
+        studyPlanCalendarBounds,
+        calendarBoundsLabel,
+        canGoPrevMonth,
+        canGoNextMonth,
+        getStudyPlanAgendaDays,
+        goToExamMonth,
         lessonsLoading,
         pendingBookings,
         studentBookings,
@@ -271,12 +295,9 @@ export function HomeContent(props: HomeContentProps) {
                 totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
             return { totalTopics, completedTopics, completionPercentage };
         };
-        const getDaysUntilExam = (plan: StudyPlan) => {
-            const examDate = plan.preferences.examDate;
-            const date = examDate instanceof Date ? examDate : new Date(examDate);
-            const diffDays = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            return Math.max(0, diffDays);
-        };
+        const todayKey = getTodayDateKey();
+        const daysLeftForPlan = (plan: StudyPlan) =>
+            daysBetweenDateKeys(todayKey, examDateToDateKey(plan.preferences.examDate));
 
         return (
             <div className="max-w-5xl mx-auto" style={{ paddingBottom: '4rem' }}>
@@ -358,7 +379,15 @@ export function HomeContent(props: HomeContentProps) {
                                     </h3>
                                     <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
                                         {selectedExamSubject ? (
-                                            <>Завършени теми: <span className="text-slate-900" style={{ fontWeight: 600 }}>{progress?.completedTopics ?? 0} от {progress?.totalTopics ?? 22}</span></>
+                                            <>
+                                                Завършени теми: <span className="text-slate-900" style={{ fontWeight: 600 }}>{progress?.completedTopics ?? 0} от {progress?.totalTopics ?? 22}</span>
+                                                {daysUntilExam > 0 && (
+                                                    <> · <span className="text-slate-700" style={{ fontWeight: 600 }}>{daysUntilExam} дни</span> до изпита</>
+                                                )}
+                                                {longestStreak > 0 && (
+                                                    <> · серия: <span className="text-slate-700" style={{ fontWeight: 600 }}>{longestStreak} дни</span></>
+                                                )}
+                                            </>
                                         ) : (
                                             "Няма избран предмет."
                                         )}
@@ -478,7 +507,7 @@ export function HomeContent(props: HomeContentProps) {
                                 ) : (
                                     plansWithId.map((plan) => {
                                         const p = getPlanProgress(plan);
-                                        const daysLeft = getDaysUntilExam(plan);
+                                        const daysLeft = daysLeftForPlan(plan);
                                         const examDateLabel = plan.preferences.examDate.toLocaleDateString("bg-BG", {
                                             day: "numeric",
                                             month: "long",
@@ -607,62 +636,156 @@ export function HomeContent(props: HomeContentProps) {
                         </select>
                     </div>
                 )}
+                {role === "student" && studyPlanHasContent && calendarBoundsLabel && (
+                    <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginBottom: '1rem' }}>
+                        График на учене: <span className="text-slate-700" style={{ fontWeight: 600 }}>{calendarBoundsLabel}</span>
+                    </p>
+                )}
                 <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: '1.25rem' }}>
                     <div className="lg:col-span-2 bg-white border border-slate-200 relative overflow-hidden" style={{ borderRadius: '1rem', padding: '2rem' }}>
-                        <div className="flex items-center justify-center" style={{ gap: '2rem', marginBottom: '1.5rem' }}>
-                            <button onClick={goToPreviousMonth} className="text-slate-400 hover:text-slate-700 transition-colors" style={{ padding: '0.375rem' }}>
-                                <span className="material-icons" style={{ fontSize: '1.25rem' }}>chevron_left</span>
-                            </button>
-                            <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.01em' }}>
-                                {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
-                            </h3>
-                            <button onClick={goToNextMonth} className="text-slate-400 hover:text-slate-700 transition-colors" style={{ padding: '0.375rem' }}>
-                                <span className="material-icons" style={{ fontSize: '1.25rem' }}>chevron_right</span>
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-7" style={{ gap: '0.25rem', marginBottom: '0.5rem' }}>
-                            {DAY_NAMES.map((day) => (
-                                <div key={day} className="text-center text-slate-400 uppercase" style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em', padding: '0.5rem 0' }}>{day}</div>
-                            ))}
-                        </div>
-                        <div className="grid grid-cols-7" style={{ gap: '0.25rem' }}>
-                            {Array.from({ length: startingDayOfWeek }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
-                            {Array.from({ length: daysInMonth }).map((_, i) => {
-                                const day = i + 1;
-                                const dateKey = formatDateKey(day);
-                                const hasDot = hasDotOnDate(dateKey);
-                                const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
-                                const studyDay = studyPlanCal?.plan.find((d) => d.date === dateKey);
-                                const hasStudyTopics = studyDay && studyDay.topics.length > 0;
-                                return (
+                        {role === "student" && studyPlanHasContent && (
+                            <div className="flex flex-wrap items-center justify-between" style={{ gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                <div className="flex bg-slate-100 border border-slate-200" style={{ borderRadius: '0.5rem', padding: '0.1875rem' }}>
                                     <button
-                                        key={day}
-                                        onClick={() => handleDayClick(day)}
-                                        className={`relative aspect-square flex flex-col items-center justify-center transition-all ${
-                                            isToday ? "bg-purple-700 text-white" :
-                                            studyDay?.completed ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" :
-                                            studyDay?.missed ? "bg-red-50 text-red-700 hover:bg-red-100" :
-                                            hasStudyTopics ? "bg-blue-50 text-blue-700 hover:bg-blue-100" :
-                                            "text-slate-700 hover:bg-slate-50"
-                                        }`}
-                                        style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 500, padding: '0.125rem' }}
+                                        type="button"
+                                        onClick={() => setCalendarViewMode("agenda")}
+                                        className={`transition-colors ${calendarViewMode === "agenda" ? "bg-white text-purple-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                                        style={{ padding: '0.375rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.8125rem', fontWeight: 600 }}
                                     >
-                                        <span>{day}</span>
-                                        {hasDot && !isToday && <div className="absolute" style={{ bottom: '0.25rem', right: '0.25rem' }}><span className="block bg-purple-700" style={{ width: '0.3125rem', height: '0.3125rem', borderRadius: '50%' }} /></div>}
-                                        {hasStudyTopics && (
-                                            <div className="absolute flex items-center" style={{ bottom: '0.125rem', left: '0.125rem', gap: '0.125rem' }}>
-                                                {studyDay!.topics.slice(0, 2).map((topic, idx) => (
-                                                    <span key={idx} className={topic.subject === "Български език" ? "bg-purple-600" : "bg-amber-500"} style={{ width: '0.1875rem', height: '0.1875rem', borderRadius: '50%', display: 'block' }} title={topic.name} />
-                                                ))}
-                                                {studyDay!.topics.length > 2 && <span style={{ fontSize: '0.5rem', lineHeight: 1 }}>+{studyDay!.topics.length - 2}</span>}
-                                            </div>
-                                        )}
-                                        {studyDay?.completed && <div className="absolute" style={{ top: '0.125rem', right: '0.125rem', fontSize: '0.625rem' }}>✓</div>}
-                                        {studyDay?.missed && <div className="absolute" style={{ top: '0.125rem', right: '0.125rem', fontSize: '0.625rem' }}>✗</div>}
+                                        Списък
                                     </button>
-                                );
-                            })}
-                        </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCalendarViewMode("month")}
+                                        className={`transition-colors ${calendarViewMode === "month" ? "bg-white text-purple-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+                                        style={{ padding: '0.375rem 0.75rem', borderRadius: '0.375rem', fontSize: '0.8125rem', fontWeight: 600 }}
+                                    >
+                                        Месец
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={goToExamMonth}
+                                    className="text-purple-700 hover:text-purple-800 inline-flex items-center"
+                                    style={{ fontSize: '0.8125rem', fontWeight: 600, gap: '0.25rem' }}
+                                >
+                                    <span className="material-icons" style={{ fontSize: '1rem' }}>event</span>
+                                    Към изпита
+                                </button>
+                            </div>
+                        )}
+                        {calendarViewMode === "agenda" && role === "student" && studyPlanHasContent ? (
+                            <div className="flex flex-col" style={{ gap: '0.5rem', maxHeight: '28rem', overflowY: 'auto' }}>
+                                {getStudyPlanAgendaDays().length === 0 ? (
+                                    <p className="text-slate-500 text-center" style={{ padding: '2rem 0', fontSize: '0.875rem' }}>
+                                        Няма предстоящи учебни дни в плана.
+                                    </p>
+                                ) : (
+                                    getStudyPlanAgendaDays().map((studyDay) => {
+                                        const isToday = studyDay.date === getTodayDateKey();
+                                        return (
+                                            <button
+                                                key={studyDay.date}
+                                                type="button"
+                                                onClick={() => openDateModal(parseDateKey(studyDay.date))}
+                                                className={`w-full text-left border transition-colors ${
+                                                    isToday ? "border-purple-200 bg-purple-50 hover:bg-purple-100" :
+                                                    studyDay.completed ? "border-emerald-100 bg-emerald-50 hover:bg-emerald-100" :
+                                                    studyDay.missed ? "border-red-100 bg-red-50 hover:bg-red-100" :
+                                                    "border-slate-100 bg-slate-50 hover:bg-slate-100"
+                                                }`}
+                                                style={{ borderRadius: '0.625rem', padding: '0.875rem 1rem' }}
+                                            >
+                                                <p className="text-slate-900" style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                                                    {formatDateKeyLong(studyDay.date)}
+                                                    {isToday && <span className="text-purple-700" style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', fontWeight: 700 }}>ДНЕС</span>}
+                                                </p>
+                                                <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+                                                    {studyDay.topics.length > 0
+                                                        ? studyDay.topics.map((t) => t.name).slice(0, 2).join(" · ") +
+                                                          (studyDay.topics.length > 2 ? ` (+${studyDay.topics.length - 2})` : "")
+                                                        : studyDay.completed ? "Завършен ден" : studyDay.missed ? "Пропуснат ден" : "—"}
+                                                </p>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-center" style={{ gap: '2rem', marginBottom: '1.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={goToPreviousMonth}
+                                        disabled={!canGoPrevMonth}
+                                        className={`transition-colors ${canGoPrevMonth ? "text-slate-400 hover:text-slate-700" : "text-slate-200 cursor-not-allowed"}`}
+                                        style={{ padding: '0.375rem' }}
+                                    >
+                                        <span className="material-icons" style={{ fontSize: '1.25rem' }}>chevron_left</span>
+                                    </button>
+                                    <h3 className="text-slate-900" style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.01em' }}>
+                                        {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
+                                    </h3>
+                                    <button
+                                        type="button"
+                                        onClick={goToNextMonth}
+                                        disabled={!canGoNextMonth}
+                                        className={`transition-colors ${canGoNextMonth ? "text-slate-400 hover:text-slate-700" : "text-slate-200 cursor-not-allowed"}`}
+                                        style={{ padding: '0.375rem' }}
+                                    >
+                                        <span className="material-icons" style={{ fontSize: '1.25rem' }}>chevron_right</span>
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-7" style={{ gap: '0.25rem', marginBottom: '0.5rem' }}>
+                                    {DAY_NAMES.map((day) => (
+                                        <div key={day} className="text-center text-slate-400 uppercase" style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em', padding: '0.5rem 0' }}>{day}</div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-7" style={{ gap: '0.25rem' }}>
+                                    {Array.from({ length: startingDayOfWeek }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
+                                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                                        const day = i + 1;
+                                        const dateKey = formatDateKey(day);
+                                        const hasDot = hasDotOnDate(dateKey);
+                                        const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+                                        const studyDay = studyPlanCal?.plan.find((d) => d.date === dateKey);
+                                        const hasStudyTopics = studyDay && studyDay.topics.length > 0;
+                                        const outOfPlanRange =
+                                            studyPlanCalendarBounds != null &&
+                                            !isDateKeyWithinBounds(dateKey, studyPlanCalendarBounds);
+                                        return (
+                                            <button
+                                                key={day}
+                                                type="button"
+                                                onClick={() => handleDayClick(day)}
+                                                className={`relative aspect-square flex flex-col items-center justify-center transition-all ${
+                                                    outOfPlanRange ? "text-slate-300 hover:bg-slate-50" :
+                                                    isToday ? "bg-purple-700 text-white" :
+                                                    studyDay?.completed ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" :
+                                                    studyDay?.missed ? "bg-red-50 text-red-700 hover:bg-red-100" :
+                                                    hasStudyTopics ? "bg-blue-50 text-blue-700 hover:bg-blue-100" :
+                                                    "text-slate-700 hover:bg-slate-50"
+                                                }`}
+                                                style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 500, padding: '0.125rem' }}
+                                            >
+                                                <span>{day}</span>
+                                                {hasDot && !isToday && !outOfPlanRange && <div className="absolute" style={{ bottom: '0.25rem', right: '0.25rem' }}><span className="block bg-purple-700" style={{ width: '0.3125rem', height: '0.3125rem', borderRadius: '50%' }} /></div>}
+                                                {hasStudyTopics && !outOfPlanRange && (
+                                                    <div className="absolute flex items-center" style={{ bottom: '0.125rem', left: '0.125rem', gap: '0.125rem' }}>
+                                                        {studyDay!.topics.slice(0, 2).map((topic, idx) => (
+                                                            <span key={idx} className={topic.subject === "Български език" ? "bg-purple-600" : "bg-amber-500"} style={{ width: '0.1875rem', height: '0.1875rem', borderRadius: '50%', display: 'block' }} title={topic.name} />
+                                                        ))}
+                                                        {studyDay!.topics.length > 2 && <span style={{ fontSize: '0.5rem', lineHeight: 1 }}>+{studyDay!.topics.length - 2}</span>}
+                                                    </div>
+                                                )}
+                                                {studyDay?.completed && !outOfPlanRange && <div className="absolute" style={{ top: '0.125rem', right: '0.125rem', fontSize: '0.625rem' }}>✓</div>}
+                                                {studyDay?.missed && !outOfPlanRange && <div className="absolute" style={{ top: '0.125rem', right: '0.125rem', fontSize: '0.625rem' }}>✗</div>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
                         <div className="flex items-center justify-between border-t border-slate-100" style={{ marginTop: '1.5rem', paddingTop: '1.25rem' }}>
                             <div className="flex items-center flex-wrap" style={{ gap: '1.25rem' }}>
                                 {[
@@ -679,10 +802,15 @@ export function HomeContent(props: HomeContentProps) {
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={() => openTodayModal()} className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors" style={{ padding: '0.4375rem 0.875rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}>
-                                <span className="material-icons" style={{ fontSize: '1rem' }}>add</span>
-                                Добави
-                            </button>
+                            <div className="flex items-center" style={{ gap: '0.5rem' }}>
+                                <button type="button" onClick={goToToday} className="bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors" style={{ padding: '0.4375rem 0.875rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600 }}>
+                                    Днес
+                                </button>
+                                <button type="button" onClick={() => openTodayModal()} className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors" style={{ padding: '0.4375rem 0.875rem', borderRadius: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, gap: '0.375rem' }}>
+                                    <span className="material-icons" style={{ fontSize: '1rem' }}>add</span>
+                                    Добави
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div className="lg:col-span-1">

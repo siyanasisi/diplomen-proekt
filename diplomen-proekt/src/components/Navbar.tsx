@@ -5,6 +5,22 @@ import { useBrandLinkTarget } from "../hooks/useBrandLinkTarget";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { AvatarImage } from "./AvatarImage";
 
+type NavUserMetadata = {
+    full_name?: string;
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+};
+
+type NavbarMessageRow = {
+    id: string;
+    student_id: string;
+    teacher_id: string;
+    is_from_student: boolean;
+    read_by_student_at: string | null;
+    read_by_teacher_at: string | null;
+};
+
 export const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -30,7 +46,7 @@ export const Navbar = () => {
     ];
 
     const navLinks = role === 'student' ? studentNavLinks : teacherNavLinks;
-    const userMetadata = user?.user_metadata as any;
+    const userMetadata = user?.user_metadata as NavUserMetadata | undefined;
     const fullName = (currentUserProfile?.first_name != null || currentUserProfile?.last_name != null)
         ? `${currentUserProfile?.first_name ?? ""} ${currentUserProfile?.last_name ?? ""}`.trim()
         : userMetadata?.full_name || (userMetadata?.first_name && userMetadata?.last_name ? `${userMetadata.first_name} ${userMetadata.last_name}` : null);
@@ -85,7 +101,7 @@ export const Navbar = () => {
                 return;
             }
 
-            const unreadCount = data.filter((msg: any) => {
+            const unreadCount = (data as NavbarMessageRow[]).filter((msg) => {
                 if (role === "student") {
                     return msg.student_id === user.id && msg.is_from_student === false && !msg.read_by_student_at;
                 }

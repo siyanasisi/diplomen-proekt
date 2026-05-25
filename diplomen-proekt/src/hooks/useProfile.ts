@@ -683,7 +683,7 @@ export function useProfile() {
                 setActingOnBookingId(null);
             }
         },
-        [user, loadUserData, showToast, formatBookingDateTime]
+        [user, loadUserData, showToast, formatBookingDateTime, confirmAsync]
     );
 
     const handleCancelMyBooking = useCallback(
@@ -734,7 +734,7 @@ export function useProfile() {
                 showToast("Грешка при отказ.");
             }
         },
-        [user, loadUserData, showToast, formatBookingDateTime]
+        [user, loadUserData, showToast, formatBookingDateTime, confirmAsync]
     );
 
     const handleDeleteEvent = useCallback(
@@ -762,7 +762,7 @@ export function useProfile() {
                 loadUserData();
             }
         },
-        [user, showToast, loadUserData]
+        [user, showToast, loadUserData, confirmAsync]
     );
 
     const handleAvatarUpload = useCallback(
@@ -912,7 +912,7 @@ export function useProfile() {
             console.error("Error removing avatar:", error);
             showToast(`Грешка при премахване на снимката: ${(error as Error).message}`);
         }
-    }, [user, loadUserData, refreshProfile, showToast]);
+    }, [user, loadUserData, refreshProfile, showToast, confirmAsync]);
 
     const userMetadata = useMemo(() => {
         if (!user?.user_metadata) return {};

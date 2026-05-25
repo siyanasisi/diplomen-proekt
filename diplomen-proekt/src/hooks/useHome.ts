@@ -11,12 +11,15 @@ import { sendBookingEmail } from "../utils/sendBookingEmail";
 import { mapStudyPlanTopicToCurriculum } from "../lib/studyPlanMapping";
 import type {
     HomeMenuId,
+    CalendarViewMode,
     CalendarEventRow,
     HomeEventItem,
     TeacherMessage,
     StudentBooking,
     PendingBooking,
 } from "../types/home";
+
+export type { CalendarViewMode };
 import { getDziBelCountdown } from "../constants/dziBelExam";
 import {
     type CalendarBounds,
@@ -30,7 +33,6 @@ import {
     toDateKey,
 } from "../lib/calendar";
 
-export type CalendarViewMode = "agenda" | "month";
 const MONTH_NAMES = [
     "Януари", "Февруари", "Март", "Април", "Май", "Юни",
     "Юли", "Август", "Септември", "Октомври", "Ноември", "Декември",
@@ -871,7 +873,7 @@ export function useHome() {
     useEffect(() => {
         if (!studyPlanCalendarBounds) return;
         setCurrentDate((prev) => clampMonthToBounds(prev, studyPlanCalendarBounds));
-    }, [studyPlanCalendarBounds?.min.getTime(), studyPlanCalendarBounds?.max.getTime()]);
+    }, [studyPlanCalendarBounds]);
 
     const canGoPrevMonth = studyPlanCalendarBounds
         ? canGoToPreviousMonth(currentDate, studyPlanCalendarBounds)

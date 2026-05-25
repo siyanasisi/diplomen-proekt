@@ -55,10 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    }, [])
 
    const loadProfile = useCallback(async () => {
-     if (!user?.id) {
-        setCurrentUserProfile(null);
-        return;
-     }
+     if (!user?.id) return;
      const { data } = await supabase
         .from('profiles')
         .select('avatar_url, first_name, last_name')
