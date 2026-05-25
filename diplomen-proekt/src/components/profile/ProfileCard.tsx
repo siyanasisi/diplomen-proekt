@@ -43,7 +43,7 @@ export function ProfileCard({
     const isTeacher = role === "teacher";
 
     return (
-        <section className="bg-white border border-slate-200" style={{ borderRadius: '1.25rem', padding: '2.5rem 3rem' }}>
+        <section className="bg-white border border-slate-200" style={{ borderRadius: "1rem", padding: "2rem 2.5rem" }}>
             <div className="flex flex-col md:flex-row items-start" style={{ gap: '2.5rem' }}>
                 {/* avatar */}
                 <div className="relative group/avatar flex-shrink-0" style={{ marginLeft: '0.5rem' }}>

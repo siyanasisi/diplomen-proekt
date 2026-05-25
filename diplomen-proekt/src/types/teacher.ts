@@ -25,6 +25,7 @@ export interface TeacherReview {
     comment: string | null;
     created_at: string;
     author_name?: string;
+    author_avatar_url?: string | null;
 }
 
 export type TeacherSortOption = "rating" | "name" | "online_first";

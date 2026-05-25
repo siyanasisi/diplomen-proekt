@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
+import { useConfirm, useToast } from "../context/ToastContext";
 import type { StudyPlan as StudyPlanType } from "../lib/topics";
 import type { KnowledgeLevel } from "../lib/topics";
 import { normalizeExamSubject, hasPlanContent } from "../lib/topics";
@@ -18,6 +18,19 @@ import type {
     PendingBooking,
 } from "../types/home";
 import { getDziBelCountdown } from "../constants/dziBelExam";
+import {
+    type CalendarBounds,
+    canGoToNextMonth,
+    canGoToPreviousMonth,
+    clampMonthToBounds,
+    formatBoundsRangeLabel,
+    getStudyPlanCalendarBounds,
+    getTodayDateKey as calendarTodayKey,
+    parseDateKey,
+    toDateKey,
+} from "../lib/calendar";
+
+export type CalendarViewMode = "agenda" | "month";
 const MONTH_NAMES = [
     "Януари", "Февруари", "Март", "Април", "Май", "Юни",
     "Юли", "Август", "Септември", "Октомври", "Ноември", "Декември",
@@ -54,8 +67,10 @@ export function useHome() {
     const navigate = useNavigate();
     const location = useLocation();
     const showToast = useToast();
+    const confirmAsync = useConfirm();
 
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>("month");
     const [eventsList, setEventsList] = useState<CalendarEventRow[]>([]);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -307,7 +322,8 @@ export function useHome() {
                                 .map((d: { date: string }) => d.date)
                                 .sort();
                             for (const date of pastUnfinishedDates) {
-                                planObj = rescheduleMissedDay(planObj, date);
+                                const rescheduled = rescheduleMissedDay(planObj, date);
+                                planObj = rescheduled.plan;
                             }
                             if (pastUnfinishedDates.length > 0) {
                                 await supabase
@@ -481,13 +497,26 @@ export function useHome() {
                     const ids = [...new Set(list.map((b) => b.student_id))];
                     const { data: pr } = await supabase
                         .from("profiles")
-                        .select("id, full_name")
+                        .select("id, first_name, last_name, email")
                         .in("id", ids);
                     const map = new Map(
-                        (pr ?? []).map((p: { id: string; full_name: string | null }) => [
-                            p.id,
-                            p.full_name ?? "Ученик",
-                        ])
+                        (pr ?? []).map(
+                            (p: {
+                                id: string;
+                                first_name: string | null;
+                                last_name: string | null;
+                                email: string | null;
+                            }) => {
+                                const name = [p.first_name, p.last_name]
+                                    .filter(Boolean)
+                                    .join(" ")
+                                    .trim();
+                                return [
+                                    p.id,
+                                    name || p.email?.split("@")[0] || "Ученик",
+                                ] as const;
+                            }
+                        )
                     );
                     setPendingBookings(
                         list.map((b) => ({
@@ -569,7 +598,15 @@ export function useHome() {
             showToast("Не може да отмените час по-малко от 24 часа преди началото.");
             return;
         }
-        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?"))
+        if (
+            !user ||
+            !(await confirmAsync({
+                title: "Отказ на час",
+                message: "Сигурни ли сте, че искате да откажете този час?",
+                confirmLabel: "Откажи часа",
+                variant: "danger",
+            }))
+        )
             return;
         try {
             const { error } = await supabase
@@ -654,7 +691,15 @@ export function useHome() {
         lessonDate: string,
         lessonTime: string
     ) => {
-        if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?"))
+        if (
+            !user ||
+            !(await confirmAsync({
+                title: "Отказ на час",
+                message: "Сигурни ли сте, че искате да откажете този час?",
+                confirmLabel: "Откажи часа",
+                variant: "danger",
+            }))
+        )
             return;
         setActingOnBookingId(bookingId);
         try {
@@ -704,22 +749,6 @@ export function useHome() {
     };
 
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
-
-    const goToPreviousMonth = () => {
-        setCurrentDate(
-            new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-        );
-    };
-
-    const goToNextMonth = () => {
-        setCurrentDate(
-            new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-        );
-    };
-
-    const goToToday = () => {
-        setCurrentDate(new Date());
-    };
 
     const formatDateKey = (day: number) => {
         const year = currentDate.getFullYear();
@@ -823,6 +852,94 @@ export function useHome() {
         hasPlanContent(studyPlan.preferences.examSubject) &&
         studyPlan.plan.length > 0;
 
+    const studyPlanCalendarBounds: CalendarBounds | null =
+        role === "student" && studyPlan && studyPlanHasContent
+            ? getStudyPlanCalendarBounds(
+                  studyPlan.preferences.examDate,
+                  studyPlan.plan.map((d) => d.date)
+              )
+            : null;
+
+    useEffect(() => {
+        if (role === "student" && studyPlan && studyPlanHasContent) {
+            setCalendarViewMode("agenda");
+        } else {
+            setCalendarViewMode("month");
+        }
+    }, [role, studyPlan?.id, studyPlanHasContent]);
+
+    useEffect(() => {
+        if (!studyPlanCalendarBounds) return;
+        setCurrentDate((prev) => clampMonthToBounds(prev, studyPlanCalendarBounds));
+    }, [studyPlanCalendarBounds?.min.getTime(), studyPlanCalendarBounds?.max.getTime()]);
+
+    const canGoPrevMonth = studyPlanCalendarBounds
+        ? canGoToPreviousMonth(currentDate, studyPlanCalendarBounds)
+        : true;
+    const canGoNextMonth = studyPlanCalendarBounds
+        ? canGoToNextMonth(currentDate, studyPlanCalendarBounds)
+        : true;
+
+    const goToPreviousMonth = () => {
+        if (!canGoPrevMonth) return;
+        setCurrentDate(
+            new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+        );
+    };
+
+    const goToNextMonth = () => {
+        if (!canGoNextMonth) return;
+        setCurrentDate(
+            new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+        );
+    };
+
+    const goToToday = () => {
+        const today = new Date();
+        if (studyPlanCalendarBounds) {
+            setCurrentDate(clampMonthToBounds(today, studyPlanCalendarBounds));
+        } else {
+            setCurrentDate(today);
+        }
+    };
+
+    const goToExamMonth = () => {
+        if (!studyPlanCalendarBounds) return;
+        setCurrentDate(
+            new Date(
+                studyPlanCalendarBounds.max.getFullYear(),
+                studyPlanCalendarBounds.max.getMonth(),
+                1
+            )
+        );
+        setCalendarViewMode("month");
+    };
+
+    const getStudyPlanAgendaDays = useCallback(() => {
+        if (!studyPlan) return [];
+        const todayKey = calendarTodayKey();
+        const exam = studyPlan.preferences.examDate;
+        const examDate =
+            exam instanceof Date ? exam : new Date(exam as string | Date);
+        const examKey = toDateKey(
+            examDate.getFullYear(),
+            examDate.getMonth(),
+            examDate.getDate()
+        );
+        return studyPlan.plan
+            .filter(
+                (d) =>
+                    d.date >= todayKey &&
+                    d.date <= examKey &&
+                    (d.topics.length > 0 || d.missed || d.completed)
+            )
+            .sort((a, b) => a.date.localeCompare(b.date));
+    }, [studyPlan]);
+
+    const calendarBoundsLabel = studyPlanCalendarBounds
+        ? formatBoundsRangeLabel(studyPlanCalendarBounds)
+        : null;
+
     const handleMarkStudyDayCompleted = async (date: string) => {
         if (!user || !studyPlan) return;
         try {
@@ -871,15 +988,21 @@ export function useHome() {
             return;
         }
         if (
-            !confirm(
-                "Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени автоматично."
-            )
+            !(await confirmAsync({
+                title: "Пропуснат ден",
+                message:
+                    "Сигурни ли сте, че искате да маркирате този ден като пропускан? Темите ще бъдат пренасрочени автоматично.",
+                confirmLabel: "Маркирай",
+            }))
         ) {
             return;
         }
         try {
             await ensureValidSession();
-            const updatedPlan = rescheduleMissedDay(studyPlan, date);
+            const { plan: updatedPlan, unassignedCount } = rescheduleMissedDay(
+                studyPlan,
+                date
+            );
             const missedDay = updatedPlan.plan.find((d) => d.date === date);
             if (!missedDay || !missedDay.missed) {
                 showToast(
@@ -903,6 +1026,12 @@ export function useHome() {
                 setStudyPlans((prev) =>
                     prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
                 );
+                if (unassignedCount > 0) {
+                    showToast(
+                        `${unassignedCount} ${unassignedCount === 1 ? "тема не може" : "теми не могат"} да се поберат преди изпита при текущия ритъм. Обмислете повече дни или теми на ден.`,
+                        "warning"
+                    );
+                }
             }
         } catch (error) {
             console.error("Failed to mark day as missed:", error);
@@ -1163,9 +1292,18 @@ export function useHome() {
         handleCancelMyBooking,
         handleConfirmBooking,
         handleCancelByTeacher,
+        calendarViewMode,
+        setCalendarViewMode,
+        studyPlanCalendarBounds,
+        calendarBoundsLabel,
+        canGoPrevMonth,
+        canGoNextMonth,
         goToPreviousMonth,
         goToNextMonth,
         goToToday,
+        goToExamMonth,
+        getStudyPlanAgendaDays,
+        parseDateKey,
         formatDateKey,
         getTodayDateKey,
         openDateModal,

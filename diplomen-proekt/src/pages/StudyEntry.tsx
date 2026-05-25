@@ -4,6 +4,47 @@ import { useAuth } from '../context/AuthContext';
 import { subjects, getSubjectById } from '../data/curriculum';
 import type { SubjectId, TopicId } from '../types/learning';
 
+const pageShellStyle = {
+  paddingTop: '2.5rem',
+  paddingLeft: 'clamp(1.5rem, 8vw, 8rem)',
+  paddingRight: '2rem',
+  paddingBottom: '6rem',
+} as const;
+
+type StudyListItemProps = {
+  title: string;
+  subtitle?: string;
+  onClick: () => void;
+};
+
+function StudyListItem({ title, subtitle, onClick }: StudyListItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center justify-between text-left bg-white border border-slate-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/40 transition-colors group"
+      style={{ padding: '1.125rem 1.25rem', gap: '1rem' }}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-purple-700 group-hover:text-purple-800" style={{ fontSize: '0.9375rem', fontWeight: 700, lineHeight: 1.4 }}>
+          {title}
+        </p>
+        {subtitle && (
+          <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <span
+        className="material-icons text-slate-300 group-hover:text-purple-700 transition-colors shrink-0"
+        style={{ fontSize: '1.375rem' }}
+      >
+        chevron_right
+      </span>
+    </button>
+  );
+}
+
 export function StudyEntry() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,86 +70,111 @@ export function StudyEntry() {
 
   const subject = selectedSubjectId ? getSubjectById(selectedSubjectId) : null;
 
-  if (step === 'topic' && subject) {
-    return (
-      <div className="min-h-[calc(100vh-4rem)] bg-white">
-        <header className="max-w-4xl pt-12 pb-6" style={{ marginLeft: '8rem', marginRight: '4rem' }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Изберете как да <span className="text-purple-700">учите</span>
-          </h1>
-          <button
-            onClick={handleBackToSubject}
-            className="inline-flex items-center text-slate-500 hover:text-purple-700 transition-colors gap-2 font-medium"
-          >
-            <span className="material-icons text-xl">arrow_back</span>
-            Назад към предмети
-          </button>
-        </header>
-
-        <main className="max-w-4xl pb-20" style={{ marginLeft: '8rem', marginRight: '4rem' }}>
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-slate-400 uppercase tracking-wider">
-              {subject.nameBg}
-            </h2>
-          </div>
-
-          <div className="grid gap-6">
-            {subject.topics.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => handleSelectTopic(t.id)}
-                className="flex items-center justify-between py-8 px-8 bg-white border-2 border-slate-200 rounded-3xl hover:border-purple-600 hover:shadow-lg hover:shadow-purple-600/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left w-full group"
-              >
-                <div className="flex flex-col">
-                  <span className="text-xl font-bold text-purple-700">{t.titleBg}</span>
-                </div>
-                <span className="material-icons text-2xl text-slate-400 group-hover:text-purple-700 transition-colors">
-                  chevron_right
-                </span>
-              </button>
-            ))}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-purple-50/40 via-pink-50/30 to-purple-100/40 flex flex-col py-12 relative overflow-auto">
-      {/* subtle background */}
-      <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-gradient-to-br from-purple-300/30 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-gradient-to-tl from-pink-300/20 to-transparent rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-full bg-slate-50 relative">
+      <div
+        className="pointer-events-none fixed top-0 right-0 -z-10 opacity-40"
+        style={{ width: '33%', height: '100vh', background: 'linear-gradient(to left, rgba(126,34,206,0.05), transparent)' }}
+      />
 
-      <div className="w-full max-w-4xl relative z-10 flex-1 flex flex-col" style={{ marginLeft: '8rem', marginRight: '4rem' }}>
-        {/* header */}
-        <div style={{ marginTop: '4rem', marginBottom: '4rem' }}>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight mb-4">
-            Изберете как да <span className="text-purple-700">учите</span>
-          </h1>
-          <p className="text-slate-600 text-base sm:text-lg">
-            Изберете предмет, след което ще започнете теми.
-          </p>
-        </div>
-
-        {/* subject cards */}
-        <div className="grid gap-6">
-          {subjects.map((s) => (
+      <main className="max-w-4xl mx-auto" style={pageShellStyle}>
+        {step === 'topic' && subject ? (
+          <>
             <button
-              key={s.id}
-              onClick={() => handleSelectSubject(s.id)}
-              className="w-full text-left group rounded-3xl bg-white/95 backdrop-blur-sm py-8 px-8 border-2 border-slate-200 shadow-sm hover:shadow-lg hover:shadow-purple-600/10 hover:border-purple-600 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center gap-6"
+              type="button"
+              onClick={handleBackToSubject}
+              className="inline-flex items-center text-slate-500 hover:text-purple-700 transition-colors"
+              style={{ gap: '0.375rem', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '1.25rem' }}
             >
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-700 to-purple-800 text-white flex items-center justify-center text-2xl font-bold shadow-md">
-                {s.nameBg.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-purple-700 text-xl">{s.nameBg}</p>
-                <p className="text-slate-500 text-base mt-1">{s.topics.length} теми</p>
-              </div>
+              <span className="material-icons" style={{ fontSize: '1.125rem' }}>arrow_back</span>
+              Назад към предмети
             </button>
-          ))}
-        </div>
-      </div>
+
+            <h1
+              className="text-slate-900"
+              style={{
+                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+                marginBottom: '1.5rem',
+              }}
+            >
+              Изберете как да <span className="text-purple-700">учите</span>
+            </h1>
+
+            <p
+              className="text-slate-400 uppercase"
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                marginBottom: '1rem',
+              }}
+            >
+              {subject.nameBg}
+            </p>
+
+            <div className="flex flex-col" style={{ gap: '0.625rem' }}>
+              {subject.topics.map((t) => (
+                <StudyListItem key={t.id} title={t.titleBg} onClick={() => handleSelectTopic(t.id)} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => navigate('/home')}
+              className="inline-flex items-center text-slate-500 hover:text-purple-700 transition-colors"
+              style={{ gap: '0.375rem', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '1.25rem' }}
+            >
+              <span className="material-icons" style={{ fontSize: '1.125rem' }}>arrow_back</span>
+              Назад към начало
+            </button>
+
+            <h1
+              className="text-slate-900"
+              style={{
+                fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+                marginBottom: '0.75rem',
+              }}
+            >
+              Изберете как да <span className="text-purple-700">учите</span>
+            </h1>
+
+            <p className="text-slate-500" style={{ fontSize: '0.9375rem', lineHeight: 1.5, marginBottom: '1.75rem' }}>
+              Изберете предмет, след което ще започнете с темите.
+            </p>
+
+            <p
+              className="text-slate-400 uppercase"
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                marginBottom: '1rem',
+              }}
+            >
+              Предмети
+            </p>
+
+            <div className="flex flex-col" style={{ gap: '0.625rem' }}>
+              {subjects.map((s) => (
+                <StudyListItem
+                  key={s.id}
+                  title={s.nameBg}
+                  subtitle={`${s.topics.length} ${s.topics.length === 1 ? 'тема' : 'теми'}`}
+                  onClick={() => handleSelectSubject(s.id)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }

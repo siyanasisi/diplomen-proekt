@@ -1,4 +1,5 @@
 import type { PendingBooking, StudentBooking } from "../../hooks/useProfile";
+import { AlertBanner } from "../ui/feedback/AlertBanner";
 
 function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
     const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
@@ -246,25 +247,12 @@ export function MyBookings({ bookings, onCancel }: MyBookingsProps) {
                                 </div>
 
                                 {!canCancel && (
-                                    <div
-                                        className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800"
-                                        style={{
-                                            marginTop: "1rem",
-                                            padding: "0.625rem 0.875rem",
-                                            fontSize: "0.8125rem",
-                                            fontWeight: 600,
-                                            lineHeight: 1.45,
-                                        }}
+                                    <AlertBanner
+                                        variant="warning"
+                                        message="Отказът е заключен (по-малко от 24ч преди часа)"
                                         role="status"
-                                    >
-                                        <span
-                                            className="material-icons shrink-0"
-                                            style={{ fontSize: "1.125rem" }}
-                                        >
-                                            info
-                                        </span>
-                                        <span>Отказът е заключен (по-малко от 24ч преди часа)</span>
-                                    </div>
+                                        style={{ marginTop: "1rem", fontSize: "0.8125rem" }}
+                                    />
                                 )}
 
                                 <div

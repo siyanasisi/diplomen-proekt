@@ -5,9 +5,18 @@ import { useAuth } from "../context/AuthContext";
 import { useModalFocus } from "../hooks/useModalFocus";
 import { useTeacherBooking } from "../hooks/useTeacherBooking";
 import { useToast } from "../context/ToastContext";
+import { AvatarImage } from "../components/AvatarImage";
+import { AlertBanner } from "../components/ui/feedback/AlertBanner";
 import { RatingStars } from "../components/RatingStars";
 import { BookingSlotPicker } from "../components/teacher/BookingSlotPicker";
-import type { Teacher, TeacherReview, BookingFormState } from "../types/teacher";
+import { TeacherWeeklySchedule } from "../components/teacher/TeacherWeeklySchedule";
+import type {
+    Teacher,
+    TeacherReview,
+    TeacherAvailabilityRow,
+    TeacherBookingSettingsRow,
+    BookingFormState,
+} from "../types/teacher";
 
 const MODAL_LABEL = "block text-slate-700 text-[0.8125rem] font-semibold mb-1.5";
 const MODAL_INPUT =
@@ -32,6 +41,8 @@ export const TeacherProfile = () => {
     const [reviewComment, setReviewComment] = useState("");
     const [submittingReview, setSubmittingReview] = useState(false);
     const [showAllReviews, setShowAllReviews] = useState(false);
+    const [weeklyAvailability, setWeeklyAvailability] = useState<TeacherAvailabilityRow[]>([]);
+    const [bookingSettings, setBookingSettings] = useState<TeacherBookingSettingsRow | null>(null);
 
     const showToast = useToast();
     const MAX_VISIBLE_REVIEWS = 3;
@@ -93,6 +104,21 @@ export const TeacherProfile = () => {
                     .eq('id', userId)
                     .maybeSingle();
                 const avatarUrl = (profileData as { avatar_url?: string | null } | null)?.avatar_url;
+                const teacherUserId = data.user_id as string;
+                const [avRes, setRes] = await Promise.all([
+                    supabase
+                        .from("teacher_availability")
+                        .select("id, teacher_id, day_of_week, start_time, end_time")
+                        .eq("teacher_id", teacherUserId)
+                        .order("day_of_week"),
+                    supabase
+                        .from("teacher_booking_settings")
+                        .select("lesson_duration_minutes, buffer_minutes, auto_accept_bookings")
+                        .eq("teacher_id", teacherUserId)
+                        .maybeSingle(),
+                ]);
+                setWeeklyAvailability((avRes.data as TeacherAvailabilityRow[]) ?? []);
+                setBookingSettings((setRes.data as TeacherBookingSettingsRow | null) ?? null);
                 setTeacher({
                     ...data,
                     profile_picture: data.profile_picture || avatarUrl || undefined,
@@ -133,10 +159,6 @@ export const TeacherProfile = () => {
         if (id) loadTeacher();
     }, [authLoading, user, id, navigate, loadTeacher]);
 
-    const openChatWithTeacher = () => {
-        navigate('/chat', { state: { openTeacherId: teacher!.user_id } });
-    };
-
     const loadReviews = useCallback(async (): Promise<TeacherReview[]> => {
         if (!teacher?.id) return [];
         const teacherId = teacher.id;
@@ -153,14 +175,21 @@ export const TeacherProfile = () => {
             const list = (reviewsData ?? []) as (TeacherReview & { author_id: string })[];
             const authorIds = [...new Set(list.map((r) => r.author_id))];
             const nameByUserId = new Map<string, string>();
+            const avatarByUserId = new Map<string, string | null>();
             if (authorIds.length > 0) {
                 const { data: profilesData } = await supabase
                     .from("profiles")
-                    .select("id, first_name, last_name")
+                    .select("id, first_name, last_name, avatar_url")
                     .in("id", authorIds);
-                (profilesData ?? []).forEach((p: { id: string; first_name: string | null; last_name: string | null }) => {
+                (profilesData ?? []).forEach((p: {
+                    id: string;
+                    first_name: string | null;
+                    last_name: string | null;
+                    avatar_url: string | null;
+                }) => {
                     const name = [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || "Анонимен";
                     nameByUserId.set(p.id, name);
+                    avatarByUserId.set(p.id, p.avatar_url ?? null);
                 });
             }
             return list.map((r) => ({
@@ -171,6 +200,7 @@ export const TeacherProfile = () => {
                 comment: r.comment,
                 created_at: r.created_at,
                 author_name: nameByUserId.get(r.author_id) ?? "Анонимен",
+                author_avatar_url: avatarByUserId.get(r.author_id) ?? null,
             }));
         } catch (err) {
             console.error("Failed to load reviews:", err);
@@ -305,7 +335,8 @@ export const TeacherProfile = () => {
     }
 
     const sectionCardClass = "teacher-profile-card teacher-profile-section-card";
-    const sectionTitleClass = "text-sm font-semibold text-slate-700 tracking-tight mb-2.5";
+    const sectionTitleClass = "text-slate-900";
+    const sectionTitleStyle = { fontSize: "1.0625rem", fontWeight: 600 } as const;
 
     const displayRating =
         reviews.length > 0
@@ -317,12 +348,11 @@ export const TeacherProfile = () => {
             <div className="relative z-10 max-w-6xl mx-auto">
                 {/* success message */}
                 {success && (
-                    <div className="mb-8 rounded-xl px-4 py-3 flex items-center gap-3 bg-emerald-50/95 border border-emerald-200/80 shadow-sm">
-                        <svg className="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <p className="text-emerald-800 font-medium text-sm">Успешно изпълнено!</p>
-                    </div>
+                    <AlertBanner
+                        variant="success"
+                        message="Успешно изпълнено!"
+                        className="mb-8 shadow-sm"
+                    />
                 )}
 
                 {/* back button */}
@@ -387,7 +417,7 @@ export const TeacherProfile = () => {
                         {/* description */}
                         {teacher.description && (
                             <section className={sectionCardClass}>
-                                <h2 className={sectionTitleClass}>Описание</h2>
+                                <h2 className={sectionTitleClass} style={{ ...sectionTitleStyle, marginBottom: "0.625rem" }}>Описание</h2>
                                 <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">
                                     {teacher.description}
                                 </p>
@@ -397,7 +427,7 @@ export const TeacherProfile = () => {
                         {/* education and qualifications */}
                         {(teacher.education || teacher.qualifications) && (
                             <section className={sectionCardClass}>
-                                <h2 className={sectionTitleClass}>Образование и квалификации</h2>
+                                <h2 className={sectionTitleClass} style={{ ...sectionTitleStyle, marginBottom: "0.625rem" }}>Образование и квалификации</h2>
                                 {teacher.education && (
                                     <p className="text-slate-600 text-[15px] mb-3">{teacher.education}</p>
                                 )}
@@ -410,7 +440,7 @@ export const TeacherProfile = () => {
                         {/* price */}
                         {(teacher.hourly_rate != null || teacher.price_note) && (
                             <section className={sectionCardClass}>
-                                <h2 className={sectionTitleClass}>Цена</h2>
+                                <h2 className={sectionTitleClass} style={{ ...sectionTitleStyle, marginBottom: "0.625rem" }}>Цена</h2>
                                 {teacher.hourly_rate != null && (
                                     <p className="text-slate-800 font-semibold text-[15px]">Цена за час: {teacher.hourly_rate} €</p>
                                 )}
@@ -421,58 +451,165 @@ export const TeacherProfile = () => {
                         )}
 
                         {/* available schedule */}
-                        {teacher.available_schedule && (
+                        {(weeklyAvailability.length > 0 || teacher.available_schedule) && (
                             <section className={sectionCardClass}>
-                                <h2 className={sectionTitleClass}>Наличен график</h2>
-                                <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">{teacher.available_schedule}</p>
+                                <h2 className={sectionTitleClass} style={{ ...sectionTitleStyle, marginBottom: "0.375rem" }}>
+                                    Наличен график
+                                </h2>
+                                <p className="text-slate-500" style={{ fontSize: "0.8125rem", marginBottom: "1rem", lineHeight: 1.5 }}>
+                                    Седмичен шаблон — важи всяка седмица, без нужда от нов график всеки месец.
+                                </p>
+                                {weeklyAvailability.length > 0 ? (
+                                    <TeacherWeeklySchedule
+                                        availability={weeklyAvailability.map((a) => ({
+                                            day_of_week: a.day_of_week,
+                                            start_time: a.start_time,
+                                            end_time: a.end_time,
+                                        }))}
+                                        lessonMinutes={bookingSettings?.lesson_duration_minutes ?? null}
+                                    />
+                                ) : (
+                                    <p className="text-slate-600 text-[15px] leading-[1.6] whitespace-pre-line">
+                                        {teacher.available_schedule}
+                                    </p>
+                                )}
                             </section>
                         )}
 
                         {/* reviews section */}
-                        <section className="teacher-profile-card teacher-profile-reviews-section teacher-profile-section-card">
-                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                <h2 className="text-sm font-semibold text-slate-700 tracking-tight">
-                                    Отзиви от ученици
-                                </h2>
+                        <section className={sectionCardClass}>
+                            <div
+                                className="flex flex-wrap items-center justify-between gap-3"
+                                style={{ marginBottom: "1rem" }}
+                            >
+                                <div className="flex items-center" style={{ gap: "0.5rem" }}>
+                                    <span className="material-icons text-purple-700" style={{ fontSize: "1.125rem" }}>
+                                        rate_review
+                                    </span>
+                                    <h2 className={sectionTitleClass} style={sectionTitleStyle}>
+                                        Отзиви от ученици
+                                    </h2>
+                                </div>
                                 {user && user.id !== teacher.user_id && (
                                     <button
                                         type="button"
                                         onClick={() => setShowReviewModal(true)}
-                                        className="teacher-profile-write-review-btn min-h-[36px] px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-colors active:scale-[0.98]"
+                                        className="bg-purple-700 hover:bg-purple-800 text-white inline-flex items-center transition-colors"
+                                        style={{
+                                            gap: "0.375rem",
+                                            padding: "0.5rem 1rem",
+                                            borderRadius: "0.625rem",
+                                            fontSize: "0.8125rem",
+                                            fontWeight: 600,
+                                        }}
                                     >
+                                        <span className="material-icons" style={{ fontSize: "1rem" }}>edit</span>
                                         Напиши ревю
                                     </button>
                                 )}
                             </div>
+
                             {loadingReviews ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+                                <div className="flex flex-col items-center justify-center" style={{ padding: "2.5rem 0", gap: "0.75rem" }}>
+                                    <div
+                                        className="animate-spin rounded-full border-2 border-slate-200 border-t-purple-600"
+                                        style={{ width: "2rem", height: "2rem" }}
+                                        aria-hidden
+                                    />
+                                    <p className="text-slate-500" style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
+                                        Зареждане на отзиви...
+                                    </p>
                                 </div>
                             ) : reviews.length === 0 ? (
-                                <p className="text-slate-500 text-[15px] py-4">Все още няма коментари. Бъдете първият, който ще оцени!</p>
+                                <div
+                                    className="bg-slate-50 border border-slate-100 text-center"
+                                    style={{ borderRadius: "0.75rem", padding: "2.5rem 1.5rem" }}
+                                >
+                                    <span
+                                        className="material-icons text-slate-300"
+                                        style={{ fontSize: "2.5rem", display: "block", marginBottom: "0.5rem" }}
+                                    >
+                                        reviews
+                                    </span>
+                                    <p className="text-slate-600" style={{ fontSize: "0.9375rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+                                        Все още няма отзиви
+                                    </p>
+                                    <p className="text-slate-500" style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
+                                        {user && user.id !== teacher.user_id
+                                            ? "Бъдете първият, който споделя опит от уроци с този учител."
+                                            : "Отзивите от ученици ще се появят тук."}
+                                    </p>
+                                </div>
                             ) : (
                                 <>
-                                    <ul className="space-y-4">
+                                    <ul
+                                        className="border border-slate-200 overflow-hidden divide-y divide-slate-100"
+                                        style={{ borderRadius: "0.75rem", listStyle: "none", margin: 0, padding: 0 }}
+                                    >
                                         {(showAllReviews ? reviews : reviews.slice(0, MAX_VISIBLE_REVIEWS)).map((r) => {
                                             const dateStr = new Date(r.created_at).toLocaleDateString("bg-BG", {
                                                 day: "numeric",
-                                                month: "long",
+                                                month: "short",
                                                 year: "numeric",
                                             });
+                                            const authorInitial = (r.author_name ?? "А").charAt(0).toUpperCase();
                                             return (
-                                                <li key={r.id} className="teacher-profile-review-card">
-                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-                                                        <RatingStars rating={r.rating} size="sm" />
-                                                        <span className="text-sm font-medium text-slate-800">
-                                                            {r.author_name ?? "Анонимен"}
-                                                        </span>
-                                                        <span className="text-xs text-slate-500">{dateStr}</span>
+                                                <li
+                                                    key={r.id}
+                                                    className="bg-white hover:bg-slate-50/80 transition-colors"
+                                                    style={{ padding: "1rem 1.25rem" }}
+                                                >
+                                                    <div className="flex items-start" style={{ gap: "0.875rem" }}>
+                                                        <AvatarImage
+                                                            url={r.author_avatar_url}
+                                                            alt={r.author_name ?? "Ученик"}
+                                                            className="shrink-0 w-10 h-10 overflow-hidden border border-slate-200 rounded-[0.625rem]"
+                                                            imgClassName="w-full h-full object-cover"
+                                                            fallback={
+                                                                <div
+                                                                    className="flex items-center justify-center bg-purple-700 text-white shrink-0"
+                                                                    style={{
+                                                                        width: "2.5rem",
+                                                                        height: "2.5rem",
+                                                                        borderRadius: "0.625rem",
+                                                                        fontSize: "0.875rem",
+                                                                        fontWeight: 700,
+                                                                    }}
+                                                                >
+                                                                    {authorInitial}
+                                                                </div>
+                                                            }
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div
+                                                                className="flex flex-wrap items-center"
+                                                                style={{ gap: "0.5rem", marginBottom: "0.375rem" }}
+                                                            >
+                                                                <span
+                                                                    className="text-slate-900"
+                                                                    style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                                                >
+                                                                    {r.author_name ?? "Анонимен ученик"}
+                                                                </span>
+                                                                <RatingStars rating={r.rating} size="sm" />
+                                                                <span className="text-slate-400" style={{ fontSize: "0.6875rem", fontWeight: 500 }}>
+                                                                    {dateStr}
+                                                                </span>
+                                                            </div>
+                                                            {r.comment ? (
+                                                                <p
+                                                                    className="text-slate-600"
+                                                                    style={{ fontSize: "0.875rem", lineHeight: 1.55 }}
+                                                                >
+                                                                    {r.comment}
+                                                                </p>
+                                                            ) : (
+                                                                <p className="text-slate-400 italic" style={{ fontSize: "0.8125rem" }}>
+                                                                    Без коментар
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    {r.comment && (
-                                                        <p className="text-slate-600 text-[15px] leading-relaxed whitespace-pre-wrap mt-1">
-                                                            &ldquo;{r.comment}&rdquo;
-                                                        </p>
-                                                    )}
                                                 </li>
                                             );
                                         })}
@@ -481,27 +618,23 @@ export const TeacherProfile = () => {
                                         <button
                                             type="button"
                                             onClick={() => setShowAllReviews((v) => !v)}
-                                            className="mt-5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                                            className="text-purple-700 hover:text-purple-900 transition-colors inline-flex items-center"
+                                            style={{
+                                                gap: "0.25rem",
+                                                marginTop: "0.875rem",
+                                                fontSize: "0.8125rem",
+                                                fontWeight: 600,
+                                            }}
                                         >
                                             {showAllReviews ? "Свий" : `Виж всички (${reviews.length})`}
+                                            <span className="material-icons" style={{ fontSize: "1.125rem" }}>
+                                                {showAllReviews ? "expand_less" : "expand_more"}
+                                            </span>
                                         </button>
                                     )}
                                 </>
                             )}
                         </section>
-
-                        {/* chat link */}
-                        {user && user.id !== teacher.user_id && (
-                            <div className="pt-4">
-                                <button
-                                    type="button"
-                                    onClick={openChatWithTeacher}
-                                    className="text-sm text-slate-500 hover:text-slate-700 hover:underline transition-colors py-1"
-                                >
-                                    Отвори чат с учителя
-                                </button>
-                            </div>
-                        )}
                     </div>
 
                     {/* right column */}
@@ -1024,79 +1157,152 @@ export const TeacherProfile = () => {
                 {/* review modal */}
                 {showReviewModal && (
                     <div
-                        className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto"
+                        style={{ padding: "1.5rem" }}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="review-title"
                         aria-describedby="review-desc"
+                        onClick={(e) => {
+                            if (e.target !== e.currentTarget || submittingReview) return;
+                            closeReviewModal();
+                        }}
                     >
                         <div
                             ref={reviewModalRef}
-                            className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-purple-200/40"
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white w-full shadow-xl"
+                            style={{ maxWidth: "36rem", borderRadius: "1rem", margin: "2rem 0" }}
                         >
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 id="review-title" className="text-2xl font-bold text-slate-900">Напиши ревю</h2>
-                                <button
-                                    type="button"
-                                    onClick={closeReviewModal}
-                                    className="p-2 hover:bg-slate-50 rounded-xl transition-colors"
-                                    aria-label="Затвори"
-                                >
-                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div id="review-desc" className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Рейтинг (1–5)</label>
-                                    <div className="flex gap-2">
+                            <div style={{ padding: "2rem" }}>
+                                <div style={{ marginBottom: "1.5rem" }}>
+                                    <div
+                                        className="flex items-center justify-between"
+                                        style={{ marginBottom: "0.75rem" }}
+                                    >
+                                        <h2
+                                            id="review-title"
+                                            className="text-slate-900"
+                                            style={{
+                                                fontSize: "1.25rem",
+                                                fontWeight: 700,
+                                                letterSpacing: "-0.01em",
+                                            }}
+                                        >
+                                            Напиши ревю
+                                        </h2>
+                                        <button
+                                            type="button"
+                                            onClick={closeReviewModal}
+                                            disabled={submittingReview}
+                                            className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40"
+                                            style={{ padding: "0.375rem", borderRadius: "0.5rem" }}
+                                            aria-label="Затвори"
+                                        >
+                                            <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                                close
+                                            </span>
+                                        </button>
+                                    </div>
+                                    <div
+                                        className="flex items-center bg-slate-50 border border-slate-100 min-w-0"
+                                        style={{
+                                            gap: "0.5rem",
+                                            padding: "0.5rem 0.75rem",
+                                            borderRadius: "0.5rem",
+                                        }}
+                                    >
+                                        <span className="material-icons text-purple-700 shrink-0" style={{ fontSize: "1rem" }}>
+                                            rate_review
+                                        </span>
+                                        <span
+                                            className="text-slate-700 truncate"
+                                            style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                                        >
+                                            {teacher.full_name}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div id="review-desc">
+                                    <label className={MODAL_LABEL}>Рейтинг (1–5)</label>
+                                    <div className="flex" style={{ gap: "0.375rem", marginBottom: "1rem" }}>
                                         {[1, 2, 3, 4, 5].map((star) => (
                                             <button
                                                 key={star}
                                                 type="button"
                                                 onClick={() => setReviewRating(star)}
-                                                className={`p-2 rounded-lg transition-colors ${
+                                                className={`flex items-center justify-center border transition-colors ${
                                                     reviewRating >= star
-                                                        ? "text-amber-400"
-                                                        : "text-slate-300 hover:text-slate-400"
+                                                        ? "border-amber-200 bg-amber-50 text-amber-500"
+                                                        : "border-slate-200 bg-white text-slate-300 hover:border-slate-300 hover:text-slate-400"
                                                 }`}
+                                                style={{ width: "2.5rem", height: "2.5rem", borderRadius: "0.5rem" }}
                                                 aria-label={`${star} звезди`}
                                             >
-                                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
+                                                <span className="material-icons" style={{ fontSize: "1.25rem" }}>
+                                                    star
+                                                </span>
                                             </button>
                                         ))}
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Коментар (по избор)</label>
+                                    <label className={MODAL_LABEL}>Коментар (по избор)</label>
                                     <textarea
                                         value={reviewComment}
                                         onChange={(e) => setReviewComment(e.target.value)}
-                                        placeholder="Оставете коментар..."
+                                        placeholder="Споделете как мина урокът..."
                                         rows={4}
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-purple-700 focus:ring-4 focus:ring-purple-700/10 outline-none transition-all resize-none"
+                                        disabled={submittingReview}
+                                        className={MODAL_TEXTAREA}
+                                        style={{ ...MODAL_FIELD_STYLE, minHeight: "6.5rem" }}
                                     />
                                 </div>
-                            </div>
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={closeReviewModal}
-                                    className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-50 font-semibold rounded-xl transition-colors"
+
+                                <div
+                                    className="flex items-center justify-end"
+                                    style={{ gap: "0.5rem", marginTop: "1.5rem" }}
                                 >
-                                    Откажи
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSubmitReview}
-                                    disabled={submittingReview || reviewRating < 1}
-                                    className="flex-1 px-4 py-3 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submittingReview ? "Изпращане..." : "Изпрати ревю"}
-                                </button>
+                                    <button
+                                        type="button"
+                                        onClick={closeReviewModal}
+                                        disabled={submittingReview}
+                                        className="text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                        style={{
+                                            padding: "0.5rem 1rem",
+                                            borderRadius: "0.5rem",
+                                            fontSize: "0.8125rem",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Затвори
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSubmitReview}
+                                        disabled={submittingReview || reviewRating < 1}
+                                        className="bg-purple-700 hover:bg-purple-800 text-white flex items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        style={{
+                                            padding: "0.5rem 1rem",
+                                            borderRadius: "0.5rem",
+                                            fontSize: "0.8125rem",
+                                            fontWeight: 600,
+                                            gap: "0.375rem",
+                                        }}
+                                    >
+                                        {submittingReview ? (
+                                            <span
+                                                className="inline-block border-2 border-white border-t-transparent rounded-full animate-spin"
+                                                style={{ width: "1rem", height: "1rem" }}
+                                                aria-hidden
+                                            />
+                                        ) : (
+                                            <span className="material-icons" style={{ fontSize: "1rem" }}>
+                                                send
+                                            </span>
+                                        )}
+                                        {submittingReview ? "Изпращане..." : "Изпрати ревю"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

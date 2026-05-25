@@ -12,6 +12,7 @@ import { LandingPage } from './pages/LandingPage'
 import { Learning } from './pages/Learning'
 import Login from './pages/Login'
 import { Profile } from './pages/Profile'
+import { Settings } from './pages/Settings'
 import SignUp from './pages/SignUp'
 import { StudyEntry } from './pages/StudyEntry'
 import { TeacherProfile } from './pages/TeacherProfile'
@@ -47,6 +48,7 @@ function App() {
           <Route path="/study/learn/:subjectId/:topicId" element={<Learning />} />
           <Route path="/study/test/:topicId" element={<TopicTest />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/study-plan/intro" element={<StudyPlanIntro />} />
           <Route path="/study-plan/questionnaire" element={<StudyPlanQuestionnaire />} />
           <Route path="/find-teacher" element={<FindTeacher />} />

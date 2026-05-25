@@ -37,7 +37,9 @@ export function ProfileAvailability({
                     </div>
                     <div>
                         <h3 className="text-slate-900" style={{ fontSize: '1.1875rem', fontWeight: 700 }}>Кога съм на разположение</h3>
-                        <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>Настройте работните си дни и часове.</p>
+                        <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+                            Седмичен шаблон — задава се веднъж и се повтаря всяка седмица.
+                        </p>
                     </div>
                 </div>
                 <TeacherAvailabilityForm

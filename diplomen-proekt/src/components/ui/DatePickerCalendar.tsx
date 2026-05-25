@@ -54,7 +54,16 @@ export function DatePickerCalendar({ value, onChange, minDate, maxDate }: DatePi
     }
   };
 
+  const canGoNext = useMemo(() => {
+    if (!maxDate) return true;
+    const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
+    const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
+    const firstKeyNext = toDateKey(nextYear, nextMonth, 1);
+    return firstKeyNext <= maxDate;
+  }, [viewYear, viewMonth, maxDate]);
+
   const goNextMonth = () => {
+    if (!canGoNext) return;
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear((y) => y + 1);
@@ -97,7 +106,8 @@ export function DatePickerCalendar({ value, onChange, minDate, maxDate }: DatePi
         <button
           type="button"
           onClick={goNextMonth}
-          className="text-slate-400 hover:text-purple-700 hover:bg-purple-50 transition-colors inline-flex items-center justify-center"
+          disabled={!canGoNext}
+          className="text-slate-400 hover:text-purple-700 hover:bg-purple-50 transition-colors disabled:opacity-30 disabled:pointer-events-none inline-flex items-center justify-center"
           style={{ padding: '0.375rem', borderRadius: '0.5rem' }}
           aria-label="Следващ месец"
         >

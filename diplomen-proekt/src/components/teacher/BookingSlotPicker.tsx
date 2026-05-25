@@ -38,6 +38,8 @@ export function BookingSlotPicker({ booking, minDate, selectedSummaryRef }: Book
   const weekRangeLabel =
     `${booking.weekDates[0]?.toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' })} – ${booking.weekDates[6]?.toLocaleDateString('bg-BG', { day: 'numeric', month: 'short', year: 'numeric' })} г.`;
 
+  const maxPickDate = booking.maxBookingDate || minDate || getTodayDateKey();
+
   const handlePickDate = (dateKey: string) => {
     booking.goToDate(new Date(dateKey + 'T12:00'));
     setShowDateCalendar(false);
@@ -76,12 +78,27 @@ export function BookingSlotPicker({ booking, minDate, selectedSummaryRef }: Book
       )}
 
       <div>
-        <h3
-          className="text-slate-900"
-          style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '1rem' }}
-        >
-          Изберете ден и час
-        </h3>
+        <div className="flex flex-wrap items-start justify-between gap-2" style={{ marginBottom: '1rem' }}>
+          <div>
+            <h3
+              className="text-slate-900"
+              style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em' }}
+            >
+              Изберете ден и час
+            </h3>
+            <p className="text-slate-500" style={{ fontSize: '0.8125rem', marginTop: '0.25rem', lineHeight: 1.45 }}>
+              Седмичен изглед по графика на учителя (повтаря се всяка седмица).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={booking.goToThisWeek}
+            className="text-purple-700 hover:text-purple-900 font-semibold shrink-0"
+            style={{ fontSize: '0.8125rem' }}
+          >
+            Тази седмица
+          </button>
+        </div>
 
         <div className="flex items-center justify-between gap-2 flex-wrap" style={{ marginBottom: '1.25rem' }}>
           <button
@@ -130,6 +147,7 @@ export function BookingSlotPicker({ booking, minDate, selectedSummaryRef }: Book
                     value=""
                     onChange={handlePickDate}
                     minDate={minDate || getTodayDateKey()}
+                    maxDate={maxPickDate}
                   />
                 </div>
               )}

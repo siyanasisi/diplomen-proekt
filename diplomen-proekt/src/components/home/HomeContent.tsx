@@ -6,6 +6,7 @@ import type { HomeEventItem, TeacherMessage, StudentBooking, PendingBooking } fr
 import type { StudyPlan } from "../../lib/topics";
 
 import type { HomeMenuId } from "../../types/home";
+import { AlertBanner } from "../ui/feedback/AlertBanner";
 
 function canCancelBefore24h(lessonDate: string, lessonTime: string): boolean {
     const normalizedTime = `${String(lessonTime).slice(0, 5)}:00`;
@@ -139,18 +140,21 @@ export function HomeContent(props: HomeContentProps) {
                 </header>
 
                 {teacherPendingCount > 0 && (
-                    <div
-                        className="flex items-center justify-between bg-amber-50 border border-amber-200"
-                        style={{ borderRadius: '0.75rem', padding: '0.875rem 1.25rem', marginBottom: '1.5rem' }}
-                    >
-                        <div className="flex items-center" style={{ gap: '0.75rem' }}>
-                            <span className="material-icons text-amber-500" style={{ fontSize: '1.125rem' }}>warning</span>
-                            <span className="text-amber-800" style={{ fontSize: '0.875rem', fontWeight: 500 }}>Чакащи потвърждение: <span style={{ fontWeight: 700 }}>{teacherPendingCount}</span></span>
+                    <AlertBanner variant="warning" className="!items-center" style={{ marginBottom: '1.5rem' }}>
+                        <div className="flex items-center justify-between w-full gap-3 flex-wrap">
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                                Чакащи потвърждение: <span style={{ fontWeight: 700 }}>{teacherPendingCount}</span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setActiveMenu("lessons")}
+                                className="text-purple-700 hover:text-purple-800 shrink-0"
+                                style={{ fontSize: '0.8125rem', fontWeight: 600 }}
+                            >
+                                Виж всички →
+                            </button>
                         </div>
-                        <button onClick={() => setActiveMenu("lessons")} className="text-purple-700 hover:text-purple-800" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
-                            Виж всички →
-                        </button>
-                    </div>
+                    </AlertBanner>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '1rem', marginBottom: '2rem' }}>
@@ -277,20 +281,21 @@ export function HomeContent(props: HomeContentProps) {
         return (
             <div className="max-w-5xl mx-auto" style={{ paddingBottom: '4rem' }}>
                 {pendingBookingsCount > 0 && (
-                    <div
-                        className="flex items-center justify-between bg-amber-50 border border-amber-200"
-                        style={{ borderRadius: '0.75rem', padding: '0.875rem 1.25rem', marginBottom: '1.5rem' }}
-                    >
-                        <div className="flex items-center" style={{ gap: '0.75rem' }}>
-                            <span className="material-icons text-amber-500" style={{ fontSize: '1.125rem' }}>hourglass_empty</span>
-                            <p className="text-amber-800" style={{ fontSize: '0.875rem', fontWeight: 500 }}>
+                    <AlertBanner variant="warning" className="!items-center" style={{ marginBottom: '1.5rem' }}>
+                        <div className="flex items-center justify-between w-full gap-3 flex-wrap">
+                            <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>
                                 Имате {pendingBookingsCount} {pendingBookingsCount === 1 ? "час" : "часа"}, който чака потвърждение.
                             </p>
+                            <button
+                                type="button"
+                                onClick={() => setActiveMenu("lessons")}
+                                className="text-purple-700 hover:text-purple-800 shrink-0"
+                                style={{ fontSize: '0.8125rem', fontWeight: 600 }}
+                            >
+                                Виж всички
+                            </button>
                         </div>
-                        <button onClick={() => setActiveMenu("lessons")} className="text-amber-700 hover:text-amber-800" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
-                            Виж всички
-                        </button>
-                    </div>
+                    </AlertBanner>
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 items-start" style={{ gap: '1.5rem' }}>
@@ -879,8 +884,12 @@ export function HomeContent(props: HomeContentProps) {
                                                             <span style={{ fontSize: '0.5625rem', fontWeight: 500, opacity: 0.8 }}>{lessonDate.toLocaleDateString("bg-BG", { month: "short" })}</span>
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-slate-900" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{String(b.lesson_time).slice(0, 5)} ч.</p>
-                                                            <p className="text-slate-600 truncate" style={{ fontSize: '0.875rem', marginTop: '0.125rem' }}>{b.student_name}</p>
+                                                            <p className="text-slate-900 truncate" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                                                                {b.student_name ?? "Ученик"}
+                                                            </p>
+                                                            <p className="text-slate-500" style={{ fontSize: '0.875rem', marginTop: '0.125rem' }}>
+                                                                {String(b.lesson_time).slice(0, 5)} ч. · {formatDateLessons(b.lesson_date)}
+                                                            </p>
                                                             {b.message && <p className="text-slate-400 truncate" style={{ fontSize: '0.8125rem', marginTop: '0.375rem', maxWidth: '20rem' }} title={b.message}>{b.message}</p>}
                                                         </div>
                                                     </div>
@@ -927,8 +936,12 @@ export function HomeContent(props: HomeContentProps) {
                                                             <span style={{ fontSize: '0.5625rem', fontWeight: 500, opacity: 0.8 }}>{lessonDate.toLocaleDateString("bg-BG", { month: "short" })}</span>
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-slate-900" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{String(b.lesson_time).slice(0, 5)} ч.</p>
-                                                            <p className="text-slate-600 truncate" style={{ fontSize: '0.875rem', marginTop: '0.125rem' }}>{b.student_name}</p>
+                                                            <p className="text-slate-900 truncate" style={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                                                                {b.student_name ?? "Ученик"}
+                                                            </p>
+                                                            <p className="text-slate-500" style={{ fontSize: '0.875rem', marginTop: '0.125rem' }}>
+                                                                {String(b.lesson_time).slice(0, 5)} ч. · {formatDateLessons(b.lesson_date)}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     <button
@@ -1025,20 +1038,42 @@ export function HomeContent(props: HomeContentProps) {
         );
     }
 
-    // settings view
+    // settings view (legacy tab — redirect content matches dedicated /settings page)
     if (activeMenu === "settings") {
         return (
-            <div className="max-w-4xl mx-auto" style={{ paddingBottom: '3rem' }}>
-                <header style={{ marginBottom: '1.5rem' }}>
-                    <h2 className="text-slate-900" style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em' }}>Настройки</h2>
-                    <p className="text-slate-500" style={{ fontSize: '0.9375rem', marginTop: '0.25rem' }}>Персонализирайте вашите настройки</p>
+            <div className="max-w-3xl mx-auto" style={{ paddingBottom: "3rem" }}>
+                <header style={{ marginBottom: "1.5rem" }}>
+                    <h2 className="text-slate-900" style={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+                        Настройки
+                    </h2>
+                    <p className="text-slate-500" style={{ fontSize: "0.9375rem", marginTop: "0.25rem" }}>
+                        Управлявайте акаунта и сигурността
+                    </p>
                 </header>
-                <div className="bg-white border border-slate-200 text-center" style={{ borderRadius: '1rem', padding: '4rem 2rem' }}>
-                    <div className="flex items-center justify-center mx-auto bg-purple-50" style={{ width: '4rem', height: '4rem', borderRadius: '1rem', marginBottom: '1rem' }}>
-                        <span className="material-icons text-purple-700" style={{ fontSize: '2rem' }}>settings</span>
+                <div className="bg-white border border-slate-200 text-center" style={{ borderRadius: "1rem", padding: "3rem 2rem" }}>
+                    <div
+                        className="flex items-center justify-center mx-auto bg-purple-50 border border-purple-100"
+                        style={{ width: "4rem", height: "4rem", borderRadius: "0.75rem", marginBottom: "1rem" }}
+                    >
+                        <span className="material-icons text-purple-700" style={{ fontSize: "2rem" }}>
+                            settings
+                        </span>
                     </div>
-                    <h3 className="text-slate-800" style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.375rem' }}>Функционалността скоро ще бъде достъпна</h3>
-                    <p className="text-slate-500" style={{ fontSize: '0.9375rem' }}>Работим по добавянето на настройки</p>
+                    <h3 className="text-slate-800" style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                        Настройките са на отделна страница
+                    </h3>
+                    <p className="text-slate-500" style={{ fontSize: "0.875rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+                        Сменете парола, излезте или изтрийте акаунта от там.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => navigate("/settings")}
+                        className="bg-purple-700 hover:bg-purple-800 text-white inline-flex items-center transition-colors"
+                        style={{ padding: "0.625rem 1.25rem", borderRadius: "0.625rem", fontSize: "0.875rem", fontWeight: 600, gap: "0.375rem" }}
+                    >
+                        Отвори настройки
+                        <span className="material-icons" style={{ fontSize: "1rem" }}>arrow_forward</span>
+                    </button>
                 </div>
             </div>
         );

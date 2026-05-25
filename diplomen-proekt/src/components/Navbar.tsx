@@ -246,10 +246,14 @@ export const Navbar = () => {
                                 </Link>
                                 <div className="relative" ref={dropdownRef}>
                                 <button
+                                    type="button"
                                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                                    className="flex items-center gap-2 cursor-pointer group"
+                                    className="flex items-center gap-2.5 cursor-pointer group rounded-xl hover:bg-slate-50 transition-colors"
+                                    style={{ padding: "0.375rem 0.625rem" }}
+                                    aria-expanded={dropdownOpen}
+                                    aria-haspopup="menu"
                                 >
-                                    <div className="relative">
+                                    <div className="relative shrink-0">
                                         <AvatarImage
                                             url={avatarUrl}
                                             fallback={
@@ -257,71 +261,111 @@ export const Navbar = () => {
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </div>
                                             }
-                                            className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#7C3AED]/20"
+                                            className="w-9 h-9 rounded-full overflow-hidden border-2 border-purple-200"
                                             imgClassName="w-full h-full object-cover"
                                             alt={displayName}
                                         />
-                                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" aria-hidden />
                                     </div>
-                                    <div className="hidden lg:block text-right">
-                                        <p className="text-sm font-bold leading-none">{displayName}</p>
-                                        <p className="text-[10px] text-[#7C3AED] uppercase font-bold tracking-wider mt-1">
-                                            {role === 'student' ? 'Student' : role === 'teacher' ? 'Teacher' : ''}
+                                    <div className="hidden lg:block text-left min-w-0">
+                                        <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[10rem]">
+                                            {displayName}
                                         </p>
+                                        {roleLabel && (
+                                            <p className="text-[10px] text-purple-700 uppercase font-bold tracking-wider mt-1">
+                                                {roleLabel}
+                                            </p>
+                                        )}
                                     </div>
-                                    <span className="material-icons-round text-slate-400 group-hover:text-[#7C3AED] transition-colors">expand_more</span>
+                                    <span
+                                        className={`material-icons-round text-slate-400 group-hover:text-purple-700 transition-all shrink-0 ${dropdownOpen ? "rotate-180" : ""}`}
+                                        style={{ fontSize: "1.25rem" }}
+                                    >
+                                        expand_more
+                                    </span>
                                 </button>
 
-                                {/* dropdown menu */}
                                 {dropdownOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/80 py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="px-4 py-3 bg-gradient-to-br from-slate-50 to-white border-b border-slate-100">
-                                            <p className="text-sm font-bold text-slate-900">{displayName}</p>
-                                            <p className="text-xs text-slate-500 truncate mt-0.5">{user.email}</p>
+                                    <div
+                                        role="menu"
+                                        className="absolute right-0 mt-2 w-72 bg-white shadow-xl border border-slate-200 overflow-hidden z-50"
+                                        style={{ borderRadius: "1rem" }}
+                                    >
+                                        <div
+                                            className="border-b border-slate-100 bg-slate-50"
+                                            style={{ padding: "1rem 1.125rem" }}
+                                        >
+                                            <p className="text-slate-900 truncate" style={{ fontSize: "0.9375rem", fontWeight: 700 }}>
+                                                {displayName}
+                                            </p>
+                                            <p className="text-slate-500 truncate" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
+                                                {user.email}
+                                            </p>
                                             {roleLabel && (
-                                                <span className="inline-flex items-center mt-1.5 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                                <span
+                                                    className="inline-flex items-center mt-2 bg-purple-50 text-purple-700 border border-purple-100"
+                                                    style={{
+                                                        padding: "0.125rem 0.5rem",
+                                                        borderRadius: "0.375rem",
+                                                        fontSize: "0.6875rem",
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
                                                     {roleLabel}
                                                 </span>
                                             )}
                                         </div>
-                                        <Link
-                                            to="/profile"
-                                            className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
-                                            onClick={() => setDropdownOpen(false)}
-                                        >
-                                            <div className="w-8 h-8 bg-slate-100 group-hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors">
-                                                <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                            </div>
-                                            Моят профил
-                                        </Link>
-                                        <Link
-                                            to="/settings"
-                                            className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors group"
-                                            onClick={() => setDropdownOpen(false)}
-                                        >
-                                            <div className="w-8 h-8 bg-slate-100 group-hover:bg-slate-200 rounded-lg flex items-center justify-center transition-colors">
-                                                <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            </div>
-                                            Настройки
-                                        </Link>
-                                        <div className="border-t border-slate-100 mt-1 pt-1">
+
+                                        <div style={{ padding: "0.375rem" }}>
+                                            <Link
+                                                to="/profile"
+                                                role="menuitem"
+                                                className="flex items-center w-full text-slate-700 hover:bg-slate-50 transition-colors group rounded-lg"
+                                                style={{ gap: "0.75rem", padding: "0.625rem 0.75rem", fontSize: "0.8125rem", fontWeight: 600 }}
+                                                onClick={() => setDropdownOpen(false)}
+                                            >
+                                                <span
+                                                    className="flex items-center justify-center bg-white border border-slate-100 text-slate-600 group-hover:border-slate-200 shrink-0"
+                                                    style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem" }}
+                                                >
+                                                    <span className="material-icons" style={{ fontSize: "1.125rem" }}>person</span>
+                                                </span>
+                                                Моят профил
+                                            </Link>
+                                            <Link
+                                                to="/settings"
+                                                role="menuitem"
+                                                className="flex items-center w-full text-slate-700 hover:bg-slate-50 transition-colors group rounded-lg"
+                                                style={{ gap: "0.75rem", padding: "0.625rem 0.75rem", fontSize: "0.8125rem", fontWeight: 600 }}
+                                                onClick={() => setDropdownOpen(false)}
+                                            >
+                                                <span
+                                                    className="flex items-center justify-center bg-white border border-slate-100 text-slate-600 group-hover:border-slate-200 shrink-0"
+                                                    style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem" }}
+                                                >
+                                                    <span className="material-icons" style={{ fontSize: "1.125rem" }}>settings</span>
+                                                </span>
+                                                Настройки
+                                            </Link>
+                                        </div>
+
+                                        <div className="border-t border-slate-100" style={{ padding: "0.375rem" }}>
                                             <button
+                                                type="button"
+                                                role="menuitem"
                                                 onClick={() => {
                                                     setDropdownOpen(false);
                                                     signOut();
                                                 }}
-                                                className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors group"
+                                                className="flex items-center w-full text-red-600 hover:bg-red-50 transition-colors group rounded-lg"
+                                                style={{ gap: "0.75rem", padding: "0.625rem 0.75rem", fontSize: "0.8125rem", fontWeight: 600 }}
                                             >
-                                                <div className="w-8 h-8 bg-red-50 group-hover:bg-red-100 rounded-lg flex items-center justify-center transition-colors">
-                                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                                    </svg>
-                                                </div>
+                                                <span
+                                                    className="flex items-center justify-center bg-red-50 border border-red-100 text-red-600 group-hover:bg-red-100 shrink-0"
+                                                    style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.5rem" }}
+                                                >
+                                                    <span className="material-icons" style={{ fontSize: "1.125rem" }}>logout</span>
+                                                </span>
                                                 Изход
                                             </button>
                                         </div>
@@ -401,40 +445,56 @@ export const Navbar = () => {
                                 </div>
                                 
                                 <div className="pt-4 border-t border-slate-200 space-y-1.5">
-                                    <Link
-                                        to="/profile"
-                                        className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
-                                        onClick={() => setMenuOpen(false)}
+                                    <div
+                                        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-100"
                                     >
                                         <AvatarImage
                                             url={avatarUrl}
                                             fallback={
-                                                <div className="w-9 h-9 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                                <div className="w-9 h-9 bg-purple-700 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                                     {displayName.charAt(0).toUpperCase()}
                                                 </div>
                                             }
-                                            className="w-9 h-9 rounded-xl overflow-hidden shadow-md ring-2 ring-white"
+                                            className="w-9 h-9 rounded-full overflow-hidden border-2 border-purple-200 shrink-0"
                                             imgClassName="w-full h-full object-cover"
                                             alt={displayName}
                                         />
-                                        <div className="flex-1">
-                                            <p className="font-semibold">{displayName}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-slate-900 text-sm truncate">{displayName}</p>
                                             <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                                            {roleLabel && (
+                                                <span className="inline-flex mt-1 bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
                                         </div>
+                                    </div>
+                                    <Link
+                                        to="/profile"
+                                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        <span className="material-icons text-slate-600" style={{ fontSize: "1.25rem" }}>person</span>
+                                        Моят профил
+                                    </Link>
+                                    <Link
+                                        to="/settings"
+                                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        <span className="material-icons text-slate-600" style={{ fontSize: "1.25rem" }}>settings</span>
+                                        Настройки
                                     </Link>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             setMenuOpen(false);
                                             signOut();
                                         }}
-                                        className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors active:scale-95"
+                                        className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
                                     >
-                                        <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center">
-                                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                            </svg>
-                                        </div>
-                                        <span>Изход</span>
+                                        <span className="material-icons text-red-600" style={{ fontSize: "1.25rem" }}>logout</span>
+                                        Изход
                                     </button>
                                 </div>
                             </>

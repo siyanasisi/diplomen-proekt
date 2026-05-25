@@ -194,3 +194,32 @@ export function getUniqueSortedTimes(slots: SlotInfo[]): string[] {
   const set = new Set(slots.map((s) => s.time));
   return Array.from(set).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 }
+
+/** last bookable date (inclusive) from today*/
+export function getMaxBookingDateKey(weeksAhead = 12): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + weeksAhead * 7);
+  return toDateKey(d);
+}
+
+export function formatWeeklyScheduleSummary(
+  availability: { day_of_week: number; start_time: string; end_time: string }[],
+  settings?: { lesson_duration_minutes: number; buffer_minutes: number } | null
+): string {
+  if (availability.length === 0) return "";
+  const sorted = [...availability].sort((a, b) => a.day_of_week - b.day_of_week);
+  const lines = sorted.map((a) => {
+    const start = String(a.start_time).slice(0, 5);
+    const end = String(a.end_time).slice(0, 5);
+    return `${getDayNameBg(a.day_of_week)}: ${start} – ${end}`;
+  });
+  const parts = [lines.join("\n")];
+  if (settings) {
+    parts.push(
+      `Урок: ${settings.lesson_duration_minutes} мин` +
+        (settings.buffer_minutes > 0 ? ` · почивка ${settings.buffer_minutes} мин` : "")
+    );
+  }
+  return parts.join("\n");
+}

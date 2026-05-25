@@ -1,5 +1,5 @@
 import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
+import { useConfirm, useToast } from "../context/ToastContext";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import type {
     TeacherScheduleExceptionRow,
 } from "../types/teacher";
 import type { TeacherAvailabilityFormData } from "../components/teacher-availability/TeacherAvailabilityForm";
+import { formatWeeklyScheduleSummary } from "../utils/teacherSlots";
 import { sendBookingEmail } from "../utils/sendBookingEmail";
 
 export interface PendingBooking {
@@ -57,6 +58,7 @@ export function useProfile() {
     const { user, role, signOut, loading, refreshProfile, currentUserProfile } = useAuth();
     const navigate = useNavigate();
     const showToast = useToast();
+    const confirmAsync = useConfirm();
 
     const [currentStreak, setCurrentStreak] = useState(0);
     const [longestStreak, setLongestStreak] = useState(0);
@@ -559,6 +561,16 @@ export function useProfile() {
                         }))
                     );
                 }
+                const scheduleSummary = formatWeeklyScheduleSummary(
+                    data.availability,
+                    data.settings
+                );
+                if (scheduleSummary) {
+                    await supabase
+                        .from("teacher_profiles")
+                        .update({ available_schedule: scheduleSummary })
+                        .eq("user_id", user.id);
+                }
                 await loadUserData();
                 showToast("Наличността е запазена успешно!");
             } catch (error) {
@@ -627,7 +639,16 @@ export function useProfile() {
 
     const handleCancelBooking = useCallback(
         async (bookingId: string, studentId: string, lessonDate: string, lessonTime: string) => {
-            if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+            if (
+                !user ||
+                !(await confirmAsync({
+                    title: "Отказ на час",
+                    message: "Сигурни ли сте, че искате да откажете този час?",
+                    confirmLabel: "Откажи часа",
+                    variant: "danger",
+                }))
+            )
+                return;
             setActingOnBookingId(bookingId);
             try {
                 const { error } = await supabase
@@ -671,7 +692,16 @@ export function useProfile() {
                 showToast("Не може да отмените час по-малко от 24 часа преди началото.");
                 return;
             }
-            if (!user || !confirm("Сигурни ли сте, че искате да откажете този час?")) return;
+            if (
+                !user ||
+                !(await confirmAsync({
+                    title: "Отказ на час",
+                    message: "Сигурни ли сте, че искате да откажете този час?",
+                    confirmLabel: "Откажи часа",
+                    variant: "danger",
+                }))
+            )
+                return;
             try {
                 const { error } = await supabase
                     .from("bookings")
@@ -710,7 +740,15 @@ export function useProfile() {
     const handleDeleteEvent = useCallback(
         async (eventId: string) => {
             if (!user) return;
-            if (!confirm("Сигурни ли сте, че искате да изтриете това събитие?")) return;
+            if (
+                !(await confirmAsync({
+                    title: "Изтриване на събитие",
+                    message: "Сигурни ли сте, че искате да изтриете това събитие?",
+                    confirmLabel: "Изтрий",
+                    variant: "danger",
+                }))
+            )
+                return;
             const { error } = await supabase
                 .from("calendar_events")
                 .delete()
@@ -844,7 +882,16 @@ export function useProfile() {
     ]);
 
     const handleRemoveAvatar = useCallback(async () => {
-        if (!user || !confirm("Сигурни ли сте, че искате да премахнете профилната си снимка?")) return;
+        if (
+            !user ||
+            !(await confirmAsync({
+                title: "Премахване на снимка",
+                message: "Сигурни ли сте, че искате да премахнете профилната си снимка?",
+                confirmLabel: "Премахни",
+                variant: "danger",
+            }))
+        )
+            return;
         try {
             const userMetadata = user.user_metadata as Record<string, unknown>;
             const metaAvatarUrl = userMetadata?.avatar_url as string | undefined;

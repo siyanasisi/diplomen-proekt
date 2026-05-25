@@ -34,3 +34,74 @@ export function formatDateKeyLong(key: string): string {
     year: 'numeric',
   });
 }
+
+export type CalendarBounds = {
+  min: Date;
+  max: Date;
+};
+
+export function getStudyPlanCalendarBounds(
+  examDate: Date | string,
+  planDates: string[] = []
+): CalendarBounds {
+  const today = parseDateKey(getTodayDateKey());
+  const exam =
+    examDate instanceof Date ? new Date(examDate) : new Date(examDate);
+  exam.setHours(0, 0, 0, 0);
+
+  let max = exam;
+  for (const key of planDates) {
+    const d = parseDateKey(key);
+    if (d > max) max = d;
+  }
+
+  return { min: today, max };
+}
+
+export function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+export function clampMonthToBounds(date: Date, bounds: CalendarBounds): Date {
+  const monthStart = startOfMonth(date);
+  const minMonth = startOfMonth(bounds.min);
+  const maxMonth = startOfMonth(bounds.max);
+  if (monthStart < minMonth) return new Date(minMonth);
+  if (monthStart > maxMonth) return new Date(maxMonth);
+  return monthStart;
+}
+
+export function canGoToPreviousMonth(
+  currentDate: Date,
+  bounds: CalendarBounds
+): boolean {
+  const prev = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+  return startOfMonth(prev) >= startOfMonth(bounds.min);
+}
+
+export function canGoToNextMonth(
+  currentDate: Date,
+  bounds: CalendarBounds
+): boolean {
+  const next = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+  return startOfMonth(next) <= startOfMonth(bounds.max);
+}
+
+export function formatBoundsRangeLabel(bounds: CalendarBounds): string {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('bg-BG', { day: 'numeric', month: 'long', year: 'numeric' });
+  return `${fmt(bounds.min)} – ${fmt(bounds.max)}`;
+}
+
+export function countStudyDaysInMonth(
+  planDayKeys: Set<string>,
+  year: number,
+  month: number
+): number {
+  let count = 0;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (planDayKeys.has(toDateKey(year, month, day))) count++;
+  }
+  return count;
+}

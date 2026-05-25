@@ -6,6 +6,8 @@ import { generateStudyPlan, calculateDaysUntilExam } from "../lib/studyPlanGener
 import { useAuth } from "../context/AuthContext";
 import { supabase, ensureValidSession } from "../supabase-client";
 import { DatePickerCalendar } from "./ui/DatePickerCalendar";
+import { AlertBanner } from "./ui/feedback/AlertBanner";
+import { useToast } from "../context/ToastContext";
 import { getTodayDateKey } from "../lib/calendar";
 
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -14,6 +16,7 @@ const TOTAL_STEPS = 5;
 export const StudyPlanQuestionnaire = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const showToast = useToast();
   const [currentStep, setCurrentStep] = useState<Step>(1);
 
   const [examSubject, setExamSubject] = useState<ExamSubject>("БЕЛ");
@@ -49,7 +52,7 @@ export const StudyPlanQuestionnaire = () => {
   const handleNext = () => {
     if (currentStep < TOTAL_STEPS) {
       if (currentStep === 2 && !examDate) {
-        alert("Моля, изберете дата на изпита");
+        showToast("Моля, изберете дата на изпита", "warning");
         return;
       }
       setCurrentStep((prev) => (prev + 1) as Step);
@@ -61,7 +64,10 @@ export const StudyPlanQuestionnaire = () => {
   };
 
   const handleSubmit = async () => {
-    if (!user) { alert("Моля, влезте в акаунта си"); return; }
+    if (!user) {
+      showToast("Моля, влезте в акаунта си", "warning");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await ensureValidSession();
@@ -85,7 +91,7 @@ export const StudyPlanQuestionnaire = () => {
         .select().single();
       if (error) {
         console.error('Error saving study plan:', error);
-        alert('Възникна грешка при запазването на плана. Моля, опитайте отново.');
+        showToast('Възникна грешка при запазването на плана. Моля, опитайте отново.', 'error');
         setIsSubmitting(false);
         return;
       }
@@ -93,7 +99,7 @@ export const StudyPlanQuestionnaire = () => {
       navigate('/home', { replace: true });
     } catch (error) {
       console.error('Failed to create study plan:', error);
-      alert('Възникна грешка. Моля, опитайте отново.');
+      showToast('Възникна грешка. Моля, опитайте отново.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -207,17 +213,17 @@ export const StudyPlanQuestionnaire = () => {
               </div>
 
               {!hasPlanContent(examSubject) && (
-                <div
-                  className="bg-amber-50 border border-amber-200"
-                  style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '0.875rem' }}
+                <AlertBanner
+                  variant="warning"
+                  style={{ marginTop: '1.5rem' }}
                 >
-                  <p className="text-amber-900 font-semibold" style={{ fontSize: '0.95rem' }}>
+                  <p className="font-semibold" style={{ fontSize: '0.95rem' }}>
                     За предмет „{examSubject}" все още няма готово съдържание.
                   </p>
-                  <p className="text-amber-800" style={{ fontSize: '0.875rem', marginTop: '0.375rem', lineHeight: '1.5' }}>
+                  <p style={{ fontSize: '0.875rem', marginTop: '0.375rem', lineHeight: '1.5', opacity: 0.9 }}>
                     Ще запазим избора ти и ще го активираме, когато има план за учене.
                   </p>
-                </div>
+                </AlertBanner>
               )}
             </div>
           )}
@@ -328,14 +334,11 @@ export const StudyPlanQuestionnaire = () => {
               </div>
 
               {topicsPerDay >= 3 && (
-                <div
-                  className="bg-amber-50 border border-amber-200"
-                  style={{ marginTop: '1.5rem', padding: '1rem 1.125rem', borderRadius: '0.875rem' }}
-                >
-                  <p className="text-amber-800 font-medium" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
-                    Високото натоварване може да бъде трудно за поддържане. Бъди реалистичен.
-                  </p>
-                </div>
+                <AlertBanner
+                  variant="warning"
+                  message="Високото натоварване може да бъде трудно за поддържане. Бъди реалистичен."
+                  style={{ marginTop: '1.5rem' }}
+                />
               )}
             </div>
           )}

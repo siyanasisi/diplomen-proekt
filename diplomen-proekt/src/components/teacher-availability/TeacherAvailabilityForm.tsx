@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getDayNameBg } from "../../utils/teacherSlots";
+import { AlertBanner } from "../ui/feedback/AlertBanner";
+import { TeacherWeeklySchedule } from "../teacher/TeacherWeeklySchedule";
 import type {
   TeacherAvailabilityRow,
   TeacherBookingSettingsRow,
@@ -335,17 +337,56 @@ export function TeacherAvailabilityForm({
     </div>
   );
 
+  const enabledAvailability = useMemo(
+    () =>
+      availability
+        .filter((a) => a.enabled)
+        .map((a) => ({
+          day_of_week: a.day_of_week,
+          start_time: a.start_time,
+          end_time: a.end_time,
+        })),
+    [availability]
+  );
+
   const teacherContent = (
     <>
-      {/* Schedule days */}
+      <AlertBanner variant="info">
+        <p style={{ fontSize: "0.875rem", lineHeight: 1.5 }}>
+          <strong>Седмичен график</strong> — задавате работни дни и часове веднъж; те се повтарят
+          автоматично всяка седмица. Не е нужно да попълвате график всеки месец. За отделни дати
+          (почивка, празник) използвайте изключения по-долу.
+        </p>
+      </AlertBanner>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <p className="text-slate-400 uppercase tracking-wider" style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.05em' }}>
-          Работно време (Дни и часове)
+          Работно време (дни и часове)
         </p>
         <div className="bg-slate-50 border border-slate-100" style={{ borderRadius: '0.875rem', overflow: 'hidden' }}>
           {availability.map((a, i) => dayRow(a, i))}
         </div>
       </div>
+
+      {enabledAvailability.length > 0 && (
+        <div
+          className="border border-purple-100 bg-purple-50/40"
+          style={{ borderRadius: "0.875rem", padding: "1rem 1.125rem" }}
+        >
+          <p
+            className="text-purple-800 uppercase"
+            style={{ fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.05em", marginBottom: "0.75rem" }}
+          >
+            Преглед на седмичния график
+          </p>
+          <TeacherWeeklySchedule
+            availability={enabledAvailability}
+            lessonMinutes={duration}
+            compact
+          />
+        </div>
+      )}
+
       {durationBufferSection}
       {saveButton}
     </>
@@ -364,7 +405,7 @@ export function TeacherAvailabilityForm({
             Работно време (дни и часове)
           </p>
           <p className="text-slate-500" style={{ fontSize: '0.8125rem' }}>
-            Изберете дни от седмицата и начален/краен час.
+            Изберете дни от седмицата и начален/краен час. Шаблонът важи всяка седмица.
           </p>
         </div>
         <div className="bg-slate-50 border border-slate-100" style={{ borderRadius: '0.875rem', overflow: 'hidden' }}>

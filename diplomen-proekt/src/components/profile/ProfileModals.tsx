@@ -1,3 +1,5 @@
+import { AlertBanner } from "../ui/feedback/AlertBanner";
+
 interface ProfileModalsProps {
     showChangePassword: boolean;
     setShowChangePassword: (v: boolean) => void;
@@ -192,19 +194,11 @@ export function ProfileModals(props: ProfileModalsProps) {
                             </div>
 
                             {passwordError && (
-                                <div
-                                    className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 text-red-900 text-sm font-medium"
-                                    style={{ padding: "0.75rem 0.875rem", marginBottom: "1rem" }}
-                                    role="alert"
-                                >
-                                    <span
-                                        className="material-icons shrink-0 text-red-600"
-                                        style={{ fontSize: "1.125rem" }}
-                                    >
-                                        error_outline
-                                    </span>
-                                    <p className="leading-relaxed">{passwordError}</p>
-                                </div>
+                                <AlertBanner
+                                    variant="error"
+                                    message={passwordError}
+                                    style={{ marginBottom: "1rem" }}
+                                />
                             )}
 
                             <div style={{ marginBottom: "0.75rem" }}>
@@ -416,22 +410,12 @@ export function ProfileModals(props: ProfileModalsProps) {
                                 </div>
                             </div>
 
-                            <div
-                                className="rounded-xl border border-red-200 bg-red-50"
-                                style={{ padding: "0.875rem", marginBottom: "1.25rem" }}
-                                role="alert"
-                            >
-                                <p
-                                    className="text-red-900 flex items-center gap-1.5"
-                                    style={{ fontSize: "0.8125rem", fontWeight: 700, marginBottom: "0.5rem" }}
-                                >
-                                    <span className="material-icons" style={{ fontSize: "1rem" }}>
-                                        error_outline
-                                    </span>
+                            <AlertBanner variant="error" style={{ marginBottom: "1.25rem" }}>
+                                <p style={{ fontSize: "0.8125rem", fontWeight: 700, marginBottom: "0.5rem" }}>
                                     Внимание: това действие е необратимо
                                 </p>
                                 <ul
-                                    className="text-red-800/90 list-disc list-inside leading-relaxed"
+                                    className="list-disc list-inside leading-relaxed opacity-90"
                                     style={{ fontSize: "0.75rem", fontWeight: 500 }}
                                 >
                                     <li>Всички ваши събития ще бъдат изтрити</li>
@@ -439,7 +423,7 @@ export function ProfileModals(props: ProfileModalsProps) {
                                     <li>Профилната ви снимка ще бъде премахната</li>
                                     <li>Няма да можете да възстановите акаунта си</li>
                                 </ul>
-                            </div>
+                            </AlertBanner>
 
                             <div style={{ marginBottom: "0.75rem" }}>
                                 <label className={MODAL_LABEL}>Потвърди с парола</label>

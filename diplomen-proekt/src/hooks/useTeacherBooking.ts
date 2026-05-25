@@ -16,6 +16,7 @@ import {
     generateSlotsForWeek,
     getStartOfWeekMonday,
     formatDateKey,
+    getMaxBookingDateKey,
     normalizeSlotFromApi,
     normalizeBookingSlotInput,
 } from "../utils/teacherSlots";
@@ -236,6 +237,12 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
     }, [weekStart]);
     const goToDate = useCallback((date: Date) => setWeekStart(getStartOfWeekMonday(date)), []);
 
+    const goToThisWeek = useCallback(() => {
+        setWeekStart(getStartOfWeekMonday(new Date()));
+    }, []);
+
+    const maxBookingDate = getMaxBookingDateKey(MAX_WEEKS_AHEAD);
+
     const handleBookLesson = useCallback(async () => {
         if (!teacher || !user) return;
         if (user.id === teacher.user_id) {
@@ -363,6 +370,8 @@ export function useTeacherBooking(teacher: Teacher | null, options: UseTeacherBo
         goPrevWeek,
         goNextWeek,
         goToDate,
+        goToThisWeek,
+        maxBookingDate,
         handleBookLesson,
         formatDateKey,
         INITIAL_SLOTS_PER_DAY,

@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AlertBanner } from '../ui/feedback/AlertBanner'
 import type { LoginFeedbackState } from '../../hooks/useLogin'
 import { useBrandLinkTarget } from '../../hooks/useBrandLinkTarget'
 
@@ -277,20 +278,11 @@ export function LoginView({
             </form>
 
             {feedback && (
-              <div
-                style={{
-                  marginTop: 16,
-                  padding: 14,
-                  borderRadius: 12,
-                  border: `1px solid ${feedback.type === 'success' ? '#A7F3D0' : '#FECACA'}`,
-                  background: feedback.type === 'success' ? '#ECFDF5' : '#FEF2F2',
-                  color: feedback.type === 'success' ? '#065F46' : '#991B1B',
-                  fontSize: 13,
-                  fontWeight: 500,
-                }}
-              >
-                {feedback.message}
-              </div>
+              <AlertBanner
+                variant={feedback.type === 'success' ? 'success' : 'error'}
+                message={feedback.message}
+                style={{ marginTop: 16 }}
+              />
             )}
 
             {/* signup link */}

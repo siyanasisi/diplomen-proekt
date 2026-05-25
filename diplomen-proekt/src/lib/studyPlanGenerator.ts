@@ -184,75 +184,146 @@ function generateStudyDays(
 }
 
 
+export type RescheduleMissedDayResult = {
+  plan: StudyPlan;
+  /** topics that could not fit before the exam within topics-per-day limits */
+  unassignedCount: number;
+};
+
+function parseDateKey(dateKey: string): Date {
+  const d = new Date(`${dateKey}T12:00:00`);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function normalizeExamDate(examDate: Date | string): Date {
+  const exam = examDate instanceof Date ? new Date(examDate) : new Date(examDate);
+  exam.setHours(0, 0, 0, 0);
+  return exam;
+}
+
+/** all study-day dates in [start, end] per user's days-per-week preference */
+function enumerateStudyDates(
+  start: Date,
+  end: Date,
+  studyDaysPerWeek: number
+): string[] {
+  const studyDaysOfWeek = getStudyDaysOfWeek(studyDaysPerWeek);
+  const dates: string[] = [];
+  const current = new Date(start);
+  const endCopy = new Date(end);
+  endCopy.setHours(0, 0, 0, 0);
+
+  while (current <= endCopy) {
+    if (studyDaysOfWeek.includes(current.getDay())) {
+      dates.push(formatDate(current));
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+function fillTopicsIntoDay(day: StudyDay, pool: Topic[], topicsPerDay: number): void {
+  const room = topicsPerDay - day.topics.length;
+  if (room <= 0) return;
+  day.topics.push(...pool.splice(0, room));
+}
+
+
 export function rescheduleMissedDay(
   plan: StudyPlan,
   missedDate: string
-): StudyPlan {
-  const updatedPlan = { ...plan };
-  const missedDayIndex = updatedPlan.plan.findIndex(day => day.date === missedDate);
-
-  if (missedDayIndex === -1) return plan;
-
-  const missedDay = updatedPlan.plan[missedDayIndex];
-  
-  if (missedDay.missed || missedDay.completed) return plan;
-  if (missedDay.topics.length === 0) {
-    missedDay.missed = true;
-    return updatedPlan;
+): RescheduleMissedDayResult {
+  const missedDayIndex = plan.plan.findIndex((day) => day.date === missedDate);
+  if (missedDayIndex === -1) {
+    return { plan, unassignedCount: 0 };
   }
 
-  missedDay.missed = true;
-  const missedTopics = [...missedDay.topics];
+  const missedDay = plan.plan[missedDayIndex];
+  if (missedDay.missed || missedDay.completed) {
+    return { plan, unassignedCount: 0 };
+  }
 
-  const availableDays: number[] = [];
-  for (let i = missedDayIndex + 1; i < updatedPlan.plan.length; i++) {
-    const day = updatedPlan.plan[i];
-    if (!day.missed && !day.completed) {
-      availableDays.push(i);
+  const { studyDaysPerWeek, topicsPerDay } = plan.preferences;
+  const examDate = normalizeExamDate(plan.preferences.examDate);
+  const topicPool: Topic[] = [...missedDay.topics];
+
+  const existingByDate = new Map(plan.plan.map((d) => [d.date, { ...d, topics: [...d.topics] }]));
+
+  for (const day of plan.plan) {
+    if (day.date <= missedDate) continue;
+    if (day.completed || day.missed) continue;
+    topicPool.push(...day.topics);
+    const entry = existingByDate.get(day.date);
+    if (entry) entry.topics = [];
+  }
+
+  const redistributionStart = parseDateKey(missedDate);
+  redistributionStart.setDate(redistributionStart.getDate() + 1);
+
+  const slotDates = enumerateStudyDates(
+    redistributionStart,
+    examDate,
+    studyDaysPerWeek
+  );
+
+  const prefix = plan.plan.slice(0, missedDayIndex).map((d) => ({
+    ...d,
+    topics: [...d.topics],
+  }));
+
+  const markedMissed: StudyDay = {
+    ...missedDay,
+    topics: [],
+    missed: true,
+    completed: false,
+  };
+
+  const futureDays: StudyDay[] = [];
+
+  for (const date of slotDates) {
+    const existing = existingByDate.get(date);
+    if (existing?.completed) {
+      futureDays.push({
+        ...existing,
+        topics: [...existing.topics],
+      });
+      continue;
     }
-  }
-
-  if (availableDays.length === 0) {
-    missedDay.topics = [];
-    return updatedPlan;
-  }
-
-  // collect all topics (missed + from subsequent days)
-  const allTopics: Topic[] = [...missedTopics];
-  for (const dayIndex of availableDays) {
-    allTopics.push(...updatedPlan.plan[dayIndex].topics);
-    updatedPlan.plan[dayIndex].topics = [];
-  }
-
-  // distribute topics sequentially across all subsequent days
-  const limit = updatedPlan.preferences.topicsPerDay;
-  let topicIdx = 0;
-  
-  for (let i = 0; i < availableDays.length && topicIdx < allTopics.length; i++) {
-    const dayIndex = availableDays[i];
-    const day = updatedPlan.plan[dayIndex];
-    const topicsToAdd = Math.min(limit, allTopics.length - topicIdx);
-    if (topicsToAdd > 0) {
-      day.topics = allTopics.slice(topicIdx, topicIdx + topicsToAdd);
-      topicIdx += topicsToAdd;
+    if (existing?.missed) {
+      futureDays.push({
+        date,
+        topics: [],
+        completed: false,
+        missed: true,
+      });
+      continue;
     }
-  }
-  
-  // distribute remainder evenly
-  if (topicIdx < allTopics.length) {
-    let dayCounter = 0;
-    while (topicIdx < allTopics.length) {
-      const dayIndex = availableDays[dayCounter % availableDays.length];
-      const day = updatedPlan.plan[dayIndex];
-      day.topics.push(allTopics[topicIdx]);
-      topicIdx++;
-      dayCounter++;
-    }
-  }
-  
 
-  missedDay.topics = [];
-  return updatedPlan;
+    const dayTopics = topicPool.splice(0, topicsPerDay);
+    futureDays.push({
+      date,
+      topics: dayTopics,
+      completed: false,
+      missed: false,
+    });
+  }
+
+  // fill days that still have room 
+  for (const day of futureDays) {
+    if (day.completed || day.missed) continue;
+    fillTopicsIntoDay(day, topicPool, topicsPerDay);
+  }
+
+  const unassignedCount = topicPool.length;
+
+  return {
+    plan: {
+      ...plan,
+      plan: [...prefix, markedMissed, ...futureDays],
+    },
+    unassignedCount,
+  };
 }
 
 
