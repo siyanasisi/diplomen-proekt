@@ -27,3 +27,11 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Supabase (if linked inside app folder)
+supabase/.temp/
+supabase/.branches/
+
+# Cursor / local tooling
+.cursor/
